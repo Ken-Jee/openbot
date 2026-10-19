@@ -156,6 +156,16 @@ export const messages = {
   "connector.slack.removeEffectDeleted": "El Orquestador de Slack y sus conversaciones se eliminan de OpenBot.",
   "connector.slack.keep": "Mantener la conexión",
   "connector.slack.close": "Cerrar",
+  "connector.slack.addWorkspace": "Añadir espacio de trabajo",
+  "connector.slack.limitReached": {
+    one: "Puedes conectar como máximo {count} espacio de trabajo.",
+    other: "Puedes conectar como máximo {count} espacios de trabajo.",
+  },
+  "connector.slack.orchestratorTitleFor": "Orquestador de {workspace}",
+  "connector.slack.summaryMany": {
+    one: "{count} espacio de trabajo · Responde el Orquestador de Slack",
+    other: "{count} espacios de trabajo · Responden los Orquestadores de Slack",
+  },
   "connector.discord.title": "Discord",
   "connector.discord.description":
     "Las personas mencionan a @OpenBot en un canal de un servidor de Discord. El Orquestador de Discord consulta al agente adecuado y responde.",
@@ -220,6 +230,31 @@ export const messages = {
   "connector.discord.removeEffectDeleted": "El Orquestador de Discord y sus conversaciones se eliminan de OpenBot.",
   "connector.discord.keep": "Mantener la conexión",
   "connector.discord.close": "Cerrar",
+  "connector.discord.addWorkspace": "Añadir servidor de Discord",
+  "connector.discord.limitReached": {
+    one: "Puedes conectar como máximo {count} servidor de Discord.",
+    other: "Puedes conectar como máximo {count} servidores de Discord.",
+  },
+  "connector.discord.orchestratorTitleFor": "Orquestador de {workspace}",
+  "connector.discord.summaryMany": {
+    one: "{count} servidor de Discord · Responde el Orquestador de Discord",
+    other: "{count} servidores de Discord · Responden los Orquestadores de Discord",
+  },
+  "connector.discord.accessTitle": "Quién puede usar OpenBot",
+  "connector.discord.accessDescription": "OpenBot solo responde a estas personas. Ignora las menciones de los demás.",
+  "connector.discord.accessEveryone": "Todos en el servidor",
+  "connector.discord.accessEveryoneDescription":
+    "Cualquiera que pueda publicar en un canal que OpenBot ve puede mencionarlo.",
+  "connector.discord.accessRoles": "Miembros con {roles}",
+  "connector.discord.accessChoose": "Elegir roles",
+  "connector.discord.accessDialogTitle": "¿Quién puede usar OpenBot en {workspace}?",
+  "connector.discord.accessDialogDescription": "Si no seleccionas ningún rol, todos pueden mencionar a OpenBot.",
+  "connector.discord.accessLoading": "Cargando roles…",
+  "connector.discord.accessLoadFailed": "No se cargaron los roles de Discord",
+  "connector.discord.accessNoRoles": "Este servidor no tiene roles para elegir.",
+  "connector.discord.accessRoleDeleted": "{role} (eliminado)",
+  "connector.discord.accessSave": "Guardar",
+  "connector.discord.accessHostUpdate": "Actualiza OpenBot en {host} para elegir roles.",
   "connector.telegram.title": "Telegram",
   "connector.telegram.description":
     "Añade el bot de OpenBot a un grupo de Telegram o abre un chat directo con él. El Orquestador de Telegram consulta al agente adecuado y responde.",

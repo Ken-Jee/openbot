@@ -163,6 +163,19 @@ export const messages = defineMessages("connector", {
   "connector.slack.removeEffectDeleted": "The Slack Orchestrator and its conversations are deleted from OpenBot.",
   "connector.slack.keep": "Keep connected",
   "connector.slack.close": "Close",
+  "connector.slack.addWorkspace": "Add workspace",
+  // Shown when the page has the maximum number of workspaces.
+  "connector.slack.limitReached": {
+    one: "You can connect a maximum of {count} workspace.",
+    other: "You can connect a maximum of {count} workspaces.",
+  },
+  // {workspace} is the Slack workspace name. The title of each workspace's orchestrator when there are two or more.
+  "connector.slack.orchestratorTitleFor": "Orchestrator of {workspace}",
+  // {count} is the number of Slack workspaces: two or more.
+  "connector.slack.summaryMany": {
+    one: "{count} workspace · Slack Orchestrator answers",
+    other: "{count} workspaces · Slack Orchestrators answer",
+  },
 
   // Server settings > Connectors > Discord: a Discord server (a guild) adds the one OpenBot bot, and
   // the Discord Orchestrator agent receives each request, asks the team and answers. Always write
@@ -234,6 +247,37 @@ export const messages = defineMessages("connector", {
   "connector.discord.removeEffectDeleted": "The Discord Orchestrator and its conversations are deleted from OpenBot.",
   "connector.discord.keep": "Keep connected",
   "connector.discord.close": "Close",
+  "connector.discord.addWorkspace": "Add Discord server",
+  "connector.discord.limitReached": {
+    one: "You can connect a maximum of {count} Discord server.",
+    other: "You can connect a maximum of {count} Discord servers.",
+  },
+  // {workspace} is the Discord server name. The title of each server's orchestrator when there are two or more.
+  "connector.discord.orchestratorTitleFor": "Orchestrator of {workspace}",
+  // {count} is the number of Discord servers: two or more.
+  "connector.discord.summaryMany": {
+    one: "{count} Discord server · Discord Orchestrator answers",
+    other: "{count} Discord servers · Discord Orchestrators answer",
+  },
+  // Who can use OpenBot in one Discord server: the members with one of the chosen Discord roles.
+  "connector.discord.accessTitle": "Who can use OpenBot",
+  "connector.discord.accessDescription": "OpenBot answers only these people. It ignores mentions from others.",
+  "connector.discord.accessEveryone": "Everyone in the server",
+  "connector.discord.accessEveryoneDescription": "Anyone who can post in a channel that OpenBot sees can mention it.",
+  // {roles} is a list of Discord role names, such as "Admin and Moderator".
+  "connector.discord.accessRoles": "Members with {roles}",
+  "connector.discord.accessChoose": "Choose roles",
+  // {workspace} is the Discord server name.
+  "connector.discord.accessDialogTitle": "Who can use OpenBot in {workspace}?",
+  "connector.discord.accessDialogDescription": "With no role selected, everyone can mention OpenBot.",
+  "connector.discord.accessLoading": "Loading roles…",
+  "connector.discord.accessLoadFailed": "Discord roles did not load",
+  "connector.discord.accessNoRoles": "This server has no roles to pick.",
+  // {role} is the name of a Discord role that the server no longer has.
+  "connector.discord.accessRoleDeleted": "{role} (deleted)",
+  "connector.discord.accessSave": "Save",
+  // {host} is the joined server's name.
+  "connector.discord.accessHostUpdate": "Update OpenBot on {host} to choose roles.",
 
   // Server settings > Connectors > Telegram: each chat adds the one OpenBot bot, and the Telegram
   // Orchestrator agent receives the messages of all chats, asks the team and answers.

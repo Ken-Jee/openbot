@@ -1,18 +1,23 @@
 import type {
   AddMessagingOrchestratorResult,
+  DiscordAccess,
+  DiscordRoleList,
   MessagingDesktopApi,
   MessagingOverview,
   MessagingPlatform,
+  MessagingRole,
 } from "@openbot/contracts/ipc";
+import { sourceText } from "@openbot/i18n/source";
 import type { AgentProfile } from "@openbot/ui/data";
 import type {
+  DiscordAccessControl,
   SlackOrchestratorChoice,
   SlackOrchestratorModels,
   WorkspacePlatform,
 } from "@openbot/ui/features/settings/SlackIntegrationPanel";
 import type { TelegramChatPlace } from "@openbot/ui/features/settings/TelegramIntegrationPanel";
 import { currentText } from "@openbot/ui/text";
-import { createSignal, untrack } from "solid-js";
+import { createSignal, createStore, untrack } from "solid-js";
 import { type ConnectorController, createConnectorActions } from "./connector-controller";
 
 /** A Slack or Discord connect installs the app in a new workspace; a Telegram one opens a chat. */
@@ -32,6 +37,11 @@ export interface MessagingApi {
     target: MessagingOrchestratorTarget,
     choice: SlackOrchestratorChoice | null,
   ) => Promise<AddMessagingOrchestratorResult>;
+  /** Who can use OpenBot in a Discord server. */
+  discordAccess: (workspaceId: string) => Promise<DiscordAccess>;
+  /** The roles of a Discord server to choose from. */
+  discordRoles: (workspaceId: string) => Promise<DiscordRoleList>;
+  setDiscordAccess: (workspaceId: string, allowedRoles: MessagingRole[]) => Promise<DiscordAccess>;
 }
 
 /** The connections of this computer, through main. Read on each call: tests and stories replace `window.openbot`. */
@@ -73,6 +83,9 @@ export function localMessagingApi(messaging: () => MessagingDesktopApi = () => w
         : target.platform === "slack"
           ? messaging().addSlackOrchestrator({ workspaceId: target.workspaceId, ...(choice ?? {}) })
           : messaging().addDiscordOrchestrator({ workspaceId: target.workspaceId, ...(choice ?? {}) }),
+    discordAccess: (workspaceId) => messaging().getDiscordAccess({ workspaceId }),
+    discordRoles: (workspaceId) => messaging().listDiscordRoles({ workspaceId }),
+    setDiscordAccess: (workspaceId, allowedRoles) => messaging().setDiscordAccess({ workspaceId, allowedRoles }),
   };
 }
 
@@ -84,6 +97,14 @@ const ACTION_FAILED = {
   discord: "connector.discord.actionFailed",
   telegram: "connector.telegram.actionFailed",
 } as const satisfies Record<MessagingPlatform, string>;
+
+/**
+ * A joined server without `discord-access-v1` cannot choose roles. Its Discord servers let everyone.
+ * Electron puts the IPC channel in front of the message, so only the end is compared.
+ */
+function isDiscordAccessUnsupported(error: unknown): boolean {
+  return error instanceof Error && error.message.endsWith(sourceText("error.team.discordAccessUnsupported"));
+}
 
 export interface MessagingConnectorOptions {
   /** Every agent of the place, to find each orchestrator. */
@@ -127,6 +148,55 @@ export function createMessagingConnector(
   /** Each read replaces the one before it, so a slow answer never overwrites a newer one. */
   let reads = 0;
 
+  /** Who can use OpenBot in each Discord server of one server. Discord only. */
+  const [access, setAccess] = createStore<{
+    serverId: string | undefined;
+    allowed: Record<string, MessagingRole[]>;
+    unsupported: boolean;
+  }>({ serverId: undefined, allowed: {}, unsupported: false });
+  /** The Discord servers whose roles this view asked for. A view that opens asks again. */
+  let requested = new Set<string>();
+  /** The Discord servers whose failed read already showed a toast. The next poll reads them again. */
+  const reported = new Set<string>();
+  const loadAccess = (serverId: string | undefined, workspaceIds: readonly string[]) => {
+    if (access.serverId !== serverId) {
+      requested = new Set();
+      setAccess((draft) => {
+        draft.serverId = serverId;
+        draft.allowed = {};
+        draft.unsupported = false;
+      });
+    }
+    if (access.unsupported) return;
+    for (const workspaceId of workspaceIds) {
+      if (requested.has(workspaceId)) continue;
+      requested.add(workspaceId);
+      void api.discordAccess(workspaceId).then(
+        (next) => {
+          if (actions.disposed() || access.serverId !== serverId) return;
+          reported.delete(workspaceId);
+          setAccess((draft) => {
+            draft.allowed[workspaceId] = next.allowedRoles;
+          });
+        },
+        (error: unknown) => {
+          if (actions.disposed() || access.serverId !== serverId) return;
+          if (isDiscordAccessUnsupported(error)) {
+            setAccess((draft) => {
+              draft.unsupported = true;
+            });
+            return;
+          }
+          // One toast for each server; the next poll reads it again.
+          requested.delete(workspaceId);
+          if (reported.has(workspaceId)) return;
+          reported.add(workspaceId);
+          actions.report(error);
+        },
+      );
+    }
+  };
+
   // The page shows a failed read with Retry. The next poll or action also reads again.
   const reload = () => {
     const read = ++reads;
@@ -134,7 +204,13 @@ export function createMessagingConnector(
     void api
       .overview(platform)
       .then((next) => {
-        if (!actions.disposed() && read === reads) setLoaded({ serverId, overview: next, error: null });
+        if (actions.disposed() || read !== reads) return;
+        setLoaded({ serverId, overview: next, error: null });
+        if (platform === "discord")
+          loadAccess(
+            serverId,
+            next.connections.map((connection) => connection.workspaceId),
+          );
       })
       .catch((error: unknown) => {
         if (actions.disposed() || read !== reads) return;
@@ -165,6 +241,7 @@ export function createMessagingConnector(
     busy: actions.busy,
     reload,
     watch: () => {
+      requested = new Set();
       reload();
       const timer = setInterval(reload, POLL_MS);
       return () => clearInterval(timer);
@@ -219,6 +296,22 @@ export function createMessagingConnector(
     };
 
   const connect = () => run(() => api.connect({ platform }));
+  const discordAccess: DiscordAccessControl = {
+    allowed: (workspaceId) => access.allowed[workspaceId] ?? null,
+    loadRoles: async (workspaceId) => (await api.discordRoles(workspaceId)).roles,
+    onSave: (workspaceId, roles) =>
+      run(async () => {
+        const serverId = untrack(() => options.serverId?.());
+        const next = await api.setDiscordAccess(workspaceId, roles);
+        if (access.serverId !== serverId) return;
+        setAccess((draft) => {
+          draft.allowed[workspaceId] = next.allowedRoles;
+        });
+      }),
+    get unsupported() {
+      return access.unsupported;
+    },
+  };
   return {
     ...base,
     id: platform,
@@ -251,6 +344,7 @@ export function createMessagingConnector(
         onReconnect: shared.reconnect,
         onSetEnabled: shared.setEnabled,
         onAddOrchestrator: (workspaceId, choice) => addOrchestrator({ platform, workspaceId }, choice),
+        access: platform === "discord" ? discordAccess : undefined,
       },
     },
   };

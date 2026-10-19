@@ -60,6 +60,7 @@ export function serverSupportsCapability(
       capability === "host-release-v1" ||
       capability === "host-timezone-v1" ||
       capability === "agent-memory-limit-v1" ||
+      capability === "discord-access-v1" ||
       capability === "events-v1" ||
       capability === "context-reset-v1" ||
       capability === "routine-flows-v1" ||

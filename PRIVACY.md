@@ -728,31 +728,38 @@ Discord has one bot token for every server, so only OpenBot's Signal service (`s
 holds it. Unlike Slack, both directions go through Signal:
 
 - **To the computer.** Signal keeps the bot's connection to Discord. Discord sends it the messages of
-  the channels OpenBot can view, with text only for the messages that mention OpenBot. Signal passes
-  on only those messages and the presses of OpenBot's buttons: the message text, the author's ID and
-  name, the channel, the message it replies to, and the addresses of its files. The computer
+  the channels OpenBot can view. When OpenBot's Signal has the Message Content intent, they include
+  the text of every message; otherwise only the messages that mention OpenBot have text. Signal
+  passes on only the messages that mention OpenBot and the presses of OpenBot's buttons: the message
+  text, the author's ID, name and role IDs in the server, the channel, the message it replies to (with
+  its author, text and time when a person wrote it and Discord gave its text), and the addresses of
+  its files. The computer
   downloads the files from Discord directly.
 - **From the computer.** The computer sends its posts, edits, reactions, files and name lookups to
   Signal, which makes each call to Discord for it, only in the Discord servers linked to that
   computer. To give context, the computer asks Signal for the earlier messages of a channel after the
   first message of a conversation, and, when an agent asks for them, for the newest messages of the
-  channel it answers in. It also asks for the names of the people that a message mentions.
+  channel it answers in. With the Message Content intent, these earlier messages have their text
+  also when they do not mention OpenBot. It also asks for the names of the people that a message
+  mentions, and, when the user chooses who can use OpenBot, for the names of the server's roles.
 
 Signal does not store or log a message, a file or a token; it keeps the server and channel names and
 IDs in memory to check each call. It answers a direct message to OpenBot with one fixed sentence and
 passes nothing on.
 
 - **Stored on the host.** The Discord server's name and ID, which agent is its Discord Orchestrator,
-  and one row per conversation that an agent answers, kept as a conversation of that agent with the
+  the IDs and names of the roles allowed to use OpenBot in it, and one row per conversation that an agent answers, kept as a conversation of that agent with the
   Discord display name of each author. Files people send are kept with the agent's attachments.
-  Workspace memories are kept as for Slack. Disconnect removes the link and keeps the conversations
-  and the workspace memories; deleting an agent removes its conversations.
+  Workspace memories are kept as for Slack. Disconnect removes the link and keeps the conversations,
+  the workspace memories and the allowed roles; deleting an agent removes its conversations. The
+  author's role IDs are checked and not stored.
 - **Given to the Discord Orchestrator.** As for Slack.
 - **Sent to Discord.** As for Slack: the answers, attached files of at most 10 MB, status posts,
   reactions, and redacted approval requests. A post never pings anyone. As for Slack, any agent can
   post redacted text to a channel or thread of the server, and list their names through Signal.
 
-Anyone who can post in a channel that OpenBot can view can give the agents work. The agents run on the
+Anyone who can post in a channel that OpenBot can view can give the agents work, unless the user
+chose roles: then only members with one of those roles can, and OpenBot ignores the others. The agents run on the
 host with the access the user gave them. A hosted server that sleeps starts for a message that addresses OpenBot. Until it connects,
 Signal keeps that message in memory for at most 10 minutes, encrypted to a key that only that server
 has, so Signal cannot read it; a restart of Signal deletes it.

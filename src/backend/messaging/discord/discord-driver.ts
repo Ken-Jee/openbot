@@ -10,6 +10,7 @@ import {
   decodeDiscordHistory,
   decodeDiscordMessageId,
   decodeDiscordName,
+  decodeDiscordRoles,
 } from "@openbot/contracts/signal-protocol/discord-api";
 import { sourceText } from "@openbot/i18n/source";
 import { Deferred, Effect, Result } from "effect";
@@ -234,7 +235,7 @@ class DiscordAdapter implements MessagingAdapter {
    * Discord has no thread of replies, so this reads the channel from the first message on and keeps
    * the first message, the replies to it and the replies to OpenBot's posts, which all reply to it.
    * Without the Message Content intent, Discord gives the text only of a message that mentions
-   * OpenBot, so a message without text is left out.
+   * OpenBot, so a message without text is left out. With it, every message has its text.
    */
   readonly history = Effect.fnUntraced(function* (
     this: DiscordAdapter,
@@ -429,6 +430,11 @@ class DiscordAdapter implements MessagingAdapter {
         })),
       ),
     );
+  }
+
+  /** A Signal that predates `listRoles` refuses it as an invalid request. */
+  roles(): Effect.Effect<Array<{ id: string; name: string }>, MessagingAdapterError> {
+    return this.#call({ op: "listRoles", guildId: this.#guildId }, decodeDiscordRoles);
   }
 
   /** Signal posts with no mention allowed, so a mention shows the person and pings nobody. */

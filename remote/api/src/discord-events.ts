@@ -8,10 +8,13 @@
 import {
   DISCORD_ATTACHMENTS_LIMIT,
   DISCORD_CUSTOM_ID_PREFIX,
+  DISCORD_QUOTE_TEXT_LIMIT,
+  DISCORD_ROLES_LIMIT,
   type DiscordDelivery,
   type DiscordInboundAttachment,
   type DiscordInboundInteraction,
   type DiscordInboundMessage,
+  type DiscordInboundQuote,
 } from "@openbot/contracts/signal-protocol/discord-api";
 import {
   GatewayDispatchEvents,
@@ -39,10 +42,16 @@ export interface DiscordMessageData {
   timestamp: string;
   webhook_id?: string;
   author: { id: string; username: string; global_name?: string | null; bot?: boolean };
-  member?: { nick?: string | null };
+  member?: { nick?: string | null; roles?: string[] };
   mentions: { id: string }[];
   message_reference?: { type?: number; message_id?: string };
-  referenced_message?: { id: string; author: { id: string }; message_reference?: { message_id?: string } } | null;
+  referenced_message?: {
+    id: string;
+    content?: string;
+    timestamp?: string;
+    author: { id: string; username?: string; global_name?: string | null };
+    message_reference?: { message_id?: string };
+  } | null;
   attachments: { id: string; filename: string; content_type?: string; size: number; url: string }[];
 }
 
@@ -89,6 +98,7 @@ function normalizeGuildMessage(message: DiscordMessageData, botUserId: string): 
       messageId: repliedId,
       authorIsBot,
       rootId: authorIsBot ? (referenced?.message_reference?.message_id ?? null) : null,
+      quote: authorIsBot || !referenced ? null : quoteOf(referenced, botUserId),
     };
   }
   const attachments: DiscordInboundAttachment[] = [];
@@ -108,10 +118,29 @@ function normalizeGuildMessage(message: DiscordMessageData, botUserId: string): 
     channelId: message.channel_id,
     authorId: message.author.id,
     authorName: discordAuthorName(message),
+    authorRoleIds: message.member?.roles?.slice(0, DISCORD_ROLES_LIMIT) ?? null,
     content: stripBotMention(message.content, botUserId),
     replyTo,
     attachments,
     sentAt: message.timestamp,
+  };
+}
+
+/**
+ * The replied-to message of a person, or null when Discord gave no text: without the Message
+ * Content intent, Discord gives the text only of a message that mentions the bot.
+ */
+function quoteOf(
+  referenced: NonNullable<DiscordMessageData["referenced_message"]>,
+  botUserId: string,
+): DiscordInboundQuote | null {
+  const content = stripBotMention(referenced.content ?? "", botUserId);
+  if (!content || !referenced.timestamp) return null;
+  return {
+    authorId: referenced.author.id,
+    authorName: referenced.author.global_name ?? referenced.author.username ?? referenced.author.id,
+    content: content.slice(0, DISCORD_QUOTE_TEXT_LIMIT),
+    sentAt: referenced.timestamp,
   };
 }
 

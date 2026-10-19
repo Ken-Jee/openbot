@@ -64,6 +64,8 @@ export interface MessagingOrigin {
   authorId: string;
   authorName: string;
   platformMessageId: string;
+  /** The person's message that this one replies to, given to the agent as context. */
+  replyTo?: { authorName: string; text: string; sentAt: string };
 }
 
 interface StoredMessage {
@@ -2626,7 +2628,12 @@ function isMessagingOrigin(value: unknown): value is MessagingOrigin {
     isString(value.linkId) &&
     isString(value.authorId) &&
     isString(value.authorName) &&
-    isString(value.platformMessageId)
+    isString(value.platformMessageId) &&
+    (value.replyTo === undefined ||
+      (isRecord(value.replyTo) &&
+        isString(value.replyTo.authorName) &&
+        isString(value.replyTo.text) &&
+        isString(value.replyTo.sentAt)))
   );
 }
 

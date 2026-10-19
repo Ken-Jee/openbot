@@ -10,6 +10,8 @@ import type {
   AgentEvent,
   AgentSummary,
   ConnectTelegramChatInput,
+  DiscordAccess,
+  DiscordRoleList,
   MessagingConnection,
   MessagingConnectionState,
   MessagingConnectPage,
@@ -17,6 +19,7 @@ import type {
   MessagingOverview,
   MessagingPlatform,
   RespondToApprovalInput,
+  SetDiscordAccessInput,
   SidebarLayoutSnapshot,
   SidebarSection,
 } from "@openbot/contracts/ipc";
@@ -550,6 +553,56 @@ export class MessagingService {
     if (orphan) yield* this.#deleteOrchestrator(orphan);
   }, Effect.uninterruptible).bind(this);
 
+  /** The roles whose members can use OpenBot in a Discord server. Empty lets everyone. */
+  readonly discordAccess = Effect.fn("MessagingService.discordAccess")(function* (
+    this: MessagingService,
+    guildId: string,
+  ): Effect.fn.Return<DiscordAccess, MessagingOperationFailed> {
+    const record = yield* messagingStep(() => this.#requireConnection("discord", guildId));
+    return { allowedRoles: this.#threads.store.allowedRoles(record.connectionId) };
+  }).bind(this);
+
+  /** The roles of a running Discord server, to choose from. Signal reads them from Discord. */
+  readonly listDiscordRoles = Effect.fn("MessagingService.listDiscordRoles")(function* (
+    this: MessagingService,
+    guildId: string,
+  ): Effect.fn.Return<DiscordRoleList, MessagingOperationFailed> {
+    const record = yield* messagingStep(() => this.#requireConnection("discord", guildId));
+    const live = this.#live.get(record.connectionId);
+    const roles = live?.identity ? live.adapter.roles?.() : undefined;
+    if (!roles)
+      return yield* new MessagingOperationFailed({
+        cause: new Error(sourceText("error.messaging.discordRelayUnavailable")),
+      });
+    return {
+      roles: yield* roles.pipe(
+        Effect.mapError((failure) => {
+          // An older Signal does not know the call.
+          const code = failure.cause instanceof DiscordApiError ? failure.cause.code : null;
+          return new MessagingOperationFailed({
+            cause: new Error(
+              sourceText(
+                code === "invalid_request"
+                  ? "error.messaging.discordRolesUnsupported"
+                  : "error.messaging.discordRelayUnavailable",
+              ),
+            ),
+          });
+        }),
+      ),
+    };
+  }).bind(this);
+
+  /** Replaces the roles whose members can use OpenBot in a Discord server. Disconnect keeps them. */
+  readonly setDiscordAccess = Effect.fn("MessagingService.setDiscordAccess")(function* (
+    this: MessagingService,
+    input: SetDiscordAccessInput,
+  ): Effect.fn.Return<DiscordAccess, MessagingOperationFailed> {
+    const record = yield* messagingStep(() => this.#requireConnection("discord", input.workspaceId));
+    yield* messagingStep(() => this.#threads.store.replaceAllowedRoles(record.connectionId, input.allowedRoles));
+    return { allowedRoles: this.#threads.store.allowedRoles(record.connectionId) };
+  }).bind(this);
+
   /**
    * Opens the OpenBot Discord app's install in the browser, or only returns it when `opensPage` is
    * false. A deep link to `completeDiscordGuild` ends it.
@@ -1076,6 +1129,8 @@ export class MessagingService {
     message: InboundMessage,
   ) {
     if (!live.identity) return;
+    // A connection with a role list ignores everyone else, before anything shows the message was seen.
+    if (!this.#authorAllowed(live.record.connectionId, message)) return;
     // Before any await: a redelivered event can arrive while the first copy is still downloading its
     // files, before the mailbox holds its idempotency key. The mailbox key covers a restart.
     const store = this.#threads.store;
@@ -1108,7 +1163,9 @@ export class MessagingService {
             orElse: () => Effect.succeed(message.authorId),
           }),
         ),
-        mentionNames(message.mentionedUserIds, (userId) => adapter.authorName(userId)),
+        mentionNames([...message.mentionedUserIds, ...(message.replyTo?.mentionedUserIds ?? [])], (userId) =>
+          adapter.authorName(userId),
+        ),
         message.isDirect
           ? Effect.succeed(null)
           : adapter.placeName(message.platformChannelId).pipe(
@@ -1122,6 +1179,10 @@ export class MessagingService {
       { concurrency: "unbounded" },
     );
     const named = withMentionNames(message.text, mentioned);
+    const quote = message.replyTo;
+    const replyTo = quote
+      ? { authorName: quote.authorName, text: withMentionNames(quote.text, mentioned), sentAt: quote.sentAt }
+      : null;
     // A conversation keeps its agent. A new one goes to the workspace's orchestrator, which asks its
     // teammates; without one, nothing answers.
     const agentId = existing?.agentId ?? this.#orchestrator(live.record);
@@ -1159,7 +1220,12 @@ export class MessagingService {
               title: message.isDirect ? authorName : `${place} · ${named.slice(0, 80) || authorName}`,
               text,
               sourcePaths: paths,
-              origin: { authorId: message.authorId, authorName, platformMessageId: message.platformMessageId },
+              origin: {
+                authorId: message.authorId,
+                authorName,
+                platformMessageId: message.platformMessageId,
+                ...(replyTo ? { replyTo } : {}),
+              },
               idempotencyKey: `messaging:${live.record.connectionId}:${message.dedupKey}`,
             })
             .pipe(toMessagingOperationFailed);
@@ -1201,6 +1267,14 @@ export class MessagingService {
       () => messagingIo(() => rm(staging, { recursive: true, force: true })).pipe(Effect.orDie),
     );
   }, Effect.uninterruptible);
+
+  /** Empty lets everyone. A list needs one of its roles, so an author whose roles are unknown is refused. */
+  #authorAllowed(connectionId: string, message: InboundMessage): boolean {
+    const allowed = this.#threads.store.allowedRoles(connectionId);
+    if (allowed.length === 0) return true;
+    const roles = new Set(message.authorRoleIds ?? []);
+    return allowed.some((role) => roles.has(role.id));
+  }
 
   #orchestrator(record: MessagingConnectionRecord): string | null {
     const id = this.#threads.store.connection(record.connectionId)?.orchestratorAgentId ?? null;

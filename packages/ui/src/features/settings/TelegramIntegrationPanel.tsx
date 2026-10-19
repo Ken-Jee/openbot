@@ -403,21 +403,25 @@ export function TelegramConnectDialog(props: {
   const { t } = useText();
   const [waiting, setWaiting] = createSignal(false);
   const [choice, setChoice] = createSignal<TelegramOrchestratorChoice | null>(null);
+  /** The chats when the dialog opened. A chat that is not in it is the one that the user just linked. */
+  const [before, setBefore] = createSignal<ReadonlySet<string>>(new Set());
   createEffect(
     () => props.open,
     (open) => {
       if (!open) return;
       setWaiting(false);
       setChoice(props.models?.initial ?? null);
+      setBefore(new Set(props.connections.map((connection) => connection.workspaceId)));
     },
   );
   const first = () => props.connections[0] ?? null;
+  const linked = () => props.connections.find((connection) => !before().has(connection.workspaceId)) ?? first();
   const step = (): ConnectStep => {
     if (!first()) return 0;
     return telegramOrchestrator(props.connections, props.agents) ? 2 : 1;
   };
   const dialogLink = (): WizardLink => (step() === 2 ? "connected" : "connecting");
-  const chat = () => first()?.workspaceName ?? "";
+  const chat = () => linked()?.workspaceName ?? "";
   const copy = () => {
     switch (step()) {
       case 0:

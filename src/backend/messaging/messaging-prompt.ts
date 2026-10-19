@@ -18,6 +18,8 @@ export interface MessagingPromptInput {
   authorId: string;
   text: string;
   context: readonly MessagingContextMessage[];
+  /** The person's message that this one replies to, when the platform gave its text. */
+  replyTo: MessagingContextMessage | null;
   /** Files the message had that were not given to the agent, with the reason. */
   skippedFiles: readonly string[];
   /** The saved facts of the connection, newest first. */
@@ -32,6 +34,7 @@ const PLATFORM_WORDS: Record<MessagingPlatform, { name: string; workspace: strin
 };
 const CONTEXT_MESSAGES = 30;
 const CONTEXT_CHARACTERS = 12_000;
+const REPLY_CHARACTERS = 4_000;
 
 /**
  * The prompt of one external message. The author is not the OpenBot user, so the text is framed as
@@ -65,6 +68,11 @@ export function messagingPromptText(input: MessagingPromptInput): string {
     lines.push(
       "--- earlier messages in this conversation (context, oldest first) ---",
       ...context.map((message) => `[${message.sentAt}] ${message.authorName}: ${message.text}`),
+    );
+  if (input.replyTo)
+    lines.push(
+      "--- the message this one replies to (context) ---",
+      `[${input.replyTo.sentAt}] ${input.replyTo.authorName}: ${input.replyTo.text.slice(0, REPLY_CHARACTERS)}`,
     );
   lines.push("--- message ---", input.text || "(The message has no text.)");
   if (input.skippedFiles.length) lines.push(`Files that were not given to you: ${input.skippedFiles.join(", ")}.`);

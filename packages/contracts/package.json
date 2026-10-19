@@ -100,6 +100,7 @@
     "./team-protocol/agent-memories-v1": "./src/team-protocol/agent-memories-v1.ts",
     "./team-protocol/agent-host-settings-v1": "./src/team-protocol/agent-host-settings-v1.ts",
     "./team-protocol/agent-memory-limit-v1": "./src/team-protocol/agent-memory-limit-v1.ts",
+    "./team-protocol/discord-access-v1": "./src/team-protocol/discord-access-v1.ts",
     "./team-protocol/agent-import-v1": "./src/team-protocol/agent-import-v1.ts",
     "./team-protocol/instance-transfer-v1": "./src/team-protocol/instance-transfer-v1.ts",
     "./team-protocol/agent-install-v1": "./src/team-protocol/agent-install-v1.ts",

@@ -174,6 +174,9 @@ export interface TeamApiConnectors {
     | "setEnabled"
     | "addOrchestrator"
     | "addTelegramOrchestrator"
+    | "discordAccess"
+    | "listDiscordRoles"
+    | "setDiscordAccess"
   >;
 }
 

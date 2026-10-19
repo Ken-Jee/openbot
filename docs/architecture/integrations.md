@@ -427,6 +427,15 @@ and Telegram:
 A new connector on a joined server needs new routes in a new capability, because `connectors-v1`
 is frozen once it ships.
 
+The optional capability `discord-access-v1`
+([`discord-access-v1.ts`](../../packages/contracts/src/team-protocol/discord-access-v1.ts), host route
+[`route-discord-access.ts`](../../src/main/team-api/route-discord-access.ts)) reads and sets which
+Discord roles can use OpenBot in each Discord server of the host, and lists the server's roles through
+Signal (`listRoles`). The host keeps the list in `projection_messaging_allowed_roles`. An empty list
+lets everyone. With a list, `MessagingService` ignores a mention from a member who has none of the
+roles, before it reacts or posts. Signal passes the author's role IDs with each mention; a mention
+from an older Signal has none, so a server with a list ignores it.
+
 The optional capability `onepassword-connector-v1`
 ([`onepassword-connector-v1.ts`](../../packages/contracts/src/team-protocol/onepassword-connector-v1.ts),
 host route [`route-onepassword-connector.ts`](../../src/main/team-api/route-onepassword-connector.ts))

@@ -1,7 +1,13 @@
 import {
   type AgentSessionSettings,
+  type DiscordAccess,
+  type DiscordRoleList,
   type HiddenAgentsSnapshot,
+  type HostDiscordAccessInput,
+  type HostSetDiscordAccessInput,
   isAgentSessionSettings,
+  isDiscordAccess,
+  isDiscordRoleList,
   isHiddenAgentsSnapshot,
   type ResetAgentSessionSettingInput,
   type SetAgentHiddenInput,
@@ -10,12 +16,13 @@ import {
 import { AGENT_HIDDEN_ROUTES } from "@openbot/contracts/team-protocol/agent-hidden-v1";
 import { AGENT_MEMORY_LIMIT_ROUTES } from "@openbot/contracts/team-protocol/agent-memory-limit-v1";
 import { AGENT_SESSION_SETTINGS_ROUTES } from "@openbot/contracts/team-protocol/agent-session-settings-v1";
+import { DISCORD_ACCESS_ROUTES } from "@openbot/contracts/team-protocol/discord-access-v1";
 import { HOST_MEMBER_UPDATE_ROUTES } from "@openbot/contracts/team-protocol/host-member-update-v1";
 import { HOST_RELEASE_ROUTES } from "@openbot/contracts/team-protocol/host-release-v1";
 import { HOST_TIMEZONE_ROUTES } from "@openbot/contracts/team-protocol/host-timezone-v1";
 import type { PROVIDERS_V5_ROUTES } from "@openbot/contracts/team-protocol/providers-v5";
 // Admin requests to one host: agent settings and skills, shared tables, agent share links, the server name and logo,
-// the server timezone, the agent memory limit, the app update, MCP servers, storage, hosted sites and providers.
+// the server timezone, the agent memory limit, the Discord roles that can use OpenBot, the app update, MCP servers, storage, hosted sites and providers.
 //
 // The desktop sends the same routes from the main process. The web client and the mobile app send
 // them through their own transport, so the path, body and decoding of each request are here once.
@@ -1068,5 +1075,48 @@ export function messagingConnectorAddOrchestrator(
 ): Effect.Effect<AddMessagingOrchestratorResult, TeamAdminRequestError> {
   return adminCall(() =>
     request("POST", CONNECTORS_ROUTES.messagingOrchestrator, decodeMessagingOrchestrator, { ...input }),
+  );
+}
+
+function decodeDiscordAccess(value: unknown): DiscordAccess {
+  if (!isDiscordAccess(value)) throw new Error("Invalid Discord access response.");
+  return value;
+}
+
+/** Which roles can use OpenBot in one Discord server of the host (`discord-access-v1`). */
+export function discordAccess(
+  request: TeamApiRequest,
+  input: HostDiscordAccessInput,
+): Effect.Effect<DiscordAccess, TeamAdminRequestError> {
+  return adminCall(() => request("POST", DISCORD_ACCESS_ROUTES.access, decodeDiscordAccess, { ...input }));
+}
+
+/** The roles of one Discord server of the host, to choose from. The host reads them from Discord. */
+export function discordRoles(
+  request: TeamApiRequest,
+  input: HostDiscordAccessInput,
+): Effect.Effect<DiscordRoleList, TeamAdminRequestError> {
+  return adminCall(() =>
+    request(
+      "POST",
+      DISCORD_ACCESS_ROUTES.roles,
+      (value) => {
+        if (!isDiscordRoleList(value)) throw new Error("Invalid Discord roles response.");
+        return value;
+      },
+      { ...input },
+    ),
+  );
+}
+
+export function setDiscordAccess(
+  request: TeamApiRequest,
+  input: HostSetDiscordAccessInput,
+): Effect.Effect<DiscordAccess, TeamAdminRequestError> {
+  return adminCall(() =>
+    request("POST", DISCORD_ACCESS_ROUTES.update, decodeDiscordAccess, {
+      workspaceId: input.workspaceId,
+      allowedRoles: input.allowedRoles.map((role) => ({ id: role.id, name: role.name })),
+    }),
   );
 }

@@ -19,6 +19,7 @@ import { BROWSER_USER_CONTROL_CODECS } from "./browser-user-control-v1";
 import { CONNECTORS_CODECS } from "./connectors-v1";
 import { CONTEXT_RESET_CODECS } from "./context-reset-v1";
 import { CONVERSATION_FILE_SEARCH_CODECS } from "./conversation-file-search-v1";
+import { DISCORD_ACCESS_CODECS } from "./discord-access-v1";
 import { EVENTS_CODECS } from "./events-v1";
 import { FOCUS_USE_CODECS } from "./focus-use-v1";
 import { HOST_ADMIN_CODECS } from "./host-admin-v1";
@@ -68,6 +69,7 @@ const CODECS: ReadonlyMap<string, OptionalRouteCodec> = new Map([
   ...HOST_UPDATE_CODECS,
   ...HOST_TIMEZONE_CODECS,
   ...AGENT_MEMORY_LIMIT_CODECS,
+  ...DISCORD_ACCESS_CODECS,
   ...HOST_RELEASE_CODECS,
   ...HOST_MEMBER_UPDATE_CODECS,
   ...CONTEXT_RESET_CODECS,

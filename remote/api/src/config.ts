@@ -37,6 +37,8 @@ export interface RemoteApiConfig {
 export interface DiscordBotConfig {
   botToken: string;
   applicationId: string;
+  /** Asks for the privileged Message Content intent. Signal falls back without it when Discord refuses. */
+  messageContent: boolean;
 }
 
 interface SlackSigningSecret {
@@ -122,14 +124,19 @@ function httpsOrigin(value: string): string | null {
 /**
  * `DISCORD_BOT_TOKEN` and `DISCORD_APPLICATION_ID` turn on the Discord bot together. A missing or
  * malformed value turns off only Discord: the remote sessions and the Slack route keep running.
+ * `DISCORD_MESSAGE_CONTENT=true` asks for the Message Content intent.
  */
-function readDiscordBot(token: string | undefined, applicationId: string | undefined): DiscordBotConfig | null {
+function readDiscordBot(
+  token: string | undefined,
+  applicationId: string | undefined,
+  messageContent: string | undefined,
+): DiscordBotConfig | null {
   const botToken = token?.trim();
   const id = applicationId?.trim();
   if (!botToken || !id) return null;
   if (!/^[A-Za-z0-9_-]{1,128}\.[A-Za-z0-9_-]{1,128}\.[A-Za-z0-9_-]{1,256}$/u.test(botToken)) return null;
   if (!/^[0-9]{17,20}$/u.test(id)) return null;
-  return { botToken, applicationId: id };
+  return { botToken, applicationId: id, messageContent: messageContent === "true" };
 }
 
 export function readRemoteApiConfig(environment: Record<string, string | undefined> = process.env): RemoteApiConfig {
@@ -161,7 +168,11 @@ export function readRemoteApiConfig(environment: Record<string, string | undefin
     sourceCommit: optional(environment.OPENBOT_SOURCE_COMMIT) ?? "unknown",
     slackSigningSecrets: readSlackSigningSecrets(environment.SLACK_SIGNING_SECRET),
     telegram: readTelegramConfig(environment),
-    discord: readDiscordBot(environment.DISCORD_BOT_TOKEN, environment.DISCORD_APPLICATION_ID),
+    discord: readDiscordBot(
+      environment.DISCORD_BOT_TOKEN,
+      environment.DISCORD_APPLICATION_ID,
+      environment.DISCORD_MESSAGE_CONTENT,
+    ),
   };
 }
 

@@ -467,6 +467,7 @@ export class MessagingThreads {
         authorId: origin.authorId,
         text: context.delivery.text,
         context: prompt.messages,
+        replyTo: origin.replyTo ?? null,
         skippedFiles: prompt.skippedFiles,
         memories: this.memories.list(link.connectionId),
       }),

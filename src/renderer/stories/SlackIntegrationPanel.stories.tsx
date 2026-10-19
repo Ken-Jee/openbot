@@ -1,4 +1,4 @@
-import type { MessagingConnection } from "@openbot/contracts/ipc";
+import { MESSAGING_LIMITS, type MessagingConnection } from "@openbot/contracts/ipc";
 import {
   SlackConnectDialog,
   type SlackIntegrationAgent,
@@ -51,8 +51,22 @@ function workspace(update: Partial<MessagingConnection> = {}): MessagingConnecti
   };
 }
 
+const SECOND_ORCHESTRATOR: SlackIntegrationAgent = {
+  ...ORCHESTRATOR,
+  id: "agent-slack-orchestrator-2",
+  name: "Slack Orchestrator 2",
+  avatarSeed: "slack-orchestrator-2",
+};
+
+/** The second workspace of a page. */
+const SECOND_WORKSPACE: Partial<MessagingConnection> = {
+  workspaceId: "T0STORY2",
+  workspaceName: "Acme Labs",
+  orchestratorAgentId: SECOND_ORCHESTRATOR.id,
+};
+
 const args = (connections: MessagingConnection[], busy = false) => ({
-  agents: [ORCHESTRATOR, ...AGENTS],
+  agents: [ORCHESTRATOR, SECOND_ORCHESTRATOR, ...AGENTS],
   connections,
   busy,
   onConnectWorkspace: fn(),
@@ -77,6 +91,23 @@ export const Uninstalled: Story = { args: args([workspace({ state: "invalid_toke
 
 export const MissingPermissions: Story = {
   args: args([workspace({ state: "missing_scope", missingScopes: ["files:read"] })]),
+};
+
+/** Two workspaces, each with its own Slack Orchestrator. Add workspace connects a third. */
+export const TwoServers: Story = { args: args([workspace(), workspace(SECOND_WORKSPACE)]) };
+
+/** The second workspace has no orchestrator yet: the header adds it. */
+export const SecondServerNoOrchestrator: Story = {
+  args: args([workspace(), workspace({ ...SECOND_WORKSPACE, orchestratorAgentId: null })]),
+};
+
+/** The page has the maximum number of workspaces, so Add workspace is off. */
+export const AtLimit: Story = {
+  args: args(
+    Array.from({ length: MESSAGING_LIMITS.connections }, (_, index) =>
+      workspace({ workspaceId: `T0STORY${index + 1}`, workspaceName: `Acme ${index + 1}` }),
+    ),
+  ),
 };
 
 type DialogStory = StoryObj<typeof SlackConnectDialog>;

@@ -124,6 +124,8 @@ export const messages = {
     "Ce serveur ne peut pas relayer les connexions. Mettez à jour OpenBot sur l’hôte.",
   "error.team.connectorsUnsupported":
     "Les connexions de ce serveur ne peuvent pas être gérées d’ici. Mettez à jour OpenBot sur l’hôte.",
+  "error.team.discordAccessUnsupported":
+    "Ce serveur ne peut pas définir de rôles Discord. Mettez à jour OpenBot sur ce serveur.",
   "error.team.connectorPageRefused": "Le serveur a envoyé une page qu’OpenBot n’ouvre pas.",
   "error.team.signInRelayUnknown": "Cette connexion est terminée ou n’existe pas.",
   "error.team.signInRelayUsed": "Cette connexion a déjà été envoyée.",

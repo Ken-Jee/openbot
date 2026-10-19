@@ -20,6 +20,7 @@ type DiscordButtonAction = (typeof DISCORD_BUTTON_ACTIONS)[number];
 export function discordInboundMessage(message: DiscordInboundMessage): InboundMessage {
   const reply = message.replyTo;
   const threadKey = reply?.authorIsBot ? (reply.rootId ?? reply.messageId) : message.id;
+  const quote = reply?.quote ?? null;
   return {
     dedupKey: `${message.channelId}:${message.id}`,
     platformChannelId: message.channelId,
@@ -38,6 +39,17 @@ export function discordInboundMessage(message: DiscordInboundMessage): InboundMe
       size: attachment.size,
       url: attachment.url,
     })),
+    authorRoleIds: message.authorRoleIds,
+    // A reply to a person's message starts a new conversation, so it has no earlier messages: the
+    // replied-to message is its context.
+    replyTo: quote
+      ? {
+          authorName: quote.authorName,
+          text: discordPlainText(quote.content),
+          mentionedUserIds: discordMentionIds(quote.content),
+          sentAt: quote.sentAt,
+        }
+      : null,
   };
 }
 

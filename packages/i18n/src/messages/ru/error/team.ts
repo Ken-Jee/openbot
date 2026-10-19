@@ -117,6 +117,7 @@ export const messages = {
   "error.team.requestTooLarge": "Тело запроса слишком большое.",
   "error.team.signInRelayUnsupported": "Этот сервер не может передавать входы. Обновите OpenBot на хосте.",
   "error.team.connectorsUnsupported": "Подключениями этого сервера нельзя управлять отсюда. Обновите OpenBot на хосте.",
+  "error.team.discordAccessUnsupported": "Этот сервер не может задать роли Discord. Обновите на нём OpenBot.",
   "error.team.connectorPageRefused": "Сервер прислал страницу, которую OpenBot не открывает.",
   "error.team.signInRelayUnknown": "Этот вход завершён или не существует.",
   "error.team.signInRelayUsed": "Этот вход уже отправлен.",

@@ -20,6 +20,7 @@ import { AGENT_TASKS_CAPABILITY } from "@openbot/contracts/team-protocol/agent-t
 import { CONNECTORS_CAPABILITY } from "@openbot/contracts/team-protocol/connectors-v1";
 import { CONTEXT_RESET_CAPABILITY } from "@openbot/contracts/team-protocol/context-reset-v1";
 import { AGENT_HIDDEN_CAPABILITY, TEAM_AGENT_CREATE_MODEL_CAPABILITY } from "@openbot/contracts/team-protocol/current";
+import { DISCORD_ACCESS_CAPABILITY } from "@openbot/contracts/team-protocol/discord-access-v1";
 import { EVENTS_CAPABILITY } from "@openbot/contracts/team-protocol/events-v1";
 import { HOST_RELEASE_CAPABILITY } from "@openbot/contracts/team-protocol/host-release-v1";
 import { HOSTED_SITES_CAPABILITY } from "@openbot/contracts/team-protocol/hosted-sites-v1";
@@ -672,7 +673,9 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
   const connectorTarget = createMemo(() => remoteAdminServer(server(), CONNECTORS_CAPABILITY));
   const githubPort = webGitHubConnectorPort(() => hostRequest());
   const onePasswordPort = webOnePasswordConnectorPort(() => hostRequest());
-  const webMessaging = webHostMessaging(hostRequest);
+  const webMessaging = webHostMessaging(hostRequest, () =>
+    workspace.state.capabilities.includes(DISCORD_ACCESS_CAPABILITY),
+  );
   onCleanup(webMessaging.dispose);
   const connectors = createConnectorRegistry(server, {
     computer: {},

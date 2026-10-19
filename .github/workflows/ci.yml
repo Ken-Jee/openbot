@@ -333,6 +333,10 @@ jobs:
         if: ${{ !cancelled() }}
         run: bun run test:messaging-pause-resume
 
+      - name: Run the Discord role list and reply context E2E test
+        if: ${{ !cancelled() }}
+        run: bun run test:messaging-discord-access
+
       - name: Run the zero-filled settings file E2E test
         if: ${{ !cancelled() }}
         run: bun run test:zero-filled-settings
@@ -353,6 +357,7 @@ jobs:
             .openbot-build/routine-pause-resume-e2e/
             .openbot-build/agent-hide-restore-e2e/
             .openbot-build/messaging-pause-resume-e2e/
+            .openbot-build/messaging-discord-access-e2e/
             .openbot-build/zero-filled-settings-e2e/
             .openbot-build/provider-update-busy-e2e/
           if-no-files-found: ignore

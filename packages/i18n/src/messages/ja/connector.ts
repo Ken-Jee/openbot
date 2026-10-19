@@ -152,6 +152,14 @@ export const messages = {
   "connector.slack.removeEffectDeleted": "Slack Orchestrator とその会話は OpenBot から削除されます。",
   "connector.slack.keep": "接続を維持",
   "connector.slack.close": "閉じる",
+  "connector.slack.addWorkspace": "ワークスペースを追加",
+  "connector.slack.limitReached": {
+    other: "接続できるワークスペースは最大 {count} 件です。",
+  },
+  "connector.slack.orchestratorTitleFor": "{workspace} の Orchestrator",
+  "connector.slack.summaryMany": {
+    other: "ワークスペース {count} 件 · Slack Orchestrator が回答します",
+  },
 
   // Server settings > Connectors > Discord. Always write "Discord server": "server" alone is an
   // OpenBot server.
@@ -221,6 +229,29 @@ export const messages = {
   "connector.discord.removeEffectDeleted": "Discord Orchestrator とその会話は OpenBot から削除されます。",
   "connector.discord.keep": "接続を維持",
   "connector.discord.close": "閉じる",
+  "connector.discord.addWorkspace": "Discord サーバーを追加",
+  "connector.discord.limitReached": {
+    other: "接続できる Discord サーバーは最大 {count} 件です。",
+  },
+  "connector.discord.orchestratorTitleFor": "{workspace} の Orchestrator",
+  "connector.discord.summaryMany": {
+    other: "Discord サーバー {count} 件 · Discord Orchestrator が回答します",
+  },
+  "connector.discord.accessTitle": "OpenBot を使える人",
+  "connector.discord.accessDescription": "OpenBot はこれらの人にだけ回答します。ほかの人からのメンションは無視します。",
+  "connector.discord.accessEveryone": "サーバーの全員",
+  "connector.discord.accessEveryoneDescription":
+    "OpenBot が見えるチャンネルに投稿できる人なら、誰でもメンションできます。",
+  "connector.discord.accessRoles": "{roles} を持つメンバー",
+  "connector.discord.accessChoose": "ロールを選択",
+  "connector.discord.accessDialogTitle": "{workspace} で OpenBot を使えるのは誰ですか？",
+  "connector.discord.accessDialogDescription": "ロールを選択しない場合は、全員が OpenBot をメンションできます。",
+  "connector.discord.accessLoading": "ロールを読み込んでいます…",
+  "connector.discord.accessLoadFailed": "Discord のロールを読み込めませんでした",
+  "connector.discord.accessNoRoles": "このサーバーには選択できるロールがありません。",
+  "connector.discord.accessRoleDeleted": "{role}（削除済み）",
+  "connector.discord.accessSave": "保存",
+  "connector.discord.accessHostUpdate": "ロールを選択するには、{host} の OpenBot を更新してください。",
 
   // Server settings > Connectors > Telegram.
   "connector.telegram.title": "Telegram",

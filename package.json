@@ -225,6 +225,7 @@
     "test:routine-pause-resume": "bun scripts/routine-pause-resume-e2e.ts",
     "test:agent-hide-restore": "bun scripts/agent-hide-restore-e2e.ts",
     "test:messaging-pause-resume": "bun scripts/messaging-pause-resume-e2e.ts",
+    "test:messaging-discord-access": "bun scripts/messaging-discord-access-e2e.ts",
     "test:analytics-redaction": "bun scripts/analytics-redaction-e2e.ts",
     "test:central-auth-startup": "bun scripts/central-auth-startup-stall-e2e.ts",
     "test:zero-filled-settings": "bun scripts/zero-filled-settings-e2e.ts",

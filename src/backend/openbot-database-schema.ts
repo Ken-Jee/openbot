@@ -10,7 +10,11 @@ import { AGENT_WAIT_SCHEMA_SQL } from "./agent-waits/agent-wait-schema";
 import { CHANNEL_SCHEMA_SQL, CHANNEL_SETTINGS_SCHEMA_SQL } from "./channel-schema";
 import { PROVIDER_HISTORY_SCHEMA_SQL } from "./database/provider-history-schema";
 import { MCP_SERVERS_SCHEMA_SQL } from "./mcp-schema";
-import { MESSAGING_MEMORY_SCHEMA_SQL, MESSAGING_SCHEMA_SQL } from "./messaging/messaging-schema";
+import {
+  MESSAGING_ALLOWED_ROLES_SCHEMA_SQL,
+  MESSAGING_MEMORY_SCHEMA_SQL,
+  MESSAGING_SCHEMA_SQL,
+} from "./messaging/messaging-schema";
 import { ROUTINE_FLOW_SCHEMA_SQL } from "./routine-flows/routine-flow-schema";
 import { ROUTINE_RESULT_SCHEMA_SQL } from "./routine-results/routine-result-schema";
 
@@ -593,7 +597,8 @@ const LATEST_SCHEMA_SQL =
   V40_THREAD_MESSAGE_ORDER_INDEX_SQL +
   V41_ATTACHMENT_OWNER_INDEX_SQL +
   V42_ROUTINE_FLOW_SWEEP_INDEX_SQL +
-  V43_THREAD_EVENT_TYPE_INDEX_SQL;
+  V43_THREAD_EVENT_TYPE_INDEX_SQL +
+  MESSAGING_ALLOWED_ROLES_SCHEMA_SQL;
 
 /** The end of the thread message table with the migration 40 columns before its PRIMARY KEY constraint. */
 function withThreadMessageOrderColumns(tableEnd: string): string {
@@ -837,6 +842,12 @@ const MIGRATIONS: readonly OpenBotMigration[] = [
     version: 43,
     // Only creates an index, so no foreign-key pause and no vacuum.
     up: (db) => db.exec(V43_THREAD_EVENT_TYPE_INDEX_SQL),
+  },
+  {
+    version: 44,
+    // Only creates a table, so no foreign-key pause and no vacuum. No connection has a role list yet, so
+    // everyone can still mention OpenBot, which is what they could before.
+    up: (db) => db.exec(MESSAGING_ALLOWED_ROLES_SCHEMA_SQL),
   },
 ];
 

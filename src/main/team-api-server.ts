@@ -43,6 +43,7 @@ import {
   ANDROID_PUSH_NOTIFICATIONS_CAPABILITY,
   CHANNEL_DELETE_CAPABILITY,
   CONNECTORS_CAPABILITY,
+  DISCORD_ACCESS_CAPABILITY,
   EVENTS_CAPABILITY,
   FOCUS_USE_CAPABILITY,
   HOST_ADMIN_CAPABILITY,
@@ -162,6 +163,7 @@ import { routeConnectors } from "./team-api/route-connectors";
 import { routeContextReset } from "./team-api/route-context-reset";
 import { routeConversationFiles } from "./team-api/route-conversation-files";
 import { routeDirect } from "./team-api/route-direct";
+import { routeDiscordAccess } from "./team-api/route-discord-access";
 import { routeEvents } from "./team-api/route-events";
 import { routeFiles } from "./team-api/route-files";
 import { routeFocusUse } from "./team-api/route-focus-use";
@@ -799,6 +801,7 @@ export class TeamApiServer {
       if ((await routeSignInRelay(context, this.#options.mcpServers && this.#options.signInRelay)) === "handled")
         return;
       if ((await routeConnectors(context, this.#options.connectors)) === "handled") return;
+      if ((await routeDiscordAccess(context, this.#options.connectors)) === "handled") return;
       if ((await routeOnePasswordConnector(context, this.#options.onePasswordConnector)) === "handled") return;
       if ((await routeProviderHostSignIn(context, this.#options.providerHostSignIns)) === "handled") return;
       if ((await routeProviderAccounts(context, this.#options.providerAccounts)) === "handled") return;
@@ -1715,6 +1718,7 @@ export class TeamApiServer {
         if (capability === SIGN_IN_RELAY_CAPABILITY)
           return this.#options.mcpServers !== undefined && this.#options.signInRelay !== undefined;
         if (capability === CONNECTORS_CAPABILITY) return this.#options.connectors !== undefined;
+        if (capability === DISCORD_ACCESS_CAPABILITY) return this.#options.connectors !== undefined;
         if (capability === ONEPASSWORD_CONNECTOR_CAPABILITY) return this.#options.onePasswordConnector !== undefined;
         if (capability === PROVIDER_HOST_SIGN_IN_CAPABILITY) return this.#options.providerHostSignIns !== undefined;
         if (capability === PROVIDER_ACCOUNTS_CAPABILITY) return this.#options.providerAccounts !== undefined;

@@ -146,6 +146,16 @@ export const messages = {
   "connector.slack.removeEffectDeleted": "Lo Slack Orchestrator e le sue conversazioni vengono eliminati da OpenBot.",
   "connector.slack.keep": "Resta connesso",
   "connector.slack.close": "Chiudi",
+  "connector.slack.addWorkspace": "Aggiungi workspace",
+  "connector.slack.limitReached": {
+    one: "Puoi connettere al massimo {count} workspace.",
+    other: "Puoi connettere al massimo {count} workspace.",
+  },
+  "connector.slack.orchestratorTitleFor": "Orchestrator di {workspace}",
+  "connector.slack.summaryMany": {
+    one: "{count} workspace · Lo Slack Orchestrator risponde",
+    other: "{count} workspace · Gli Slack Orchestrator rispondono",
+  },
 
   "connector.discord.title": "Discord",
   "connector.discord.description":
@@ -213,6 +223,31 @@ export const messages = {
     "Il Discord Orchestrator e le sue conversazioni vengono eliminati da OpenBot.",
   "connector.discord.keep": "Resta connesso",
   "connector.discord.close": "Chiudi",
+  "connector.discord.addWorkspace": "Aggiungi server Discord",
+  "connector.discord.limitReached": {
+    one: "Puoi connettere al massimo {count} server Discord.",
+    other: "Puoi connettere al massimo {count} server Discord.",
+  },
+  "connector.discord.orchestratorTitleFor": "Orchestrator di {workspace}",
+  "connector.discord.summaryMany": {
+    one: "{count} server Discord · Il Discord Orchestrator risponde",
+    other: "{count} server Discord · I Discord Orchestrator rispondono",
+  },
+  "connector.discord.accessTitle": "Chi può usare OpenBot",
+  "connector.discord.accessDescription": "OpenBot risponde solo a queste persone. Ignora le menzioni degli altri.",
+  "connector.discord.accessEveryone": "Tutti nel server",
+  "connector.discord.accessEveryoneDescription":
+    "Chiunque possa scrivere in un canale che OpenBot vede può menzionarlo.",
+  "connector.discord.accessRoles": "Membri con {roles}",
+  "connector.discord.accessChoose": "Scegli ruoli",
+  "connector.discord.accessDialogTitle": "Chi può usare OpenBot in {workspace}?",
+  "connector.discord.accessDialogDescription": "Senza ruoli selezionati, tutti possono menzionare OpenBot.",
+  "connector.discord.accessLoading": "Caricamento ruoli…",
+  "connector.discord.accessLoadFailed": "I ruoli Discord non sono stati caricati",
+  "connector.discord.accessNoRoles": "Questo server non ha ruoli da scegliere.",
+  "connector.discord.accessRoleDeleted": "{role} (eliminato)",
+  "connector.discord.accessSave": "Salva",
+  "connector.discord.accessHostUpdate": "Aggiorna OpenBot su {host} per scegliere i ruoli.",
 
   "connector.telegram.title": "Telegram",
   "connector.telegram.description":

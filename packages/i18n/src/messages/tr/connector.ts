@@ -170,6 +170,16 @@ export const messages = {
   "connector.slack.removeEffectDeleted": "Slack Düzenleyicisi ve konuşmaları OpenBot'tan silinir.",
   "connector.slack.keep": "Bağlı tut",
   "connector.slack.close": "Kapat",
+  "connector.slack.addWorkspace": "Çalışma alanı ekle",
+  "connector.slack.limitReached": {
+    one: "En fazla {count} çalışma alanı bağlayabilirsiniz.",
+    other: "En fazla {count} çalışma alanı bağlayabilirsiniz.",
+  },
+  "connector.slack.orchestratorTitleFor": "{workspace} Düzenleyicisi",
+  "connector.slack.summaryMany": {
+    one: "{count} çalışma alanı · Slack Düzenleyicisi yanıtlıyor",
+    other: "{count} çalışma alanı · Slack Düzenleyicileri yanıtlıyor",
+  },
 
   // Sunucu ayarları > Bağlayıcılar > Discord: bir Discord sunucusu tek OpenBot botunu ekler ve Discord
   // Düzenleyicisi ajanı her isteği alır, ekibe sorar ve yanıtlar. Her zaman "Discord sunucusu" yazın.
@@ -242,6 +252,31 @@ export const messages = {
   "connector.discord.removeEffectDeleted": "Discord Düzenleyicisi ve konuşmaları OpenBot'tan silinir.",
   "connector.discord.keep": "Bağlı tut",
   "connector.discord.close": "Kapat",
+  "connector.discord.addWorkspace": "Discord sunucusu ekle",
+  "connector.discord.limitReached": {
+    one: "En fazla {count} Discord sunucusu bağlayabilirsiniz.",
+    other: "En fazla {count} Discord sunucusu bağlayabilirsiniz.",
+  },
+  "connector.discord.orchestratorTitleFor": "{workspace} Düzenleyicisi",
+  "connector.discord.summaryMany": {
+    one: "{count} Discord sunucusu · Discord Düzenleyicisi yanıtlıyor",
+    other: "{count} Discord sunucusu · Discord Düzenleyicileri yanıtlıyor",
+  },
+  "connector.discord.accessTitle": "OpenBot'u kimler kullanabilir",
+  "connector.discord.accessDescription":
+    "OpenBot yalnızca bu kişilere yanıt verir. Diğerlerinin bahsetmelerini yok sayar.",
+  "connector.discord.accessEveryone": "Sunucudaki herkes",
+  "connector.discord.accessEveryoneDescription": "OpenBot'un gördüğü bir kanala yazabilen herkes ondan bahsedebilir.",
+  "connector.discord.accessRoles": "{roles} rolüne sahip üyeler",
+  "connector.discord.accessChoose": "Rolleri seç",
+  "connector.discord.accessDialogTitle": "{workspace} içinde OpenBot'u kimler kullanabilir?",
+  "connector.discord.accessDialogDescription": "Hiçbir rol seçilmezse herkes OpenBot'tan bahsedebilir.",
+  "connector.discord.accessLoading": "Roller yükleniyor…",
+  "connector.discord.accessLoadFailed": "Discord rolleri yüklenmedi",
+  "connector.discord.accessNoRoles": "Bu sunucuda seçilecek rol yok.",
+  "connector.discord.accessRoleDeleted": "{role} (silindi)",
+  "connector.discord.accessSave": "Kaydet",
+  "connector.discord.accessHostUpdate": "Rol seçmek için {host} üzerindeki OpenBot'u güncelleyin.",
   // Sunucu ayarları > Bağlayıcılar > Telegram: her sohbet tek OpenBot botunu ekler ve Telegram
   // Düzenleyicisi ajanı tüm sohbetlerin mesajlarını alır, ekibe sorar ve yanıtlar.
   "connector.telegram.title": "Telegram",

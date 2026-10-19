@@ -46,6 +46,14 @@ export function createConnectorActions(failed: AppTextKey) {
   onCleanup(() => {
     disposed = true;
   });
+  /** Shows the toast of a failure. */
+  const report = (error: unknown) => {
+    const { t, errorMessage } = currentText();
+    actionToast.error(t(failed), {
+      description: errorMessage(error, t(failed)),
+      report: { operation: "other", source: "action", cause_code: classifyFailure(error) },
+    });
+  };
   const run = <T>(
     action: () => Promise<T>,
     options: {
@@ -66,11 +74,7 @@ export function createConnectorActions(failed: AppTextKey) {
       })
       .catch((error: unknown) => {
         if (disposed || current !== attempt) return;
-        const { t, errorMessage } = currentText();
-        actionToast.error(t(failed), {
-          description: errorMessage(error, t(failed)),
-          report: { operation: "other", source: "action", cause_code: classifyFailure(error) },
-        });
+        report(error);
       })
       .finally(() => {
         if (disposed || current !== attempt) return;
@@ -78,5 +82,5 @@ export function createConnectorActions(failed: AppTextKey) {
         options.settled?.();
       });
   };
-  return { busy, run, disposed: () => disposed };
+  return { busy, run, report, disposed: () => disposed };
 }

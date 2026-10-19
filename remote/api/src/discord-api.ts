@@ -7,11 +7,13 @@ import {
   DISCORD_LIST_CHANNELS_LIMIT,
   DISCORD_LIST_MESSAGES_LIMIT,
   DISCORD_MESSAGE_TEXT_LIMIT,
+  DISCORD_ROLES_LIMIT,
   type DiscordApiErrorCode,
   type DiscordApiRequest,
   type DiscordButton,
   type DiscordChannelSummary,
   type DiscordHistoryMessage,
+  type DiscordRoleSummary,
 } from "@openbot/contracts/signal-protocol/discord-api";
 import { Effect, Schema } from "effect";
 import { z } from "zod";
@@ -67,6 +69,7 @@ const discordApiRequestSchema = z.discriminatedUnion("op", [
   z.strictObject({ op: z.literal("member"), guildId: snowflakeSchema, userId: snowflakeSchema }),
   z.strictObject({ op: z.literal("channel"), guildId: snowflakeSchema, channelId: snowflakeSchema }),
   z.strictObject({ op: z.literal("listChannels"), guildId: snowflakeSchema }),
+  z.strictObject({ op: z.literal("listRoles"), guildId: snowflakeSchema }),
   z.strictObject({
     op: z.literal("interactionReply"),
     guildId: snowflakeSchema,
@@ -137,6 +140,7 @@ type DiscordApiResult =
   | { name: string }
   | { messages: DiscordHistoryMessage[] }
   | { channels: DiscordChannelSummary[] }
+  | { roles: DiscordRoleSummary[] }
   | Record<string, never>;
 
 export interface DiscordApi {
@@ -177,6 +181,14 @@ const activeThreadsSchema = z.object({
   members: z.array(z.object({ id: snowflakeSchema.optional() })).optional(),
 });
 const rolesSchema = z.array(z.object({ id: snowflakeSchema, permissions: permissionsSchema }));
+const namedRolesSchema = z.array(
+  z.object({
+    id: snowflakeSchema,
+    name: z.string(),
+    position: z.number().int(),
+    managed: z.boolean().optional(),
+  }),
+);
 const botMemberSchema = z.object({ roles: z.array(snowflakeSchema) });
 /** Text and announcement channels: the guild channels that take a message. */
 const POSTABLE_CHANNEL_TYPES = new Set([0, 5]);
@@ -385,6 +397,20 @@ export function makeDiscordApi(transport: DiscordTransport, state: DiscordState)
         ].slice(0, DISCORD_LIST_CHANNELS_LIMIT);
         for (const channel of channels) state.rememberChannel(channel.id, request.guildId, channel.name);
         return { channels };
+      }
+      // The roles a person can have: not `@everyone`, whose id is the guild's, and not a role that a
+      // bot or integration manages.
+      case "listRoles": {
+        const roles = yield* send({ method: "GET", route: `/guilds/${request.guildId}/roles` }).pipe(
+          Effect.flatMap((value) => decode(namedRolesSchema, value)),
+        );
+        return {
+          roles: roles
+            .filter((role) => role.id !== request.guildId && role.managed !== true)
+            .sort((left, right) => right.position - left.position)
+            .slice(0, DISCORD_ROLES_LIMIT)
+            .map((role) => ({ id: role.id, name: role.name })),
+        };
       }
       case "interactionReply": {
         const token = state.interactionToken(request.interactionId, request.guildId);

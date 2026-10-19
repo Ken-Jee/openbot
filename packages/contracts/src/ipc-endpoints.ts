@@ -283,13 +283,18 @@ import type {
   AddSlackOrchestratorResult,
   AddTelegramOrchestratorInput,
   ConnectTelegramChatInput,
+  DiscordAccess,
+  DiscordRoleList,
   HostAddMessagingOrchestratorInput,
+  HostDiscordAccessInput,
   HostMessagingConnectInput,
   HostMessagingPlatformInput,
   HostMessagingWorkspaceInput,
+  HostSetDiscordAccessInput,
   HostSetMessagingEnabledInput,
   MessagingOverview,
   MessagingWorkspaceInput,
+  SetDiscordAccessInput,
   SetMessagingEnabledInput,
   SetSlackEnabledInput,
   SetTelegramEnabledInput,
@@ -843,6 +848,11 @@ export const IPC_ENDPOINTS = {
     addDiscordOrchestrator: request<AddMessagingOrchestratorInput, AddMessagingOrchestratorResult>()(
       "messaging:add-discord-orchestrator",
     ),
+    // Who can use OpenBot in a Discord server: the members with one of the chosen roles. The roles to
+    // choose from come from Discord through Signal.
+    getDiscordAccess: request<MessagingWorkspaceInput, DiscordAccess>()("messaging:get-discord-access"),
+    listDiscordRoles: request<MessagingWorkspaceInput, DiscordRoleList>()("messaging:list-discord-roles"),
+    setDiscordAccess: request<SetDiscordAccessInput, DiscordAccess>()("messaging:set-discord-access"),
     // The Telegram chats that added the OpenBot bot. A connect opens a `t.me` link with a one-use code
     // in this computer's browser; the chat links itself when the bot is added.
     getTelegramOverview: request<undefined, TelegramOverview>()("messaging:get-telegram-overview"),
@@ -863,6 +873,16 @@ export const IPC_ENDPOINTS = {
     hostSetEnabled: scopedRequest<HostSetMessagingEnabledInput, void, "required">()("messaging:host-set-enabled"),
     hostAddOrchestrator: scopedRequest<HostAddMessagingOrchestratorInput, AddMessagingOrchestratorResult, "required">()(
       "messaging:host-add-orchestrator",
+    ),
+    // The same for a joined server with `discord-access-v1`.
+    hostGetDiscordAccess: scopedRequest<HostDiscordAccessInput, DiscordAccess, "required">()(
+      "messaging:host-get-discord-access",
+    ),
+    hostListDiscordRoles: scopedRequest<HostDiscordAccessInput, DiscordRoleList, "required">()(
+      "messaging:host-list-discord-roles",
+    ),
+    hostSetDiscordAccess: scopedRequest<HostSetDiscordAccessInput, DiscordAccess, "required">()(
+      "messaging:host-set-discord-access",
     ),
   },
   // The server name, logo, timezone, agent memory limit and app update of one server's host. `host.updateIdentity` and `update`

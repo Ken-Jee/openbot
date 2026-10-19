@@ -103,6 +103,20 @@ export function connectorSummary(detail: ConnectorDetail, t: TextValue["t"]): Co
       const { connections, agents } = detail.props;
       const text = messagingPlatformText(detail.id);
       const state = slackIntegrationState(connections, agents, detail.id);
+      if (connections.length > 1) {
+        const orchestrators = connections.flatMap((connection) => slackOrchestrator(connection, agents) ?? []);
+        return {
+          status: state.status,
+          statusLabel: t(state.label),
+          summary:
+            state.attention > 0
+              ? t(text.attentionTitle, { count: state.attention })
+              : t(text.summaryMany, { count: connections.length }),
+          agents: orchestrators.filter(
+            (agent, index) => orchestrators.findIndex((other) => other.id === agent.id) === index,
+          ),
+        };
+      }
       const [connection] = connections;
       const orchestrator = connection ? slackOrchestrator(connection, agents) : null;
       const workspace = connection?.workspaceName;

@@ -28,6 +28,7 @@ import {
 import { CONNECTORS_CAPABILITY } from "./connectors-v1";
 import { CONTEXT_RESET_CAPABILITY } from "./context-reset-v1";
 import { CONVERSATION_FILE_SEARCH_CAPABILITY } from "./conversation-file-search-v1";
+import { DISCORD_ACCESS_CAPABILITY } from "./discord-access-v1";
 import { EVENTS_CAPABILITY } from "./events-v1";
 import { FOCUS_USE_CAPABILITY } from "./focus-use-v1";
 import { TEAM_HISTORY_EXTENT_CAPABILITY } from "./history-extent-v1";
@@ -115,6 +116,7 @@ export {
   CONNECTORS_CAPABILITY,
   CONTEXT_RESET_CAPABILITY,
   CONVERSATION_FILE_SEARCH_CAPABILITY,
+  DISCORD_ACCESS_CAPABILITY,
   EVENTS_CAPABILITY,
   FOCUS_USE_CAPABILITY,
   HOST_ADMIN_CAPABILITY,
@@ -236,6 +238,7 @@ export const TEAM_CURRENT_CAPABILITIES = [
   BROWSER_USER_CONTROL_CAPABILITY,
   BROWSER_PAGE_STATE_CAPABILITY,
   AGENT_MEMORY_LIMIT_CAPABILITY,
+  DISCORD_ACCESS_CAPABILITY,
 ] as const;
 
 export type TeamCurrentCapability = (typeof TEAM_CURRENT_CAPABILITIES)[number];
@@ -330,7 +333,8 @@ export const TEAM_BOOTSTRAP_CAPABILITIES = TEAM_CURRENT_CAPABILITIES.filter(
     capability !== BROWSER_PAGE_STATE_CAPABILITY &&
     capability !== TEAM_UI_BLOCKS_CAPABILITY &&
     capability !== AGENT_TASKS_CAPABILITY &&
-    capability !== AGENT_MEMORY_LIMIT_CAPABILITY,
+    capability !== AGENT_MEMORY_LIMIT_CAPABILITY &&
+    capability !== DISCORD_ACCESS_CAPABILITY,
 );
 export function teamCapabilitiesForProtocol(protocol: number | null | undefined): readonly TeamCurrentCapability[] {
   return protocol !== null && protocol !== undefined && protocol >= 7
@@ -366,6 +370,7 @@ export function legacyTeamCapabilities(capabilities: readonly string[]): string[
       capability !== BROWSER_PAGE_STATE_CAPABILITY &&
       capability !== TEAM_UI_BLOCKS_CAPABILITY &&
       capability !== AGENT_TASKS_CAPABILITY &&
-      capability !== AGENT_MEMORY_LIMIT_CAPABILITY,
+      capability !== AGENT_MEMORY_LIMIT_CAPABILITY &&
+      capability !== DISCORD_ACCESS_CAPABILITY,
   );
 }
