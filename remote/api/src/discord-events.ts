@@ -71,7 +71,10 @@ interface StoredInteraction {
 }
 
 /** The display name of a message author: the guild nickname, the global name, or the user name. */
-export function discordAuthorName(message: Pick<DiscordMessageData, "author" | "member">): string {
+export function discordAuthorName(message: {
+  author: { username: string; global_name?: string | null | undefined };
+  member?: { nick?: string | null | undefined } | undefined;
+}): string {
   return message.member?.nick ?? message.author.global_name ?? message.author.username;
 }
 
