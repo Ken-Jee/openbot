@@ -240,7 +240,7 @@ export class QueueControls {
     if (agentProviderDescriptor(providerForAgent(agent)).steer !== "native") {
       yield* this.#mailbox.markSteerFallback(input.deliveryId, "provider-unsupported").pipe(toQueueOperationFailed);
       this.#mailboxSync.emitQueue(agent.id);
-      return yield* new QueueOperationFailed({ cause: new Error(sourceText("error.backend.steerUnsupported")) });
+      return yield* new QueueOperationFailed({ cause: new SteerUnsupportedError() });
     }
     yield* this.#mailbox.markSteering(input.deliveryId, turnId).pipe(toQueueOperationFailed);
     this.#mailboxSync.emitQueue(agent.id);
@@ -285,6 +285,13 @@ export class QueueControls {
       this.#conversation.emitConversation(snapshot, "queue.message-steered", { deliveryId: input.deliveryId });
     });
   }, Effect.uninterruptible);
+}
+
+/** The provider defers steering, so the message stays queued. A refusal, not a failure. */
+export class SteerUnsupportedError extends Error {
+  constructor() {
+    super(sourceText("error.backend.steerUnsupported"));
+  }
 }
 
 export class QueueOperationFailed extends Schema.TaggedError<QueueOperationFailed>()("QueueOperationFailed", {

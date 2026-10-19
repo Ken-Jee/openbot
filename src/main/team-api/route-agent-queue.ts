@@ -20,6 +20,7 @@ import type {
   UpdateQueuedMessageInput,
 } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
+import { SteerUnsupportedError } from "../../backend/agent/queue-controls";
 import { runCauseEffect } from "../../backend/effect-boundary";
 import type { TeamApiAgents } from "./dependencies";
 import type { AgentRouteTarget, RouteOutcome, TeamApiRequestContext } from "./request-context";
@@ -89,13 +90,19 @@ export async function routeAgentQueue(
   if (method === "POST" && action === "queue/steer") {
     const body = await readJson(request);
     requireListedAgent(agents, agentId);
-    await runCauseEffect(
-      agents.steerQueuedMessage({
-        agentId,
-        deliveryId: stringField(body, "deliveryId"),
-        expectedTurnId: stringField(body, "expectedTurnId"),
-      } satisfies SteerQueuedMessageInput),
-    );
+    try {
+      await runCauseEffect(
+        agents.steerQueuedMessage({
+          agentId,
+          deliveryId: stringField(body, "deliveryId"),
+          expectedTurnId: stringField(body, "expectedTurnId"),
+        } satisfies SteerQueuedMessageInput),
+      );
+    } catch (error) {
+      // A client shows a refusal's text, but only "Request failed" for a 500.
+      if (error instanceof SteerUnsupportedError) throw new HttpError(409, error.message);
+      throw error;
+    }
     return empty(204);
   }
   if (method === "POST" && action === "queue/update") {

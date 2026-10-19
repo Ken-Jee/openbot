@@ -32,6 +32,7 @@ import {
 import { sourceText } from "@openbot/i18n/source";
 import { createOpenBotLogger } from "@openbot/logging";
 import { Effect } from "effect";
+import { SteerUnsupportedError } from "../src/backend/agent/queue-controls";
 import { AgentLifecycleFailed } from "../src/backend/agent-service";
 import { runCauseEffect } from "../src/backend/effect-boundary";
 import { OpenBotDatabase } from "../src/backend/openbot-database";
@@ -210,7 +211,15 @@ const fakeAgents: TeamApiAgents = {
   },
   acknowledgeFailedTurn: (agentId, turnId) => record("acknowledgeFailedTurn", agentId, turnId),
   cancelQueuedMessage: (agentId, deliveryId) => Effect.sync(() => record("cancelQueuedMessage", agentId, deliveryId)),
-  steerQueuedMessage: (input) => Effect.sync(() => record("steerQueuedMessage", input)),
+  steerQueuedMessage: (input) => {
+    record("steerQueuedMessage", input);
+    // OpenCode defers steering: the queue keeps the message and refuses the steer.
+    if (input.agentId === "agent-oc")
+      return Effect.fail(
+        new AgentLifecycleFailed({ operation: "steerQueuedMessage", cause: new SteerUnsupportedError() }),
+      );
+    return Effect.void;
+  },
   updateQueuedMessage: (input, sender) => Effect.sync(() => record("updateQueuedMessage", input, sender)),
   editQueuedMessage: (agentId, input, sender) => {
     record("editQueuedMessage", agentId, input, sender);
@@ -1006,14 +1015,20 @@ try {
       token: bobToken,
       json: { deliveryId: "delivery-1", expectedTurnId: "turn-2" },
     });
+    const steerDeferred = await call("POST", TEAM_API_ROUTES.agent.queueSteer("agent-oc"), {
+      token: bobToken,
+      json: { deliveryId: "delivery-1", expectedTurnId: "turn-2" },
+    });
     check(
-      "steer gives 204 for a listed agent and 404 for an agent that is not listed",
+      "steer gives 204 for a listed agent, 404 for an agent that is not listed, and 409 with the reason when the provider defers steering",
       steer.status === 204 &&
         errorIs(steerGone, 404, sourceText("error.team.agentNotFound")) &&
+        errorIs(steerDeferred, 409, sourceText("error.backend.steerUnsupported")) &&
         isDeepStrictEqual(callsOf("steerQueuedMessage"), [
           [{ agentId: "agent-ada", deliveryId: "delivery-1", expectedTurnId: "turn-2" }],
+          [{ agentId: "agent-oc", deliveryId: "delivery-1", expectedTurnId: "turn-2" }],
         ]),
-      [summary(steer), summary(steerGone)],
+      [summary(steer), summary(steerGone), summary(steerDeferred)],
     );
     const update = await call("POST", TEAM_API_ROUTES.agent.queueUpdate("agent-ada"), {
       token: bobToken,
