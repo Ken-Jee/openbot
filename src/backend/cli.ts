@@ -707,6 +707,10 @@ function windowsFallbackPaths(
     paths.push(win32.join(userHome, ".grok", "bin", "grok.exe"));
     if (localAppData) paths.push(win32.join(localAppData, "Microsoft", "WinGet", "Links", "grok.exe"));
   }
+  if (command === "opencode") {
+    paths.push(win32.join(userHome, ".opencode", "bin", "opencode.exe"));
+    if (localAppData) paths.push(win32.join(localAppData, "Microsoft", "WinGet", "Links", "opencode.exe"));
+  }
   if (appData) paths.push(win32.join(appData, "npm", `${command}.cmd`));
   paths.push(
     win32.join(userHome, ".local", "bin", `${command}.exe`),

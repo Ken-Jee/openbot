@@ -948,7 +948,10 @@ provider you select in Cline. The provider of a free model can use your prompts 
 Sign in opens Cline's sign-in page in your browser, or the CLI uses `CLINE_API_KEY` from the
 environment that started OpenBot. OpenBot gives that key only to the local CLI, in its environment,
 and does not store it. The CLI keeps its login and session files in `~/.cline`, or in `$CLINE_DIR`.
-OpenBot does not read, copy, or upload these files. Cline's terms apply:
+OpenBot does not read, copy, or upload these files. When OpenBot reads the Cline model list, it
+also sends `GET https://api.cline.bot/api/v1/ai/cline/recommended-models` to read Cline's free
+models, which the CLI does not list. The request has no account, key, or prompt in it, and Cline
+sees the IP address of this computer. Cline's terms apply:
 <https://cline.bot/tos>. Team members see the host's Cline agents, as
 for the other providers, when their app supports Cline.
 

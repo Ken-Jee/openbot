@@ -22,6 +22,7 @@ import {
   resolveOpencodeCli,
   resolvePiCli,
 } from "./cli";
+import { clineFreeModels } from "./cline-free-models";
 import { CustomAcpAgentsClient, type CustomAgentConfig, type CustomAgentSource } from "./custom-acp-agents-client";
 import { GrokAgentClient } from "./grok-client";
 import type { McpOAuthAuthority } from "./mcp-oauth-provider";
@@ -692,6 +693,7 @@ export const BUILT_IN_PROVIDER_DRIVERS: readonly BuiltInProviderDriver[] = [
         env: { ...CLINE_ENV },
         ...(confinement ? { confine: (target) => confineClineTarget(target, confinement) } : {}),
         extraEnv: () => ({ ...context.agentEnvironment?.() }),
+        additionalModels: clineFreeModels(),
         signInMessage: sourceText("error.provider.clineSignIn"),
         servesModel: context.servesModel,
         mcpServers: context.mcpServers,
@@ -706,6 +708,7 @@ export const BUILT_IN_PROVIDER_DRIVERS: readonly BuiltInProviderDriver[] = [
         argv: CLINE_ARGV,
         profileGeneration: true,
         env: { ...CLINE_ENV },
+        additionalModels: clineFreeModels(),
         signInMessage: sourceText("error.provider.clineSignIn"),
         servesModel: context.servesModel,
       }),

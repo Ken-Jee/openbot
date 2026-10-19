@@ -1,13 +1,14 @@
-import type {
-  AgentModelId,
-  AgentProviderId,
-  AgentStatus,
-  AppSetupState,
-  CustomProviderRestart,
-  CustomProviderSummary,
-  ProviderApiKeyStatus,
-  ProviderRuntimeStatus,
-  SaveCustomProviderInput,
+import {
+  type AgentModelId,
+  type AgentProviderId,
+  type AgentStatus,
+  type AppSetupState,
+  agentProviderName,
+  type CustomProviderRestart,
+  type CustomProviderSummary,
+  type ProviderApiKeyStatus,
+  type ProviderRuntimeStatus,
+  type SaveCustomProviderInput,
 } from "@openbot/contracts/ipc";
 import { Text } from "@openbot/ui";
 import { ProviderPicker } from "@openbot/ui/components/ProviderPicker";
@@ -99,6 +100,7 @@ function ProviderSettingsSection(props: ProviderSettingsSectionProps) {
     pending: { provider: AgentProviderId; custom: boolean } | null;
     error: string;
   }>({ pending: null, error: "" });
+  const [downloadError, setDownloadError] = createSignal("");
   const defaultCustomModel = () => {
     const choice = props.defaultProvider;
     return choice ? savedCustomModel(choice.preferredProvider, choice.preferredModel, customProviders()) : null;
@@ -135,6 +137,19 @@ function ProviderSettingsSection(props: ProviderSettingsSectionProps) {
       setSaving((state) => {
         state.pending = null;
       });
+    }
+  }
+  /** A first download that fails rejects with no notification of its own, so its reason is shown here. */
+  async function downloadProvider(provider: AgentProviderId): Promise<void> {
+    const download = props.onDownloadProvider;
+    if (!download) return;
+    setDownloadError("");
+    try {
+      await download(provider);
+    } catch (error) {
+      setDownloadError(
+        i18n.errorMessage(error, i18n.t("onboarding.error.download", { provider: agentProviderName(provider) })),
+      );
     }
   }
   async function selectSavedEndpoint(value: SaveCustomProviderInput): Promise<void> {
@@ -197,7 +212,7 @@ function ProviderSettingsSection(props: ProviderSettingsSectionProps) {
           props.defaultProvider ? (saving.pending?.custom ?? Boolean(defaultCustomModel())) : customSelected()
         }
         onChange={(provider) => void selectProvider(provider)}
-        onDownloadProvider={props.onDownloadProvider}
+        onDownloadProvider={props.onDownloadProvider ? downloadProvider : undefined}
         onCancelProviderDownload={props.onCancelProviderDownload}
         onUpdateProvider={props.onUpdateProvider}
         onRestartProvider={props.onRestartProvider}
@@ -234,6 +249,9 @@ function ProviderSettingsSection(props: ProviderSettingsSectionProps) {
       />
       <Show when={!host.state.manageOpen && saving.error}>
         <Text role="alert">{saving.error}</Text>
+      </Show>
+      <Show when={!host.state.manageOpen && downloadError()}>
+        <Text role="alert">{downloadError()}</Text>
       </Show>
       {/* The outcome is shown where the user is looking. While the list is open the section behind
         it is hidden from assistive technology, so a status left here could not be read. */}

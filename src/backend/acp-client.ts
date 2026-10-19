@@ -246,6 +246,8 @@ export interface AcpProviderOptions {
    * session starts.
    */
   discoveryCwd?: () => string;
+  /** Models the agent runs but does not list, added after its own (`AcpModel.unlisted`). */
+  additionalModels?: () => Effect.Effect<AcpModel[]>;
   /**
    * Values to mask in every diagnostic and error this client emits, read at each use: the custom
    * agent's environment values, which have no secret name that `redactText` could know them by.
@@ -742,7 +744,7 @@ export class AcpAgentClient extends EventEmitter<ClientEvents> {
         yield* this.#ensureInitializedEffect();
         if (this.#signedIn) {
           try {
-            this.#models = providerResult(yield* Effect.result(this.#configuration.discoverModels(timeoutMs)));
+            this.#models = providerResult(yield* Effect.result(this.#discoverModels(timeoutMs)));
           } catch (error) {
             // Initialization already proved that OpenCode's catalogue works. A later refresh can
             // time out while probing model options; keep the last successful list instead of making
@@ -910,6 +912,21 @@ export class AcpAgentClient extends EventEmitter<ClientEvents> {
     }
   });
 
+  /** The agent's own models, then the additional ones it does not list itself. */
+  readonly #discoverModels = Effect.fn("AcpAgentClient.discoverModels")(function* (
+    this: AcpAgentClient,
+    timeoutMs?: number,
+  ): Effect.fn.Return<AcpModel[], ProviderClientOperationError> {
+    const [listed, additional] = yield* Effect.all(
+      [this.#configuration.discoverModels(timeoutMs), this.options.additionalModels?.() ?? Effect.succeed([])],
+      { concurrency: "unbounded" },
+    );
+    // An agent that lists no model still reports that: the additional models must not hide it.
+    if (listed.length === 0) return listed;
+    const ids = new Set(listed.map((model) => model.id));
+    return [...listed, ...additional.filter((model) => !ids.has(model.id))];
+  });
+
   readonly #initialize = Effect.fn("AcpAgentClient.initialize")(function* (
     this: AcpAgentClient,
     timeoutMs: number,
@@ -943,7 +960,7 @@ export class AcpAgentClient extends EventEmitter<ClientEvents> {
     try {
       providerResult(yield* Effect.result(this.options.authenticate?.(connection, initialization) ?? Effect.void));
       const discovery = yield* Effect.raceFirst(
-        Effect.result(this.#configuration.discoverModels(timeoutMs)),
+        Effect.result(this.#discoverModels(timeoutMs)),
         Deferred.await(signInPrompt).pipe(Effect.as(null)),
       );
       if (!discovery) {

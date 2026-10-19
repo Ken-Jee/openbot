@@ -60,12 +60,19 @@ export interface AcpModel {
   reasoningEffortConfigurable: boolean;
   reasoningEffortWireValues: Map<string, string>;
   usesModelReasoningEffort: boolean | null;
+  /**
+   * A model that OpenBot adds and the agent does not list. The agent takes it as the value of its
+   * `model` option after each option in `config` has the value given there.
+   */
+  unlisted?: { config: Readonly<Record<string, string>> };
 }
 
 export interface AcpConfigurationState {
   id: string;
   configOptions: SessionConfigOption[];
   currentModelId: string | null;
+  /** The session's own values of the options that an unlisted model changed, set back for a listed one. */
+  unlistedOverrides?: Map<string, string>;
 }
 export interface AcpConfigurationOptions {
   connection(): ClientSideConnection;
@@ -261,10 +268,30 @@ export class AcpConfiguration {
           continue;
         }
       }
-      const option = thread.configOptions.find(
+      const unlisted = category === "model" ? models.find((candidate) => candidate.id === value)?.unlisted : undefined;
+      // A listed model after an unlisted one runs with the options the session had before: Cline's
+      // `provider` goes back to the one whose models the session listed.
+      if (category === "model" && !unlisted && thread.unlistedOverrides) {
+        for (const [configId, original] of thread.unlistedOverrides) {
+          const response = yield* providerCall(() =>
+            this.options.connection().setSessionConfigOption({ sessionId: thread.id, configId, value: original }),
+          );
+          thread.configOptions = response.configOptions;
+        }
+        delete thread.unlistedOverrides;
+      }
+      const options = thread.configOptions.filter(
         (candidate): candidate is Extract<SessionConfigOption, { type: "select" }> =>
           candidate.category === category && candidate.type === "select",
       );
+      // Cline puts a provider option of the model category before its model option. The first option
+      // of the category did not list the model, and the model was never sent. A model OpenBot added
+      // goes to the agent's `model` option, which takes a value it did not list.
+      const option =
+        (category === "model" &&
+          options.find((candidate) => selectValues(candidate).some((entry) => entry.value === value))) ||
+        (unlisted && options.find((candidate) => candidate.id === "model")) ||
+        options[0];
       if (!option) {
         if (category === "model" && thread.currentModelId !== value) {
           yield* providerCall(() =>
@@ -282,17 +309,28 @@ export class AcpConfiguration {
       const values = selectValues(option);
       const wanted =
         category === "thought_level" ? reasoningEffortWireValues(values.map((entry) => entry.value)).get(value) : value;
-      const selected = values.find((candidate) => candidate.value === wanted);
+      const listed = values.some((candidate) => candidate.value === wanted);
+      const selected = listed ? wanted : unlisted && option.id === "model" ? value : undefined;
       if (!selected) continue;
+      for (const [configId, configValue] of listed ? [] : Object.entries(unlisted?.config ?? {})) {
+        const required = thread.configOptions.find((candidate) => candidate.id === configId);
+        if (required?.type !== "select" || required.currentValue === configValue) continue;
+        thread.unlistedOverrides ??= new Map();
+        if (!thread.unlistedOverrides.has(configId)) thread.unlistedOverrides.set(configId, required.currentValue);
+        const response = yield* providerCall(() =>
+          this.options.connection().setSessionConfigOption({ sessionId: thread.id, configId, value: configValue }),
+        );
+        thread.configOptions = response.configOptions;
+      }
       const response = yield* providerCall(() =>
         this.options.connection().setSessionConfigOption({
           sessionId: thread.id,
           configId: option.id,
-          value: selected.value,
+          value: selected,
         }),
       );
       thread.configOptions = response.configOptions;
-      if (category === "model") thread.currentModelId = selected.value;
+      if (category === "model") thread.currentModelId = selected;
     }
   });
 

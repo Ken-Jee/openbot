@@ -407,6 +407,10 @@ function attachQuitOnMainWindowClose(window: BrowserWindow): void {
  * `prepareForShutdown`, which awaits network teardown the deadline has no room for. They are
  * registered when the first window is built, long before any service exists, which is why every
  * read below goes through `services?.`.
+ *
+ * Another app can cancel a session end after the query, and OpenBot then keeps running. Provider
+ * runtimes stop only on `session-end`: a stopped manager does not start again, so stopping it on the
+ * query left every later Download failing with "OpenBot is closing." (#2518).
  */
 function attachWindowsSessionEndHandlers(window: BrowserWindow): void {
   if (process.platform !== "win32") return;
@@ -422,10 +426,6 @@ function attachWindowsSessionEndHandlers(window: BrowserWindow): void {
     if (services)
       void runCauseEffect(services.browser.flushPersistentStorage()).catch((error) =>
         logger.error("Unable to flush browser storage before Windows session end:", toLogValue(error)),
-      );
-    if (services)
-      void Effect.runPromise(services.providerRuntimes.stop()).catch((error) =>
-        logger.warn("Provider runtimes did not stop.", toLogValue(error)),
       );
   });
   window.on("session-end", () => {
