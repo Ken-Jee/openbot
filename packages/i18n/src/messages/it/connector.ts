@@ -151,7 +151,6 @@ export const messages = {
     one: "Puoi connettere al massimo {count} workspace.",
     other: "Puoi connettere al massimo {count} workspace.",
   },
-  "connector.slack.orchestratorTitleFor": "Orchestrator di {workspace}",
   "connector.slack.summaryMany": {
     one: "{count} workspace · Lo Slack Orchestrator risponde",
     other: "{count} workspace · Gli Slack Orchestrator rispondono",
@@ -228,7 +227,6 @@ export const messages = {
     one: "Puoi connettere al massimo {count} server Discord.",
     other: "Puoi connettere al massimo {count} server Discord.",
   },
-  "connector.discord.orchestratorTitleFor": "Orchestrator di {workspace}",
   "connector.discord.summaryMany": {
     one: "{count} server Discord · Il Discord Orchestrator risponde",
     other: "{count} server Discord · I Discord Orchestrator rispondono",

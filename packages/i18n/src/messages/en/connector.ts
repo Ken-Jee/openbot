@@ -170,7 +170,6 @@ export const messages = defineMessages("connector", {
     other: "You can connect a maximum of {count} workspaces.",
   },
   // {workspace} is the Slack workspace name. The title of each workspace's orchestrator when there are two or more.
-  "connector.slack.orchestratorTitleFor": "Orchestrator of {workspace}",
   // {count} is the number of Slack workspaces: two or more.
   "connector.slack.summaryMany": {
     one: "{count} workspace · Slack Orchestrator answers",
@@ -253,7 +252,6 @@ export const messages = defineMessages("connector", {
     other: "You can connect a maximum of {count} Discord servers.",
   },
   // {workspace} is the Discord server name. The title of each server's orchestrator when there are two or more.
-  "connector.discord.orchestratorTitleFor": "Orchestrator of {workspace}",
   // {count} is the number of Discord servers: two or more.
   "connector.discord.summaryMany": {
     one: "{count} Discord server · Discord Orchestrator answers",

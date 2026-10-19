@@ -70,7 +70,6 @@ const ROLES: MessagingRole[] = [
 const SECOND_GUILD: Partial<MessagingConnection> = {
   workspaceId: "100000000000000003",
   workspaceName: "Acme Support",
-  orchestratorAgentId: SECOND_ORCHESTRATOR.id,
 };
 
 const args = (connections: MessagingConnection[], busy = false) => ({
@@ -110,10 +109,20 @@ export const Removed: Story = { args: args([guild({ state: "invalid_token" })]) 
 
 export const RelayUnavailable: Story = { args: args([guild({ state: "relay_unavailable" })]) };
 
-/** Two Discord servers, each with its own Discord Orchestrator. Add server connects a third. */
+/** Two Discord servers. One orchestrator answers both, and Add connects another. */
 export const TwoServers: Story = { args: args([guild(), guild(SECOND_GUILD)]) };
 
-/** The second Discord server has no orchestrator yet: the header adds it. */
+/** An earlier build gave each Discord server its own orchestrator. The page shows both, and keeps them. */
+export const EarlierBuildTwoOrchestrators: Story = {
+  args: args([guild(), guild({ ...SECOND_GUILD, orchestratorAgentId: SECOND_ORCHESTRATOR.id })]),
+};
+
+/** Two Discord servers, each with its own role list. */
+export const TwoServersAccess: Story = {
+  args: { ...args([guild(), guild(SECOND_GUILD)]), access: access(ROLES.slice(0, 1)) },
+};
+
+/** The second Discord server has no orchestrator yet: the header gives it the one that exists. */
 export const SecondServerNoOrchestrator: Story = {
   args: args([guild(), guild({ ...SECOND_GUILD, orchestratorAgentId: null })]),
 };

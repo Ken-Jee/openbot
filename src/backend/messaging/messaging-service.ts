@@ -391,8 +391,12 @@ export class MessagingService {
     input: AddMessagingOrchestratorInput,
   ) {
     const record = yield* messagingStep(() => this.#requireConnection(platform, input.workspaceId));
-    const current = this.#agents.listAgents().find((agent) => agent.id === record.orchestratorAgentId);
-    if (current) return { agentId: current.id, sectionId: null };
+    // One orchestrator answers every workspace of the platform, as for Telegram.
+    const current = this.#orchestrator(record) ?? this.#platformOrchestrator(platform);
+    if (current) {
+      this.#shareOrchestrator(platform, current);
+      return { agentId: current, sectionId: null };
+    }
     const discord = platform === "discord";
     const agent = yield* this.#agents
       .createAgentProfile({
@@ -403,11 +407,9 @@ export class MessagingService {
         ...(input.reasoningEffort ? { reasoningEffort: input.reasoningEffort } : {}),
       })
       .pipe(toMessagingOperationFailed);
-    const memories = discord
-      ? discordOrchestratorMemories(record.workspaceName)
-      : slackOrchestratorMemories(record.workspaceName);
+    const memories = discord ? discordOrchestratorMemories() : slackOrchestratorMemories();
     for (const text of memories) this.#agents.createMemory({ agentId: agent.id, text });
-    this.#threads.store.updateConnection(record.connectionId, { orchestratorAgentId: agent.id });
+    this.#shareOrchestrator(platform, agent.id);
     // A sidebar it cannot reach leaves the agent where new agents go; the orchestrator still answers.
     const sectionId = yield* this.#placeInIntegrations(agent.id).pipe(
       Effect.catch((failure) => {
@@ -521,6 +523,8 @@ export class MessagingService {
       botUserId: opened.botUserId,
       appId: opened.appId,
       lastErrorCode: null,
+      // A workspace connected later is answered by the Slack Orchestrator that exists.
+      orchestratorAgentId: this.#orchestrator(record) ?? this.#platformOrchestrator("slack"),
     });
     const updated = this.#threads.store.connection(record.connectionId);
     if (updated) yield* this.#startConnection(updated);
@@ -639,6 +643,8 @@ export class MessagingService {
       workspaceName: opened.guildName,
       appId: opened.appId,
       lastErrorCode: null,
+      // A server connected later is answered by the Discord Orchestrator that exists.
+      orchestratorAgentId: this.#orchestrator(record) ?? this.#platformOrchestrator("discord"),
     });
     const updated = this.#threads.store.connection(record.connectionId);
     if (updated) yield* this.#startConnection(updated);
@@ -705,7 +711,7 @@ export class MessagingService {
       return yield* new MessagingOperationFailed({
         cause: new Error(sourceText("error.messaging.telegramNotConnected")),
       });
-    const current = this.#telegramOrchestrator();
+    const current = this.#platformOrchestrator("telegram");
     if (current) {
       this.#assignTelegramOrchestrator(current);
       return { agentId: current, sectionId: null };
@@ -914,7 +920,7 @@ export class MessagingService {
       botUserId: botId,
       appId: botId,
       lastErrorCode: null,
-      orchestratorAgentId: this.#orchestrator(record) ?? this.#telegramOrchestrator(),
+      orchestratorAgentId: this.#orchestrator(record) ?? this.#platformOrchestrator("telegram"),
     });
     const updated = this.#threads.store.connection(record.connectionId);
     if (updated) yield* this.#startConnection(updated);
@@ -930,13 +936,24 @@ export class MessagingService {
         .pipe(Effect.catch((failure) => Effect.sync(() => this.#warn(failure.cause))));
   }, Effect.uninterruptible);
 
-  /** The Telegram Orchestrator: one agent for every Telegram chat, or null until the user adds it. */
-  #telegramOrchestrator(): string | null {
+  /**
+   * The orchestrator of a platform: one agent for every Slack workspace, every Discord server, or every
+   * Telegram chat, or null until the user adds it. An earlier build gave each Slack workspace and
+   * Discord server its own; the first one that still exists answers the places added later.
+   */
+  #platformOrchestrator(platform: MessagingPlatform): string | null {
     const agents = new Set(this.#agents.listAgents().map((agent) => agent.id));
     for (const record of this.#threads.store.connections())
-      if (record.platform === "telegram" && record.orchestratorAgentId && agents.has(record.orchestratorAgentId))
+      if (record.platform === platform && record.orchestratorAgentId && agents.has(record.orchestratorAgentId))
         return record.orchestratorAgentId;
     return null;
+  }
+
+  /** Gives the orchestrator to each place of the platform that has none, and keeps the others' own. */
+  #shareOrchestrator(platform: MessagingPlatform, agentId: string): void {
+    for (const record of this.#threads.store.connections())
+      if (record.platform === platform && !this.#orchestrator(record))
+        this.#threads.store.updateConnection(record.connectionId, { orchestratorAgentId: agentId });
   }
 
   #assignTelegramOrchestrator(agentId: string): void {

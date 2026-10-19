@@ -156,7 +156,6 @@ export const messages = {
   "connector.slack.limitReached": {
     other: "接続できるワークスペースは最大 {count} 件です。",
   },
-  "connector.slack.orchestratorTitleFor": "{workspace} の Orchestrator",
   "connector.slack.summaryMany": {
     other: "ワークスペース {count} 件 · Slack Orchestrator が回答します",
   },
@@ -233,7 +232,6 @@ export const messages = {
   "connector.discord.limitReached": {
     other: "接続できる Discord サーバーは最大 {count} 件です。",
   },
-  "connector.discord.orchestratorTitleFor": "{workspace} の Orchestrator",
   "connector.discord.summaryMany": {
     other: "Discord サーバー {count} 件 · Discord Orchestrator が回答します",
   },

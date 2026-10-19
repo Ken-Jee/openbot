@@ -54,6 +54,7 @@ const KAMIL = "500000000000000003";
 const EVA = "500000000000000004";
 const OLA = "500000000000000005";
 const IGA = "500000000000000006";
+const ULA = "500000000000000007";
 
 interface Step {
   name: string;
@@ -111,9 +112,19 @@ const calls: DiscordRestRequest[] = [];
 const waiters: Array<{ match: (call: DiscordRestRequest) => boolean; resolve: () => void }> = [];
 let nextMessageId = 600000000000000000n;
 
+/** Fails after 15 seconds, so a call that never comes fails the check instead of holding it. */
 function waitForCall(match: (call: DiscordRestRequest) => boolean): Promise<void> {
   if (calls.some(match)) return Promise.resolve();
-  return new Promise((done) => waiters.push({ match, resolve: done }));
+  return new Promise((done, fail) => {
+    const timer = setTimeout(() => fail(new Error("The expected Discord call did not come.")), 15_000);
+    waiters.push({
+      match,
+      resolve: () => {
+        clearTimeout(timer);
+        done();
+      },
+    });
+  });
 }
 
 /** Discord's REST API for the calls this check makes. */
@@ -141,6 +152,7 @@ const rest = {
           [EVA]: "Eva",
           [OLA]: "Ola",
           [IGA]: "Iga",
+          [ULA]: "Ula",
         };
         const id = member[1] ?? "";
         return Effect.succeed({ nick: null, user: { id, username: names[id] ?? id } });
@@ -376,14 +388,20 @@ try {
   await boot(async (services) => {
     const { messaging } = services;
 
-    await step("two Discord servers connect, each with its own orchestrator", async () => {
+    await step("two Discord servers connect, and one Discord Orchestrator answers both", async () => {
       const overview = messaging.discordOverview().connections;
       assert.equal(overview.length, 2);
       assert.ok(overview.every((connection) => connection.state === "connected"));
       const one = await runCauseEffect(messaging.addOrchestrator("discord", { workspaceId: GUILD_ONE }));
+      // The new orchestrator goes to every Discord server that has none.
+      assert.ok(
+        messaging.discordOverview().connections.every((connection) => connection.orchestratorAgentId === one.agentId),
+        "The second Discord server did not get the orchestrator.",
+      );
       const two = await runCauseEffect(messaging.addOrchestrator("discord", { workspaceId: GUILD_TWO }));
-      assert.notEqual(one.agentId, two.agentId, "Both servers share one orchestrator.");
-      return { connections: overview.map((connection) => connection.workspaceId), agents: 2 };
+      assert.equal(two.agentId, one.agentId, "A second Discord Orchestrator was made.");
+      assert.equal(two.sectionId, null);
+      return { connections: overview.map((connection) => connection.workspaceId), orchestrators: 1 };
     });
 
     await step("with no role list, anyone's mention is queued", async () => {
@@ -581,8 +599,8 @@ try {
         id: everyone,
         guildId: GUILD_ONE,
         channelId: CHANNEL_ONE,
-        authorId: BOB,
-        authorName: "Bob",
+        authorId: ULA,
+        authorName: "Ula",
         roles: [],
         content: "now?",
       });

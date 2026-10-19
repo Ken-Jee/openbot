@@ -167,7 +167,6 @@ export const messages = {
     many: "Можно подключить не более {count} рабочих пространств.",
     other: "Можно подключить не более {count} рабочего пространства.",
   },
-  "connector.slack.orchestratorTitleFor": "Оркестратор: {workspace}",
   "connector.slack.summaryMany": {
     one: "{count} рабочее пространство · отвечает Оркестратор Slack",
     few: "{count} рабочих пространства · отвечают Оркестраторы Slack",
@@ -248,7 +247,6 @@ export const messages = {
     many: "Можно подключить не более {count} серверов Discord.",
     other: "Можно подключить не более {count} сервера Discord.",
   },
-  "connector.discord.orchestratorTitleFor": "Оркестратор: {workspace}",
   "connector.discord.summaryMany": {
     one: "{count} сервер Discord · отвечает Оркестратор Discord",
     few: "{count} сервера Discord · отвечают Оркестраторы Discord",

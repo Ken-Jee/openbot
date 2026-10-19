@@ -168,7 +168,6 @@ export const messages = {
     many: "Możesz połączyć maksymalnie {count} obszarów roboczych.",
     other: "Możesz połączyć maksymalnie {count} obszaru roboczego.",
   },
-  "connector.slack.orchestratorTitleFor": "Orchestrator dla {workspace}",
   "connector.slack.summaryMany": {
     one: "{count} obszar roboczy · odpowiada Slack Orchestrator",
     few: "{count} obszary robocze · odpowiada Slack Orchestrator",
@@ -251,7 +250,6 @@ export const messages = {
     many: "Możesz połączyć maksymalnie {count} serwerów Discord.",
     other: "Możesz połączyć maksymalnie {count} serwera Discord.",
   },
-  "connector.discord.orchestratorTitleFor": "Orchestrator dla {workspace}",
   "connector.discord.summaryMany": {
     one: "{count} serwer Discord · odpowiada Discord Orchestrator",
     few: "{count} serwery Discord · odpowiada Discord Orchestrator",

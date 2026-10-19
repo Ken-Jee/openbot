@@ -200,7 +200,6 @@ const SLACK_TEXT = {
   close: "connector.slack.close",
   addWorkspace: "connector.slack.addWorkspace",
   limitReached: "connector.slack.limitReached",
-  orchestratorTitleFor: "connector.slack.orchestratorTitleFor",
   summaryMany: "connector.slack.summaryMany",
 } as const satisfies Record<string, keyof AppMessages>;
 
@@ -260,7 +259,6 @@ const DISCORD_TEXT = {
   close: "connector.discord.close",
   addWorkspace: "connector.discord.addWorkspace",
   limitReached: "connector.discord.limitReached",
-  orchestratorTitleFor: "connector.discord.orchestratorTitleFor",
   summaryMany: "connector.discord.summaryMany",
 } as const satisfies Record<keyof typeof SLACK_TEXT, keyof AppMessages>;
 
@@ -354,10 +352,25 @@ export function SlackIntegrationPanel(props: SlackIntegrationPanelProps) {
         : props.connections.find((connection) => !current.before.has(connection.workspaceId));
     return found ?? null;
   };
-  /** A disconnect deletes the workspace's orchestrator. */
+  /** Each orchestrator once. An earlier build gave each workspace its own; now they share one. */
+  const orchestrators = () => [
+    ...new Map(
+      props.connections.flatMap((connection) => {
+        const agent = slackOrchestrator(connection, props.agents);
+        return agent ? [[agent.id, agent] as const] : [];
+      }),
+    ).values(),
+  ];
+  /** A disconnect deletes the orchestrator only when no other workspace uses it. */
   const disconnectDeletesOrchestrator = () => {
     const connection = disconnecting();
-    return connection !== null && slackOrchestrator(connection, props.agents) !== null;
+    const agent = connection ? slackOrchestrator(connection, props.agents) : null;
+    return (
+      agent !== null &&
+      !props.connections.some(
+        (other) => other.workspaceId !== connection?.workspaceId && other.orchestratorAgentId === agent.id,
+      )
+    );
   };
 
   return (
@@ -438,82 +451,77 @@ export function SlackIntegrationPanel(props: SlackIntegrationPanelProps) {
         </SettingsSection>
       </Show>
 
-      <For each={props.connections}>
-        {(connection) => (
-          <>
-            <SettingsSection
-              title={
-                props.connections.length > 1
-                  ? t(text().orchestratorTitleFor, { workspace: connection.workspaceName })
-                  : t(text().orchestratorTitle)
-              }
-              description={t(text().orchestratorDescription)}
-            >
-              <ItemGroup class="settings-modal-card">
-                <Show
-                  when={slackOrchestrator(connection, props.agents)}
-                  fallback={
-                    <Item class="settings-modal-row">
-                      <ItemMedia>
-                        <OrchestratorFace platform={props.platform} />
-                      </ItemMedia>
-                      <ItemContent>
-                        <ItemTitle>{t(text().orchestratorNone)}</ItemTitle>
-                        <ItemDescription>{t(text().orchestratorNoneDescription)}</ItemDescription>
-                      </ItemContent>
-                      <ItemActions>
-                        <Button
-                          type="button"
-                          size="sm"
-                          disabled={props.busy}
-                          onClick={() => setTarget({ kind: "existing", workspaceId: connection.workspaceId })}
-                        >
-                          {t(text().addAgent)}
-                        </Button>
-                      </ItemActions>
-                    </Item>
-                  }
-                >
-                  {(agent) => (
-                    <Item class="settings-modal-row">
-                      <ItemMedia>
-                        <span class="integrations-agent-face" data-size="md">
-                          <AgentAvatar agent={agent()} motion="idle" />
-                        </span>
-                      </ItemMedia>
-                      <ItemContent>
-                        <ItemTitle>{agent().name}</ItemTitle>
-                        <ItemDescription>{agent().title}</ItemDescription>
-                      </ItemContent>
-                    </Item>
-                  )}
-                </Show>
-              </ItemGroup>
-              <Text class="slack-integration-note" variant="caption" tone="muted">
-                {t(text().note)}
-              </Text>
-            </SettingsSection>
-            <Show when={access()}>
-              {(control) => (
-                <SettingsSection
-                  title={t("connector.discord.accessTitle")}
-                  description={t("connector.discord.accessDescription")}
-                >
-                  <ItemGroup class="settings-modal-card">
-                    <AccessRow
-                      connection={connection}
-                      access={control()}
-                      hostName={props.hostName}
-                      busy={props.busy}
-                      onChoose={() => setChoosingRoles(connection)}
-                    />
-                  </ItemGroup>
-                </SettingsSection>
+      {/* One orchestrator answers every workspace of the platform. */}
+      <Show when={props.connections.length > 0}>
+        <SettingsSection title={t(text().orchestratorTitle)} description={t(text().orchestratorDescription)}>
+          <ItemGroup class="settings-modal-card">
+            <For each={orchestrators()}>
+              {(agent) => (
+                <Item class="settings-modal-row">
+                  <ItemMedia>
+                    <span class="integrations-agent-face" data-size="md">
+                      <AgentAvatar agent={agent} motion="idle" />
+                    </span>
+                  </ItemMedia>
+                  <ItemContent>
+                    <ItemTitle>{agent.name}</ItemTitle>
+                    <ItemDescription>{agent.title}</ItemDescription>
+                  </ItemContent>
+                </Item>
+              )}
+            </For>
+            <Show when={orchestrators().length === 0 ? needsAgent() : null}>
+              {(connection) => (
+                <Item class="settings-modal-row">
+                  <ItemMedia>
+                    <OrchestratorFace platform={props.platform} />
+                  </ItemMedia>
+                  <ItemContent>
+                    <ItemTitle>{t(text().orchestratorNone)}</ItemTitle>
+                    <ItemDescription>{t(text().orchestratorNoneDescription)}</ItemDescription>
+                  </ItemContent>
+                  <ItemActions>
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={props.busy}
+                      onClick={() => setTarget({ kind: "existing", workspaceId: connection().workspaceId })}
+                    >
+                      {t(text().addAgent)}
+                    </Button>
+                  </ItemActions>
+                </Item>
               )}
             </Show>
-          </>
+          </ItemGroup>
+          <Text class="slack-integration-note" variant="caption" tone="muted">
+            {t(text().note)}
+          </Text>
+        </SettingsSection>
+      </Show>
+
+      <Show when={props.connections.length > 0 ? access() : undefined}>
+        {(control) => (
+          <SettingsSection
+            title={t("connector.discord.accessTitle")}
+            description={t("connector.discord.accessDescription")}
+          >
+            <ItemGroup class="settings-modal-card">
+              <For each={props.connections}>
+                {(connection) => (
+                  <AccessRow
+                    connection={connection}
+                    access={control()}
+                    hostName={props.hostName}
+                    busy={props.busy}
+                    onChoose={() => setChoosingRoles(connection)}
+                  />
+                )}
+              </For>
+            </ItemGroup>
+          </SettingsSection>
         )}
-      </For>
+      </Show>
 
       <SlackConnectDialog
         platform={props.platform}
@@ -641,8 +649,14 @@ function AccessRow(props: {
   const choose = () => t("connector.discord.accessChoose");
   return (
     <Item class="settings-modal-row">
+      <ItemMedia>
+        <LogoTile>
+          <MessagingMark platform="discord" />
+        </LogoTile>
+      </ItemMedia>
       <ItemContent>
-        <ItemTitle>{summary()}</ItemTitle>
+        <ItemTitle>{props.connection.workspaceName}</ItemTitle>
+        <ItemDescription>{summary()}</ItemDescription>
         <Switch>
           <Match when={props.access.unsupported}>
             <ItemDescription>{t("connector.discord.accessHostUpdate", { host: props.hostName ?? "" })}</ItemDescription>

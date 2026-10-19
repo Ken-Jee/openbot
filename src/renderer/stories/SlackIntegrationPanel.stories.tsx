@@ -62,7 +62,6 @@ const SECOND_ORCHESTRATOR: SlackIntegrationAgent = {
 const SECOND_WORKSPACE: Partial<MessagingConnection> = {
   workspaceId: "T0STORY2",
   workspaceName: "Acme Labs",
-  orchestratorAgentId: SECOND_ORCHESTRATOR.id,
 };
 
 const args = (connections: MessagingConnection[], busy = false) => ({
@@ -93,10 +92,15 @@ export const MissingPermissions: Story = {
   args: args([workspace({ state: "missing_scope", missingScopes: ["files:read"] })]),
 };
 
-/** Two workspaces, each with its own Slack Orchestrator. Add workspace connects a third. */
+/** Two workspaces. One orchestrator answers both, and Add connects another. */
 export const TwoServers: Story = { args: args([workspace(), workspace(SECOND_WORKSPACE)]) };
 
-/** The second workspace has no orchestrator yet: the header adds it. */
+/** An earlier build gave each workspace its own orchestrator. The page shows both, and keeps them. */
+export const EarlierBuildTwoOrchestrators: Story = {
+  args: args([workspace(), workspace({ ...SECOND_WORKSPACE, orchestratorAgentId: SECOND_ORCHESTRATOR.id })]),
+};
+
+/** The second workspace has no orchestrator yet: the header gives it the one that exists. */
 export const SecondServerNoOrchestrator: Story = {
   args: args([workspace(), workspace({ ...SECOND_WORKSPACE, orchestratorAgentId: null })]),
 };

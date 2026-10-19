@@ -21,14 +21,17 @@ service, which passes them to this computer.
    collapsed. You can rename it or change its model in agent settings.
 4. In Slack, mention @OpenBot in any public channel, or send it a direct message.
 
+To connect another workspace, select **Add workspace**. One Slack Orchestrator answers every
+workspace, so a workspace that you add later skips step 3.
+
 OpenBot joins every public channel of the workspace when it connects, and each public channel that is
 created later. Slack shows "joined #channel" in each one. A private channel needs an invitation:
 `/invite @OpenBot`.
 
 A workspace answers to one OpenBot server. Another account cannot connect a workspace that your
 server answers until you disconnect it. **Disconnect** revokes the token, removes it from this
-computer and unlinks the workspace. It also deletes the Slack Orchestrator with its conversations, and
-the **Integrations** section when no agent is left in it. While the orchestrator works on a turn,
+computer and unlinks the workspace. When it is the last workspace, it also deletes the Slack
+Orchestrator with its conversations, and the **Integrations** section when no agent is left in it. While the orchestrator works on a turn,
 Disconnect stops with an error and changes nothing: stop the agent first.
 
 Only the computer that runs the agents can connect Slack, because Slack returns to that computer's
@@ -74,12 +77,17 @@ for it.
    **Integrations** sidebar section, as the Slack Orchestrator does.
 4. In Discord, mention @OpenBot in a channel.
 
+To connect another Discord server, select **Add Discord server**. One Discord Orchestrator answers
+every Discord server, so a server that you add later skips step 3. **Who can use OpenBot** sets, for
+each Discord server, the roles whose members can mention OpenBot. With no role, everyone can.
+
 OpenBot sees each channel that its role can view. To keep OpenBot out of a channel, remove the view
 permission of its role there.
 
 A Discord server answers to one OpenBot server. Another account cannot connect a Discord server that
 your server answers until you disconnect it. **Disconnect** unlinks the Discord server and removes it
-from this computer. It also deletes the Discord Orchestrator with its conversations, as for Slack.
+from this computer. When it is the last Discord server, it also deletes the Discord Orchestrator with
+its conversations, as for Slack.
 OpenBot stays a member of the Discord server
 until a Discord admin removes it. When a Discord admin removes OpenBot, Signal unlinks the server, also
 when this computer is off, and the row says that the token is not accepted (for a computer that was

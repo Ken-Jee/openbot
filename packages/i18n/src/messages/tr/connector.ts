@@ -175,7 +175,6 @@ export const messages = {
     one: "En fazla {count} çalışma alanı bağlayabilirsiniz.",
     other: "En fazla {count} çalışma alanı bağlayabilirsiniz.",
   },
-  "connector.slack.orchestratorTitleFor": "{workspace} Düzenleyicisi",
   "connector.slack.summaryMany": {
     one: "{count} çalışma alanı · Slack Düzenleyicisi yanıtlıyor",
     other: "{count} çalışma alanı · Slack Düzenleyicileri yanıtlıyor",
@@ -257,7 +256,6 @@ export const messages = {
     one: "En fazla {count} Discord sunucusu bağlayabilirsiniz.",
     other: "En fazla {count} Discord sunucusu bağlayabilirsiniz.",
   },
-  "connector.discord.orchestratorTitleFor": "{workspace} Düzenleyicisi",
   "connector.discord.summaryMany": {
     one: "{count} Discord sunucusu · Discord Düzenleyicisi yanıtlıyor",
     other: "{count} Discord sunucusu · Discord Düzenleyicileri yanıtlıyor",
