@@ -177,7 +177,7 @@ export const messages = {
   },
   "connector.slack.summaryMany": {
     one: "{count} çalışma alanı · Slack Düzenleyicisi yanıtlıyor",
-    other: "{count} çalışma alanı · Slack Düzenleyicileri yanıtlıyor",
+    other: "{count} çalışma alanı · Slack Düzenleyicisi yanıtlıyor",
   },
 
   // Sunucu ayarları > Bağlayıcılar > Discord: bir Discord sunucusu tek OpenBot botunu ekler ve Discord
@@ -258,7 +258,7 @@ export const messages = {
   },
   "connector.discord.summaryMany": {
     one: "{count} Discord sunucusu · Discord Düzenleyicisi yanıtlıyor",
-    other: "{count} Discord sunucusu · Discord Düzenleyicileri yanıtlıyor",
+    other: "{count} Discord sunucusu · Discord Düzenleyicisi yanıtlıyor",
   },
   "connector.discord.accessTitle": "OpenBot'u kimler kullanabilir",
   "connector.discord.accessDescription":

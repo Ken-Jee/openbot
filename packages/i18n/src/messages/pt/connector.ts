@@ -153,7 +153,7 @@ export const messages = {
   },
   "connector.slack.summaryMany": {
     one: "{count} espaço de trabalho · O Orquestrador do Slack responde",
-    other: "{count} espaços de trabalho · Os Orquestradores do Slack respondem",
+    other: "{count} espaços de trabalho · O Orquestrador do Slack responde",
   },
   "connector.discord.title": "Discord",
   "connector.discord.description":
@@ -227,7 +227,7 @@ export const messages = {
   },
   "connector.discord.summaryMany": {
     one: "{count} servidor do Discord · O Orquestrador do Discord responde",
-    other: "{count} servidores do Discord · Os Orquestradores do Discord respondem",
+    other: "{count} servidores do Discord · O Orquestrador do Discord responde",
   },
   "connector.discord.accessTitle": "Quem pode usar o OpenBot",
   "connector.discord.accessDescription": "O OpenBot responde só a essas pessoas. Ele ignora menções de outras pessoas.",

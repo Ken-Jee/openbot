@@ -169,11 +169,10 @@ export const messages = defineMessages("connector", {
     one: "You can connect a maximum of {count} workspace.",
     other: "You can connect a maximum of {count} workspaces.",
   },
-  // {workspace} is the Slack workspace name. The title of each workspace's orchestrator when there are two or more.
   // {count} is the number of Slack workspaces: two or more.
   "connector.slack.summaryMany": {
     one: "{count} workspace · Slack Orchestrator answers",
-    other: "{count} workspaces · Slack Orchestrators answer",
+    other: "{count} workspaces · Slack Orchestrator answers",
   },
 
   // Server settings > Connectors > Discord: a Discord server (a guild) adds the one OpenBot bot, and
@@ -251,11 +250,10 @@ export const messages = defineMessages("connector", {
     one: "You can connect a maximum of {count} Discord server.",
     other: "You can connect a maximum of {count} Discord servers.",
   },
-  // {workspace} is the Discord server name. The title of each server's orchestrator when there are two or more.
   // {count} is the number of Discord servers: two or more.
   "connector.discord.summaryMany": {
     one: "{count} Discord server · Discord Orchestrator answers",
-    other: "{count} Discord servers · Discord Orchestrators answer",
+    other: "{count} Discord servers · Discord Orchestrator answers",
   },
   // Who can use OpenBot in one Discord server: the members with one of the chosen Discord roles.
   "connector.discord.accessTitle": "Who can use OpenBot",

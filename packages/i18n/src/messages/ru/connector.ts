@@ -169,9 +169,9 @@ export const messages = {
   },
   "connector.slack.summaryMany": {
     one: "{count} рабочее пространство · отвечает Оркестратор Slack",
-    few: "{count} рабочих пространства · отвечают Оркестраторы Slack",
-    many: "{count} рабочих пространств · отвечают Оркестраторы Slack",
-    other: "{count} рабочего пространства · отвечают Оркестраторы Slack",
+    few: "{count} рабочих пространства · отвечает Оркестратор Slack",
+    many: "{count} рабочих пространств · отвечает Оркестратор Slack",
+    other: "{count} рабочего пространства · отвечает Оркестратор Slack",
   },
 
   "connector.discord.title": "Discord",
@@ -249,9 +249,9 @@ export const messages = {
   },
   "connector.discord.summaryMany": {
     one: "{count} сервер Discord · отвечает Оркестратор Discord",
-    few: "{count} сервера Discord · отвечают Оркестраторы Discord",
-    many: "{count} серверов Discord · отвечают Оркестраторы Discord",
-    other: "{count} сервера Discord · отвечают Оркестраторы Discord",
+    few: "{count} сервера Discord · отвечает Оркестратор Discord",
+    many: "{count} серверов Discord · отвечает Оркестратор Discord",
+    other: "{count} сервера Discord · отвечает Оркестратор Discord",
   },
   "connector.discord.accessTitle": "Кто может использовать OpenBot",
   "connector.discord.accessDescription": "OpenBot отвечает только этим людям. Упоминания от других он игнорирует.",
