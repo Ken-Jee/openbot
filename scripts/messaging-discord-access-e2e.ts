@@ -10,8 +10,8 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { DISCORD_GATEWAY_INTENTS, DISCORD_MESSAGE_CONTENT_INTENT } from "@openbot/contracts/discord-app";
+import { isDiscordRoleList } from "@openbot/contracts/ipc";
 import { decodeDiscordApiError, decodeDiscordDelivery } from "@openbot/contracts/signal-protocol/discord-api";
-import type { GatewayDispatchPayload } from "discord-api-types/v10";
 import { Effect } from "effect";
 import { type DiscordRestRequest, DiscordTransportError, makeDiscordApi } from "../remote/api/src/discord-api";
 import { DiscordState } from "../remote/api/src/discord-events";
@@ -46,6 +46,7 @@ const CHANNEL_ONE = "110000000000000001";
 const CHANNEL_TWO = "110000000000000002";
 const MAINTAINERS = "400000000000000001";
 const MEMBERS = "400000000000000002";
+const LONG_ROLE = "400000000000000003";
 const ANA = "500000000000000001";
 const BOB = "500000000000000002";
 const KAMIL = "500000000000000003";
@@ -101,7 +102,7 @@ const browser: AgentBrowserHost = {
 };
 
 /** A Gateway event as Discord sends it. JSON, as on the wire. */
-function gateway(t: string, d: unknown): GatewayDispatchPayload {
+function gateway(t: string, d: unknown): Parameters<DiscordState["handle"]>[0] {
   return JSON.parse(JSON.stringify({ op: 0, s: 1, t, d }));
 }
 
@@ -150,6 +151,8 @@ const rest = {
           { id: MEMBERS, name: "Members", position: 1 },
           { id: MAINTAINERS, name: "Maintainers", position: 2 },
           { id: "400000000000000009", name: "OpenBot", position: 3, managed: true },
+          // 60 emoji: 60 characters for Discord, 120 UTF-16 units.
+          { id: LONG_ROLE, name: "🦊".repeat(60), position: 0 },
         ]);
       return Effect.fail(new DiscordTransportError({ status: 404 }));
     }),
@@ -403,8 +406,11 @@ try {
       assert.deepEqual(list.roles, [
         { id: MAINTAINERS, name: "Maintainers" },
         { id: MEMBERS, name: "Members" },
+        // Cut to the 100 UTF-16 units that IPC and the Team API allow, on a whole emoji.
+        { id: LONG_ROLE, name: "🦊".repeat(50) },
       ]);
-      return list;
+      assert.ok(isDiscordRoleList(list), "The role list does not pass the IPC decoder.");
+      return { roles: list.roles.length };
     });
 
     await step("an older Signal: the role list gives the unsupported text", async () => {

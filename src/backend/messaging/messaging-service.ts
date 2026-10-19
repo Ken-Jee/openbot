@@ -23,7 +23,7 @@ import type {
   SidebarLayoutSnapshot,
   SidebarSection,
 } from "@openbot/contracts/ipc";
-import { MESSAGING_CONNECTION_STATES } from "@openbot/contracts/ipc";
+import { MESSAGING_CONNECTION_STATES, MESSAGING_LIMITS } from "@openbot/contracts/ipc";
 import { isDynamicRecord, isOneOf, isString } from "@openbot/contracts/runtime-values";
 import { TELEGRAM_LINK_CODE_TTL_SECONDS } from "@openbot/contracts/signal-protocol/telegram-route";
 import { SLACK_ORCHESTRATOR_AVATAR } from "@openbot/contracts/slack-app";
@@ -575,7 +575,7 @@ export class MessagingService {
         cause: new Error(sourceText("error.messaging.discordRelayUnavailable")),
       });
     return {
-      roles: yield* roles.pipe(
+      roles: (yield* roles.pipe(
         Effect.mapError((failure) => {
           // An older Signal does not know the call.
           const code = failure.cause instanceof DiscordApiError ? failure.cause.code : null;
@@ -589,7 +589,7 @@ export class MessagingService {
             ),
           });
         }),
-      ),
+      )).map((role) => ({ id: role.id, name: roleName(role.name) })),
     };
   }).bind(this);
 
@@ -1858,6 +1858,16 @@ function refusal(failure: MessagingAdapterError): string {
       ? cause.code
       : "no_answer";
   return `The platform refused the call: ${code}. Check the connection and place ids with openbot.messaging_list_places.`;
+}
+
+/**
+ * Discord counts a role name's 100 characters by code point, and the IPC and Team limits count UTF-16
+ * units. A longer name is cut, without splitting a surrogate pair.
+ */
+function roleName(name: string): string {
+  if (name.length <= MESSAGING_LIMITS.roleName) return name;
+  const cut = name.slice(0, MESSAGING_LIMITS.roleName);
+  return /[\uD800-\uDBFF]$/u.test(cut) ? cut.slice(0, -1) : cut;
 }
 
 function token(): string {

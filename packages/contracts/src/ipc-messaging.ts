@@ -288,7 +288,7 @@ export function isDiscordRoleList(value: unknown): value is DiscordRoleList {
   return isDynamicRecord(value) && isRoleList(value.roles, MESSAGING_LIMITS.roles);
 }
 
-/** A new role list. Each role once; a name longer than the limit is cut, as Discord's own limit is 100. */
+/** A new role list, or null when it is too long, repeats a role, or has an invalid role. */
 export function parseDiscordAllowedRoles(value: unknown): MessagingRole[] | null {
   if (!isRoleList(value, MESSAGING_LIMITS.allowedRoles)) return null;
   const ids = new Set(value.map((role) => role.id));

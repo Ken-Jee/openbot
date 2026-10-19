@@ -68,7 +68,7 @@ export interface InboundMessage {
 }
 
 /** A replied-to message, given to the agent as context. Mentions are written as in `text`. */
-export interface InboundQuote {
+interface InboundQuote {
   authorName: string;
   text: string;
   mentionedUserIds: string[];
