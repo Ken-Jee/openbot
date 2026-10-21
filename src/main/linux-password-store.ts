@@ -19,7 +19,6 @@ const MAPPED_DESKTOPS: ReadonlySet<string> = new Set([
   "COSMIC",
 ]);
 const LIBSECRET_SESSIONS: ReadonlySet<string> = new Set(["deepin", "gnome", "mate", "xubuntu", "ukui"]);
-const PASSWORD_STORE_SWITCH = /^--?password-store(?:=|$)/u;
 
 function chromiumPicksBasic(env: NodeJS.ProcessEnv): boolean {
   for (const desktop of (env.XDG_CURRENT_DESKTOP ?? "").split(":").map((value) => value.trim())) {
@@ -37,9 +36,9 @@ function chromiumPicksBasic(env: NodeJS.ProcessEnv): boolean {
 }
 
 /** Selects the Secret Service where Chromium would use `basic`. A `--password-store` the user gives wins. */
-export function configureLinuxPasswordStore(env: NodeJS.ProcessEnv = process.env, argv = process.argv): boolean {
-  if (process.platform !== "linux" || argv.some((arg) => PASSWORD_STORE_SWITCH.test(arg))) return false;
-  if (!chromiumPicksBasic(env)) return false;
+export function configureLinuxPasswordStore(): boolean {
+  if (process.platform !== "linux" || app.commandLine.hasSwitch("password-store")) return false;
+  if (!chromiumPicksBasic(process.env)) return false;
   app.commandLine.appendSwitch("password-store", "gnome-libsecret");
   return true;
 }
