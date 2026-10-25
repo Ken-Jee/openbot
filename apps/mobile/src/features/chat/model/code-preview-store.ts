@@ -1,10 +1,16 @@
 import type { ChatPreviewKind } from "@openbot/contracts/chat-preview";
 
 export interface CodePreviewEntry {
-  /** A ```html or ```mermaid block from a reply, or a Markdown file from the chat. */
-  kind: ChatPreviewKind | "markdown";
+  /**
+   * A ```html or ```mermaid block from a reply, or a file from the chat: an HTML page, a Markdown
+   * file, a text file, a PDF or a spreadsheet. A PDF and a spreadsheet have no `source`; the
+   * screen reads their `file`.
+   */
+  kind: ChatPreviewKind | "markdown" | "text" | "pdf" | "spreadsheet";
   source: string;
   language?: string;
+  /** The source is the start of a longer file. */
+  truncated?: boolean;
   /** The file the source came from. The screen shows its name and can share it. */
   file?: { uri: string; name: string; mimeType: string };
 }

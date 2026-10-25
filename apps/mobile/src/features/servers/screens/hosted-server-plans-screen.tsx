@@ -345,6 +345,11 @@ function PlanRow({ plan, current }: { plan: HostedServerCatalogPlan; current: bo
             <Chip.Label>{t("mobile.server.hosted.currentPlan")}</Chip.Label>
           </Chip>
         ) : null}
+        {plan.soldOut && !current ? (
+          <Chip size="sm" variant="soft">
+            <Chip.Label>{t("mobile.server.hosted.soldOut")}</Chip.Label>
+          </Chip>
+        ) : null}
       </View>
       <Typography.Paragraph type="body-sm">{t(PLAN_TEXT[plan.id].summary)}</Typography.Paragraph>
     </SettingsRow>

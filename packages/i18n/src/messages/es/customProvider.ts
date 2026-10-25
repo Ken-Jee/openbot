@@ -156,6 +156,9 @@ export const messages = {
   "customProvider.acp.args": "Argumentos",
   "customProvider.acp.argsHint":
     "Separa los argumentos con espacios. Pon entre comillas los argumentos que contengan espacios.",
+  "customProvider.acp.usagePrompt": "Comando de uso",
+  "customProvider.acp.usagePromptHint":
+    "OpenBot lo envía como máximo cada 5 minutos y muestra la última respuesta. Usa un comando que el agente responda por sí mismo, como /usage.",
   "customProvider.acp.env": "Variables de entorno",
   "customProvider.acp.env.name": "Nombre de la variable {number}",
   "customProvider.acp.env.value": "Valor de la variable {number}",
@@ -187,6 +190,7 @@ export const messages = {
   "customProvider.acp.error.envDuplicate": "Este agente ya establece {name}.",
   "customProvider.acp.error.envValueRequired": "Introduce un valor para esta variable.",
   "customProvider.acp.error.envValueLength": "El valor debe tener menos de {max} caracteres.",
+  "customProvider.acp.error.usagePromptInvalid": "Usa una sola línea de {max} caracteres como máximo.",
   "customProvider.acp.error.agentIdPattern":
     "Usa letras minúsculas, números o guiones, empezando por una letra o un número. Usa como máximo 40 caracteres.",
   "customProvider.agents.title": "Agentes personalizados",

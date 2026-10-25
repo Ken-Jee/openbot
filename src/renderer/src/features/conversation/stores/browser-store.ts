@@ -1,11 +1,13 @@
 import type { BrowserControlSession, BrowserPreview, BrowserTab } from "@openbot/contracts/ipc";
 import { TEAM_BROWSER_NAVIGATION_CAPABILITY } from "@openbot/contracts/team-protocol/current";
+import { toast } from "@openbot/ui";
 import type { AgentProfile } from "@openbot/ui/data";
 import { browserAddressUrl } from "@openbot/ui/features/browser/browser-suggestions";
 import { currentText } from "@openbot/ui/text";
 import { createEffect, createMemo, createSignal, untrack } from "solid-js";
 import { desktopAnalytics } from "../../../analytics";
 import { serverSupportsCapability } from "../../servers/server-capabilities";
+import { conversationPort } from "../conversation-port";
 import { conversationRuntime } from "../conversation-runtime";
 import type { ConversationProps, ConversationTarget, RightPanelMode } from "../conversation-types";
 
@@ -20,6 +22,26 @@ export interface BrowserTakeoverResolutionState {
   preview: BrowserPreview | null;
   previewStatus: BrowserTakeoverPreviewState["status"];
   messageMarker: string | null;
+  signInBlocked?: { server: string; signingIn: boolean } | undefined;
+}
+
+/** A sign-in on this computer for a tab of a remote server's browser. Main keeps the session. */
+export interface LocalSignIn {
+  tabId: string;
+  url: string;
+  site: string;
+  windowOpen: boolean;
+  pending: boolean;
+  error?: string | undefined;
+}
+
+function webHost(url: string | undefined): string | null {
+  if (!url || !/^https?:\/\//iu.test(url)) return null;
+  try {
+    return new URL(url).hostname || null;
+  } catch {
+    return null;
+  }
 }
 
 function canonicalBrowserUrl(url: string): string {
@@ -32,7 +54,7 @@ function canonicalBrowserUrl(url: string): string {
 
 interface BrowserPanels {
   activeRightPanel: () => RightPanelMode;
-  setActiveRightPanel: (mode: RightPanelMode) => void;
+  setActiveRightPanel: (mode: RightPanelMode, agentId?: string) => void;
 }
 
 export interface BrowserStoreDeps {
@@ -111,12 +133,14 @@ export function createBrowserStore(deps: BrowserStoreDeps) {
       return shown;
     }
     const lastShown = agentId ? lastShownTabs.get(agentId) : undefined;
-    if (!lastShown) return tabs[0];
+    if (!lastShown) return tabs.find((tab) => tab.id === deps.props.browserTakeover?.tabId) ?? tabs[0];
     return tabs.find((tab) => tab.id === lastShown.id) ?? tabs[lastShown.index] ?? tabs[lastShown.index - 1] ?? tabs[0];
   });
   const browserTakeoverTab = createMemo(() => {
     const tabId = deps.props.browserTakeover?.tabId;
-    return tabId ? browserTabs().find((tab) => tab.id === tabId) : undefined;
+    // A channel has no agent of its own, so it finds the tab among all tabs. Main already checked that the
+    // agent of the request owns it.
+    return tabId ? allBrowserTabs().find((tab) => tab.id === tabId) : undefined;
   });
   const [browserTakeoverPreview, setBrowserTakeoverPreview] = createSignal<BrowserTakeoverPreviewState>({
     status: "idle",
@@ -190,6 +214,7 @@ export function createBrowserStore(deps: BrowserStoreDeps) {
       preview: browserTakeoverPreview().preview,
       previewStatus: browserTakeoverPreview().status,
       messageMarker: latestMessageMarker(),
+      signInBlocked: blockedTakeoverSignIn(),
     } satisfies BrowserTakeoverResolutionState;
     const completed = await deps.props.onRespondToBrowserTakeover(decision);
     if (completed && latestMessageMarker() === resolution.messageMarker) setBrowserTakeoverResolution(resolution);
@@ -215,8 +240,126 @@ export function createBrowserStore(deps: BrowserStoreDeps) {
   function openBrowserTakeoverTab() {
     const tab = browserTakeoverTab();
     if (!tab) return;
-    if (deps.props.activeBrowserTabId !== tab.id) activateBrowserTab(tab.id);
-    deps.panels.setActiveRightPanel("browser-expanded");
+    if (browserTabs().some((entry) => entry.id === tab.id)) {
+      if (deps.props.activeBrowserTabId !== tab.id) activateBrowserTab(tab.id);
+      deps.panels.setActiveRightPanel("browser-expanded");
+      return;
+    }
+    // In a channel, the page opens in the chat of the agent that owns the tab. That chat mounts a new store,
+    // so main shows the tab first.
+    const owner = browserTabOwner(tab);
+    if (!owner || !browserInteractionAvailable() || closingBrowserTabIds.has(tab.id)) return;
+    deps.props.onActivateBrowserTab(tab.id);
+    deps.panels.setActiveRightPanel("browser-expanded", owner.id);
+    deps.props.onSelectAgent(owner.id);
+  }
+
+  const [localSignIn, setLocalSignIn] = createSignal<LocalSignIn | null>(null);
+  /** Only the desktop app opens a window on this computer, and only for a web page of a remote server. */
+  const canSignInLocally = (tab: BrowserTab | undefined) =>
+    !deps.props.runtime &&
+    deps.props.server?.kind === "remote" &&
+    serverSupportsCapability(deps.props.server, "browser-sign-in") &&
+    webHost(tab?.url) !== null;
+
+  /** A channel opens the takeover page in the owner's chat and this store unmounts, so only the owner's chat signs in. */
+  const canSignInTakeoverLocally = () => {
+    const tab = browserTakeoverTab();
+    return tab !== undefined && browserTabs().some((entry) => entry.id === tab.id) && canSignInLocally(tab);
+  };
+
+  /** The agent found that the takeover page refused the sign-in from the server, and this computer can sign in. */
+  function blockedTakeoverSignIn() {
+    const tab = browserTakeoverTab();
+    if (deps.props.browserTakeover?.reason !== "sign-in-blocked" || !tab || !canSignInTakeoverLocally())
+      return undefined;
+    return { server: deps.props.server?.name ?? "", signingIn: localSignIn()?.tabId === tab.id };
+  }
+
+  function updateLocalSignIn(tabId: string, change: Partial<LocalSignIn>) {
+    setLocalSignIn((current) => (current?.tabId === tabId ? { ...current, ...change } : current));
+  }
+
+  /** The window opens on this computer, or comes to the front when it is open. */
+  function openLocalSignInWindow(tabId: string, url: string) {
+    updateLocalSignIn(tabId, { windowOpen: true, error: undefined });
+    waitForLocalSignIn(tabId, url);
+  }
+
+  /** The request ends when the person closes the window, or when the site in it looks signed in. */
+  function waitForLocalSignIn(tabId: string, url: string) {
+    conversationPort()
+      .browser.openLocalSignIn({ tabId, url })
+      .then(
+        ({ signedIn }) => {
+          if (!signedIn) updateLocalSignIn(tabId, { windowOpen: false });
+          else if (localSignIn()?.tabId === tabId) void finishLocalSignIn(true);
+        },
+        (error: unknown) =>
+          updateLocalSignIn(tabId, {
+            windowOpen: false,
+            error: currentText().errorMessage(error, currentText().t("browser.signIn.failed")),
+          }),
+      );
+  }
+
+  function startLocalSignIn(tabId: string) {
+    const tab = allBrowserTabs().find((entry) => entry.id === tabId);
+    const site = webHost(tab?.url);
+    if (!tab || !site) return;
+    setLocalSignIn({ tabId, url: tab.url, site, windowOpen: true, pending: false });
+    openLocalSignInWindow(tabId, tab.url);
+  }
+
+  /** The takeover card starts it: the page opens in the full view, where the dialog of the sign-in is. */
+  function signInTakeoverTabLocally() {
+    const tab = browserTakeoverTab();
+    if (!tab) return;
+    openBrowserTakeoverTab();
+    startLocalSignIn(tab.id);
+  }
+
+  /**
+   * Sends the sign-in to the server tab. Done sends it as it is. The window sends it with `check`
+   * when the site looks signed in: then the window stays open while the server tab shows a sign-in
+   * step, and the wait starts again.
+   */
+  async function finishLocalSignIn(check = false) {
+    const current = localSignIn();
+    if (!current || current.pending) return;
+    const { t, errorMessage } = currentText();
+    const server = deps.props.server?.name ?? "";
+    updateLocalSignIn(current.tabId, { pending: true, error: undefined });
+    try {
+      const result = await conversationPort().browser.finishLocalSignIn({ send: true, check });
+      if (!result?.signedIn) {
+        // Without a result main has no sign-in left, so the window must open again.
+        updateLocalSignIn(current.tabId, {
+          pending: false,
+          windowOpen: result !== null && (check || current.windowOpen),
+          error:
+            result && result.cookies > 0
+              ? t("browser.signIn.stillSignedOut", { site: current.site, server })
+              : t("browser.signIn.notFound", { site: current.site }),
+        });
+        if (result && check) waitForLocalSignIn(current.tabId, current.url);
+        return;
+      }
+      setLocalSignIn(null);
+      toast.success(t("browser.signIn.sent", { site: current.site, server }));
+      // The agent waits for the person on this tab. The host loaded the page again, so it can continue.
+      if (deps.props.browserTakeover?.tabId === current.tabId) void respondToBrowserTakeover("complete");
+    } catch (error) {
+      updateLocalSignIn(current.tabId, { pending: false, error: errorMessage(error, t("browser.signIn.failed")) });
+    }
+  }
+
+  function cancelLocalSignIn() {
+    if (!localSignIn()) return;
+    setLocalSignIn(null);
+    void conversationPort()
+      .browser.finishLocalSignIn({ send: false })
+      .catch(() => undefined);
   }
 
   const agentsByThreadId = createMemo(() => new Map(deps.props.agents.map((agent) => [agent.threadId, agent])));
@@ -500,6 +643,17 @@ export function createBrowserStore(deps: BrowserStoreDeps) {
     browserTakeoverResolution,
     respondToBrowserTakeover,
     openBrowserTakeoverTab,
+    localSignIn: {
+      state: localSignIn,
+      canStart: canSignInLocally,
+      start: startLocalSignIn,
+      canStartForTakeover: canSignInTakeoverLocally,
+      startForTakeover: signInTakeoverTabLocally,
+      blockedTakeover: blockedTakeoverSignIn,
+      reopen: openLocalSignInWindow,
+      finish: () => finishLocalSignIn(),
+      cancel: cancelLocalSignIn,
+    },
     activeBrowserControl,
     actingBrowserControl,
     browserControlAgent,

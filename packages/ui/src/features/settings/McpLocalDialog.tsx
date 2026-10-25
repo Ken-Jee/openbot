@@ -7,11 +7,11 @@
  * is not on yet, and the steps are what turns it on.
  */
 
+import type { McpLocalFlow } from "@openbot/contracts/mcp-connect-flows";
 import { Alert, AlertContent, AlertDescription, AlertIcon, Button, ExternalLink, Info, Text } from "@openbot/ui";
 import { createMemo, For, Show } from "solid-js";
 import { useText } from "../../text";
 import { createConnectRun, type McpConnectBaseProps, McpConnectShell } from "./McpConnectShell";
-import type { McpLocalFlow } from "./mcp-connect-auth";
 
 export interface McpLocalDialogProps extends McpConnectBaseProps {
   /** The steps that turn the server on, as the listing declares them. */

@@ -138,6 +138,7 @@ export function AppAccessGate() {
       </Show>
       <WhatsNewOverlay
         ready={
+          !platform.chatWindow &&
           !splashShown() &&
           !!auth.visibleSignedInAccount() &&
           (setup.setupState()?.completed === true || !scope.connection.hasContent)

@@ -87,7 +87,7 @@ function WebhookRoutineStory() {
   const mock = createMockOpenBot({ routines: { chief: [] } });
   window.openbot = mock.api;
   const owner = { kind: "agent", id: "chief" } as const;
-  const api = desktopEventRoutinesApi("story-server");
+  const api = desktopEventRoutinesApi("story-server", false, true);
   const seeded = api.saveRoutine({
     owner,
     name: "Deploy review",

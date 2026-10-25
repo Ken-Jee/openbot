@@ -5,6 +5,9 @@ export const messages = {
   "composer.queueEdit.body":
     "Вы редактируете сообщение в очереди. Сохраните или отмените правку, чтобы разрешить его выполнение.",
   "composer.queueEdit.cancel": "Отменить правку",
+  "composer.providerWait.offlineTitle": "Нет подключения к интернету",
+  "composer.providerWait.offline": "{provider} не сможет ответить, пока этот компьютер не подключится к сети.",
+  "composer.providerWait.silent": "Время без обновлений от {provider}: {duration}.",
   "composer.notice.dismiss": "Скрыть ошибку",
   "composer.signIn.title": "Нужен вход",
   "composer.signIn.body": "Войдите в {provider}, чтобы отправлять сообщения.",
@@ -73,6 +76,8 @@ export const messages = {
   "composer.upload.cancel": "Отменить загрузку",
   "composer.voice.progress": "Загрузка голосовой модели: {progress}%",
   "composer.voice.recording": "Запись голоса",
+  "composer.voice.limitSoon": "Запись остановится через {seconds} секунд.",
+  "composer.voice.limitReached": "Запись остановлена: достигнут лимит в 2 минуты. Сказанное уже в сообщении.",
   "composer.send.saveQueued": "Сохранить сообщение в очереди",
   "composer.send.voice": "Отправить голосовое сообщение",
   "composer.send.message": "Отправить сообщение",

@@ -174,6 +174,7 @@ const agentBrowser: AgentBrowserHost = {
   clearControls: () => {},
   endControl: () => {},
   close: () => Effect.void,
+  clearAgentSession: () => Effect.void,
 };
 /** Stored tokens are not read here: the local server has none. */
 const cipher = {
@@ -275,6 +276,7 @@ try {
   });
   const forwarders = createRendererForwarders({
     getMainWindow: () => mainWindow,
+    getChatWindows: () => [],
     getAgentService: () => agents ?? null,
     getHostService: () => null,
     getHostAnalytics: () => null,

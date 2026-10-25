@@ -8,6 +8,7 @@ import { QrScanner } from "@/features/auth/components/qr-scanner";
 import { useMobileSession } from "@/features/auth/context/mobile-session-context";
 import { rememberIncomingLink } from "@/features/links/model/incoming-links";
 import { StageBackButton } from "@/shared/components/bloub-stage/stage-back-button";
+import { headerTitleFont } from "@/shared/lib/app-font";
 import { useText } from "@/shared/lib/text";
 
 // An inner page of the add-server sheet, or of the plans sheet. The preview fills the whole sheet.
@@ -44,7 +45,7 @@ export function ScanInviteScreen({
           <Stack.Screen
             options={{
               headerTintColor: camera ? "white" : String(foreground),
-              headerTitleStyle: { color: camera ? "white" : String(foreground) },
+              headerTitleStyle: { ...headerTitleFont, color: camera ? "white" : String(foreground) },
             }}
           />
         ) : (

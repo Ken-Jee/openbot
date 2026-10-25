@@ -10,7 +10,7 @@
  */
 
 import type { McpServerConfig, McpTransport, SkillCategory } from "@openbot/contracts/ipc";
-import { isListingUrl, type McpAuth, mcpFlowFields } from "./mcp-connect-auth";
+import { isListingUrl, type McpAuth, mcpFlowFields } from "@openbot/contracts/mcp-connect-flows";
 
 /** One of the example questions a plugin listing opens with. */
 export interface MarketplacePluginPrompt {

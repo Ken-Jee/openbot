@@ -425,4 +425,17 @@ export const messages = {
   "connector.bitwarden.connected": "Подключено",
   "connector.bitwarden.disconnected": "Не подключено",
   "connector.bitwarden.actionFailed": "OpenBot не удалось изменить подключение к Bitwarden.",
+  "connector.bitwarden.descriptionHost": "Заполнять логины в браузере на {host} из Bitwarden или Vaultwarden.",
+  "connector.bitwarden.setupHost":
+    "{host} входит через свой Bitwarden CLI. В хранилище создайте папку с именем Shared with OpenBot и положите в неё только логины, которые могут использовать агенты. В веб-хранилище откройте Настройки › Безопасность › Ключи и посмотрите ключ API. Ниже введите адрес сервера, client_id, client_secret и мастер-пароль.",
+  "connector.bitwarden.scopeHost":
+    "Все агенты на {host} могут использовать подходящие логины из Shared with OpenBot. OpenBot использует точные HTTPS-источники. Он не использует элементы, которые запрашивают мастер-пароль, и элементы с собственным правилом сопоставления URI.",
+  "connector.bitwarden.sessionHost":
+    "{host} хранит ключ API и мастер-пароль в зашифрованном виде, чтобы снова разблокировать хранилище после перезапуска. Этот компьютер их не хранит. Отключение удаляет их с {host}. {host} должен подключаться к адресу сервера по HTTPS.",
+  "connector.bitwarden.serverUrl": "Адрес сервера",
+  "connector.bitwarden.clientId": "client_id ключа API",
+  "connector.bitwarden.clientSecret": "client_secret ключа API",
+  "connector.bitwarden.masterPassword": "Мастер-пароль",
+  "connector.bitwarden.connecting": "Подключение",
+  "connector.bitwarden.connectedServer": "Подключено к {server}.",
 } as const satisfies PartialTranslation<typeof source>;

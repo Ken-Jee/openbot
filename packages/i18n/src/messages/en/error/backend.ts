@@ -7,6 +7,9 @@ export const messages = defineMessages("error.backend", {
   "error.backend.webhookSettingsInvalid": "Check the webhook settings and try again.",
   "error.backend.webhookRouteUnavailable":
     "The public webhook route is not ready. Check the host connection and try again.",
+  "error.backend.webhookTestUnavailable":
+    "The host cannot take the test event now. Make sure it is signed in, then try again.",
+  "error.backend.webhookTestFailed": "The test event did not reach the routine. Try again.",
   // Errors that the backend services send: channels, messages, routines, memories, MCP, browser and remote desktop.
   "error.backend.browserViewRemoteOnly": "A live browser view is only for a remote host.",
   "error.backend.browserViewUnsupported": "This remote host does not support a live browser view.",
@@ -43,6 +46,9 @@ export const messages = defineMessages("error.backend", {
     "This remote host does not support address-bar navigation in an existing tab.",
   "error.backend.browserUserControlBusy": "This browser tab waits for a secret. Answer the secret request first.",
   "error.backend.browserUserControlUnsupported": "This remote host does not support taking control of a browser tab.",
+  "error.backend.browserSignInUnsupported": "This remote host cannot take a sign-in from this computer.",
+  "error.backend.browserSignInOpenFailed": "OpenBot could not open the sign-in window.",
+  "error.backend.browserSignInReadFailed": "OpenBot could not read the sign-in from the window.",
   "error.backend.browserStopUnsupported": "This remote host cannot stop a page load.",
   "error.backend.sharedDataLocalOnly": "Shared data is managed on the computer that runs these agents.",
   "error.backend.browserUrlProtocol": "Only HTTP(S) browser URLs are allowed.",
@@ -64,6 +70,9 @@ export const messages = defineMessages("error.backend", {
   "error.backend.channelRoutingTooLong":
     "This request exceeds the routing context limit. Select a member or send a shorter request.",
   "error.backend.channelTaskMemberRequired": "Choose a member for this task.",
+  "error.backend.channelRoutingFailed": "Routing failed. Choose a member or try again.",
+  "error.backend.channelLeadTimedOut": "The channel lead did not answer in time. Choose a member or try again.",
+  "error.backend.channelLeadFailed": "The channel lead could not route this message. Choose a member or try again.",
   "error.backend.channelRequestMemberRequired": "Choose a member for this request.",
   "error.backend.channelDeliveryNotCreated": "Channel delivery was not created.",
   "error.backend.channelAssignmentStopped": "This channel assignment has been stopped or replaced.",
@@ -251,13 +260,23 @@ export const messages = defineMessages("error.backend", {
   "error.backend.uiBlockAnswerInvalid": "This answer does not fit the agent's block.",
   "error.backend.uiBlockActionNotAllowed": "Only the server owner or an admin can choose this action.",
   "error.backend.approvalInactive": "This approval is no longer active.",
+  "error.backend.approvalOwnerOnly": "Only the server owner can approve this action.",
   "error.backend.takeoverInactive": "This browser takeover is no longer active.",
   "error.backend.authSubmitting": "Authentication submission is already in progress.",
+  "error.backend.apiKeySaveFailed": "OpenBot could not save the API key. Try again.",
+  "error.backend.apiKeyNotAllowed": "Only the server owner or an admin can enter an API key.",
+  "error.backend.apiKeySaving": "The API key is already being saved.",
   "error.backend.authRequestInactive": "This secure authentication request is no longer active.",
   "error.backend.secureAuthUnavailable": "Secure authentication is unavailable.",
   "error.backend.browserUrlRequired": "A browser URL is required.",
   "error.backend.browserUrlTooLong": "The browser URL is too long.",
   "error.backend.browserTabLimit": "The browser can have up to {limit} open tabs.",
+  "error.backend.browserProfileMissing":
+    "The browser profile of this agent no longer exists. Choose another profile in the agent settings.",
+  "error.backend.browserProfileNotFound": "This browser profile no longer exists.",
+  "error.backend.browserProfileNameTaken": "A browser profile with this name already exists.",
+  "error.backend.browserSessionInUse": "A tab still uses this browser session. Try again.",
+  "error.backend.browserProfileLimit": "You can have up to {limit} browser profiles.",
   "error.backend.browserLowMemory":
     "This server is low on memory, so the browser cannot open another tab. Close a tab, or wait for other agents to finish.",
   "error.backend.browserOpenFailed": "Unable to open {url}: {reason}",

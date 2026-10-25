@@ -71,7 +71,8 @@ export type FooterLink =
         | "/compare"
         | "/providers"
         | "/teams"
-        | "/contact";
+        | "/contact"
+        | "/privacy-policy";
       readonly hash?: string;
     }
   | {
@@ -99,7 +100,7 @@ export const FOOTER_COLUMNS: readonly FooterColumn[] = [
       { label: "Contact", external: false, to: "/contact" },
       { label: "Source code", external: true, href: OPENBOT_LINKS.repository },
       { label: "License", external: true, href: OPENBOT_LINKS.license },
-      { label: "Privacy", external: true, href: OPENBOT_LINKS.privacy },
+      { label: "Privacy policy", external: false, to: "/privacy-policy" },
     ],
   },
   {
@@ -133,6 +134,8 @@ export const FOOTER_COLUMNS: readonly FooterColumn[] = [
   {
     title: "Compare",
     links: [
+      { label: "OpenBot vs Paperclip", external: false, to: "/compare/$slug", slug: "paperclip" },
+      { label: "OpenBot vs Viktor", external: false, to: "/compare/$slug", slug: "viktor" },
       { label: "OpenBot vs Instinct", external: false, to: "/compare/$slug", slug: "instinct" },
       { label: "OpenBot vs ChatGPT dots", external: false, to: "/compare/$slug", slug: "chatgpt-dots" },
       { label: "OpenBot vs Grok Bot", external: false, to: "/compare/$slug", slug: "grok-bot" },

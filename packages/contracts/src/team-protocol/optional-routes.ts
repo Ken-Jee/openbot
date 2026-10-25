@@ -14,9 +14,13 @@ import { AGENT_MEMORIES_CODECS } from "./agent-memories-v1";
 import { AGENT_MEMORY_LIMIT_CODECS } from "./agent-memory-limit-v1";
 import { AGENT_PUBLISH_CODECS } from "./agent-publish-v1";
 import { AGENT_SESSION_SETTINGS_CODECS } from "./agent-session-settings-v1";
+import { AGENT_TASK_LIMIT_CODECS } from "./agent-task-limit-v1";
 import { AGENT_TASKS_CODECS } from "./agent-tasks-v1";
 import { AGENT_UPDATE_CODECS } from "./agent-update-v1";
+import { BITWARDEN_CONNECTOR_CODECS } from "./bitwarden-connector-v1";
 import { BROWSER_PAGE_STATE_CODECS } from "./browser-page-state-v1";
+import { BROWSER_PROFILES_CODECS } from "./browser-profiles-v1";
+import { BROWSER_SIGN_IN_CODECS } from "./browser-sign-in-v1";
 import { BROWSER_USER_CONTROL_CODECS } from "./browser-user-control-v1";
 import { CONNECTORS_CODECS } from "./connectors-v1";
 import { CONTEXT_RESET_CODECS } from "./context-reset-v1";
@@ -35,8 +39,11 @@ import { LIVE_ACTIVITY_PUSH_CODECS } from "./live-activity-push-v1";
 import { MCP_SIGN_IN_APP_CODECS } from "./mcp-sign-in-app-v1";
 import { MCP_SIGN_IN_CODECS } from "./mcp-sign-in-v1";
 import { ONEPASSWORD_CONNECTOR_CODECS } from "./onepassword-connector-v1";
+import { PROMPT_CACHE_TTL_CODECS } from "./prompt-cache-ttl-v1";
+import { PROVIDER_ACCOUNT_RELAY_CODECS } from "./provider-account-relay-v1";
 import { PROVIDER_ACCOUNTS_CODECS } from "./provider-accounts-v1";
 import { PROVIDER_HOST_SIGN_IN_CODECS } from "./provider-host-sign-in-v1";
+import { PROVIDER_USAGE_RESET_CODECS } from "./provider-usage-reset-v1";
 import { PROVIDERS_ADMIN_CODECS } from "./providers-v1";
 import { PROVIDERS_RUNTIMES_V2_CODECS } from "./providers-v2";
 import { PROVIDERS_SIGN_IN_V3_CODECS } from "./providers-v3";
@@ -52,6 +59,8 @@ import { SHARED_TABLES_CODECS } from "./shared-tables-v1";
 import { SIDE_QUESTION_CODECS } from "./side-question-v1";
 import { SIGN_IN_RELAY_CODECS } from "./sign-in-relay-v1";
 import { SKILLS_ADMIN_CODECS } from "./skills-admin-v1";
+import { STORAGE_DISK_CODECS } from "./storage-disk-v1";
+import { WEBHOOK_TESTS_CODECS } from "./webhook-tests-v1";
 import { WORKSPACE_DIRECTORY_CODECS } from "./workspace-directory-v1";
 
 export type { OptionalRouteCodec } from "./admin-wire";
@@ -75,6 +84,7 @@ const CODECS: ReadonlyMap<string, OptionalRouteCodec> = new Map([
   ...HOST_UPDATE_CODECS,
   ...HOST_TIMEZONE_CODECS,
   ...AGENT_MEMORY_LIMIT_CODECS,
+  ...PROMPT_CACHE_TTL_CODECS,
   ...DISCORD_ACCESS_CODECS,
   ...HOST_RELEASE_CODECS,
   ...HOST_MEMBER_UPDATE_CODECS,
@@ -90,6 +100,7 @@ const CODECS: ReadonlyMap<string, OptionalRouteCodec> = new Map([
   ...WORKSPACE_DIRECTORY_CODECS,
   ...AGENT_HOST_SETTINGS_CODECS,
   ...AGENT_BACKUP_MODELS_CODECS,
+  ...AGENT_TASK_LIMIT_CODECS,
   ...MCP_SIGN_IN_CODECS,
   ...PROVIDER_HOST_SIGN_IN_CODECS,
   ...MCP_SIGN_IN_APP_CODECS,
@@ -100,14 +111,21 @@ const CODECS: ReadonlyMap<string, OptionalRouteCodec> = new Map([
   ...ROUTINE_FLOWS_CODECS,
   ...ROUTINE_RECOVERY_CODECS,
   ...ROUTINE_RESULTS_CODECS,
+  ...WEBHOOK_TESTS_CODECS,
+  ...STORAGE_DISK_CODECS,
   ...PROVIDER_ACCOUNTS_CODECS,
+  ...PROVIDER_ACCOUNT_RELAY_CODECS,
+  ...PROVIDER_USAGE_RESET_CODECS,
   ...ONEPASSWORD_CONNECTOR_CODECS,
+  ...BITWARDEN_CONNECTOR_CODECS,
   ...AGENT_ACCESS_CODECS,
   ...AGENT_HIDDEN_CODECS,
   ...BROWSER_USER_CONTROL_CODECS,
   ...BROWSER_PAGE_STATE_CODECS,
+  ...BROWSER_SIGN_IN_CODECS,
   ...AGENT_TASKS_CODECS,
   ...SIDE_QUESTION_CODECS,
+  ...BROWSER_PROFILES_CODECS,
 ]);
 
 export function optionalRouteCodec(path: string): OptionalRouteCodec | undefined {

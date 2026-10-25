@@ -23,6 +23,18 @@ function isOpenCodeServiceFailure(error: unknown): boolean {
 }
 
 /**
+ * OpenCode 2.1.3's wrapper error for any failure that it has no ACP error for. Its data names only
+ * the JavaScript error class, so the user read the generic text with no provider name (#2850).
+ */
+function isOpenCodeInternalFailure(error: unknown): boolean {
+  return (
+    error instanceof RequestError &&
+    error.code === -32603 &&
+    error.message === "Internal error: Internal service failure"
+  );
+}
+
+/**
  * OpenCode 2.1.1 answers a turn whose model provider has no credentials with the protocol's
  * `-32000` and "provider authentication required", and no provider ID. A user with no key can pick
  * a paid or third-party model, and met that text with no next step (#2746). The model ID names the
@@ -117,7 +129,8 @@ export const OPENCODE_ACP_FLAVOR: AcpFlavor = {
       return sourceText("error.provider.opencodeCredentialsRejected", {
         detail: shownFailureDetail(detail.replace(/^RequestError:\s*Internal error:\s*/u, "")),
       });
-    if (isOpenCodeServiceFailure(error)) return sourceText("error.provider.opencodeServiceFailure");
+    if (isOpenCodeServiceFailure(error) || isOpenCodeInternalFailure(error))
+      return sourceText("error.provider.opencodeServiceFailure");
     return openCodeRequestFailure(error, detail, redact, log);
   },
   // OpenCode reports a model reply with no text, or with reasoning only, as a successful empty
@@ -134,4 +147,7 @@ export const OPENCODE_ACP_FLAVOR: AcpFlavor = {
   // while probing model options; keep the last successful list instead of making a connected
   // provider appear to have no models.
   keepModelsOnRefreshFailure: true,
+  // A long answer with no tool call otherwise shows nothing until the prompt ends, and the turn
+  // looks stuck (#2858).
+  streamAnswerBeforePromptReturns: true,
 };

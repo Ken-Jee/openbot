@@ -54,7 +54,6 @@ export const messages = {
   "billing.lifecycle.automatic": "Автоматическое продление возобновится",
   "billing.lifecycle.noRefund": "Неиспользованное время не возвращается",
   "billing.lifecycle.noRenewal": "Больше никаких продлений",
-  "billing.lifecycle.open": "Открыть предпросмотр дизайна",
   "billing.lifecycle.dateUtc": "{date} UTC",
   "billing.lifecycle.renews": "Автоматическое продление включено.",
   "billing.lifecycle.schedule": "Удалить в конце периода",

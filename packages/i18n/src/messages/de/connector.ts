@@ -408,4 +408,17 @@ export const messages = {
   "connector.bitwarden.connected": "Verbunden",
   "connector.bitwarden.disconnected": "Nicht verbunden",
   "connector.bitwarden.actionFailed": "OpenBot konnte die Bitwarden-Verbindung nicht ändern.",
+  "connector.bitwarden.descriptionHost": "Browser-Anmeldungen auf {host} aus Bitwarden oder Vaultwarden ausfüllen.",
+  "connector.bitwarden.setupHost":
+    "{host} meldet sich mit seiner eigenen Bitwarden CLI an. Erstelle in deinem Tresor einen Ordner mit dem Namen Shared with OpenBot und lege nur die Anmeldungen hinein, die Agenten verwenden dürfen. Öffne im Web-Tresor Einstellungen › Sicherheit › Schlüssel und zeige deinen API-Schlüssel an. Gib unten die Serveradresse, client_id, client_secret und dein Master-Passwort ein.",
+  "connector.bitwarden.scopeHost":
+    "Alle Agenten auf {host} können passende Anmeldungen in Shared with OpenBot verwenden. OpenBot verwendet exakte HTTPS-Ursprünge. Einträge mit Master-Passwort-Abfrage oder eigener URI-Erkennungsregel werden nicht verwendet.",
+  "connector.bitwarden.sessionHost":
+    "{host} speichert den API-Schlüssel und das Master-Passwort verschlüsselt, damit es nach einem Neustart wieder entsperren kann. Dieser Computer speichert sie nicht. Trennen entfernt sie von {host}. {host} muss die Serveradresse über HTTPS erreichen.",
+  "connector.bitwarden.serverUrl": "Serveradresse",
+  "connector.bitwarden.clientId": "API-Schlüssel client_id",
+  "connector.bitwarden.clientSecret": "API-Schlüssel client_secret",
+  "connector.bitwarden.masterPassword": "Master-Passwort",
+  "connector.bitwarden.connecting": "Verbinden",
+  "connector.bitwarden.connectedServer": "Verbunden mit {server}.",
 } as const satisfies PartialTranslation<typeof source>;

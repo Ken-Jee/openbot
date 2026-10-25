@@ -236,7 +236,6 @@ export const messages = {
   "mobile.agent.record.lateMonthDay": "Se omiten los meses sin el día {day}.",
   "mobile.agent.record.cronHint":
     "Cinco campos: minuto, hora, día del mes, mes y día de la semana. Por ejemplo, 0 9 * * 1-5 se ejecuta a las 9:00 los días laborables.",
-  "mobile.agent.record.problem.endBeforeStart": "La hora de fin debe ser posterior a la hora de inicio.",
   "mobile.agent.record.problem.invalidDate": "Este mes no tiene este día.",
   "mobile.agent.record.problem.cronRequired": "Introduce una expresión cron.",
   "mobile.agent.record.problem.cronTooLong": "La expresión cron es demasiado larga.",

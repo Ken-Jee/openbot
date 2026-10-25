@@ -169,6 +169,7 @@ const browser: AgentBrowserHost = {
   },
   endControl: () => {},
   close: () => Effect.void,
+  clearAgentSession: () => Effect.void,
 };
 
 /** The messages that OpenBot sent to the fake Codex. */

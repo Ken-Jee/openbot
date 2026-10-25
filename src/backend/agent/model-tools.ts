@@ -1,5 +1,18 @@
-import type { AgentModelOption, AgentReasoningEffort, AgentSummary, UpdateAgentInput } from "@openbot/contracts/ipc";
-import { AGENT_PROVIDERS, defaultProviderModel } from "@openbot/contracts/ipc";
+import type {
+  AgentBackupModels,
+  AgentModelChoice,
+  AgentModelOption,
+  AgentReasoningEffort,
+  AgentSummary,
+  ProviderAccountStatus,
+  UpdateAgentInput,
+} from "@openbot/contracts/ipc";
+import {
+  AGENT_PROVIDERS,
+  DEFAULT_PROVIDER_ACCOUNT_ID,
+  defaultProviderModel,
+  sameAgentModelChoice,
+} from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
 import type { AgentProvider } from "../agent-client";
 import { AgentSettingsRefused } from "./agent-settings-refused";
@@ -20,24 +33,31 @@ function providerDefault(provider: AgentProvider, models: AgentModelOption[]): A
   );
 }
 
+/** The accounts of a provider that can hold more than one, its own sign-in first; undefined for the others. */
+export type ProviderAccountRows = (provider: AgentProvider) => ProviderAccountStatus[] | undefined;
+
 interface ProviderModels {
   provider: AgentProvider;
   defaultModel: string;
   models: Pick<AgentModelOption, "id" | "name" | "defaultReasoningEffort" | "supportedReasoningEfforts">[];
+  accounts?: Pick<ProviderAccountStatus, "id" | "label" | "state">[];
 }
 
 /**
  * The `list_models` payload: each provider that lists a model, in `AGENT_PROVIDERS` order. It is the
- * list the model picker shows, so the same models `create_agent` accepts.
+ * list the model picker shows, so the same models `create_agent` accepts. An account has its id and
+ * the name the user gave it, never its email, its credentials or its folder.
  */
 export function listModelsPayload(
   models: AgentModelOption[],
   preferredProvider: AgentProvider,
+  accounts: ProviderAccountRows,
   provider?: AgentProvider,
 ): { preferredProvider: AgentProvider; providers: ProviderModels[] } {
   const providers = AGENT_PROVIDERS.filter((id) => provider === undefined || id === provider).flatMap((id) => {
     const fallback = providerDefault(id, models);
     if (!fallback) return [];
+    const rows = accounts(id);
     return [
       {
         provider: id,
@@ -50,10 +70,75 @@ export function listModelsPayload(
             defaultReasoningEffort: model.defaultReasoningEffort,
             supportedReasoningEfforts: model.supportedReasoningEfforts,
           })),
+        ...(rows
+          ? {
+              accounts: rows.map((account) => ({
+                id: account.id,
+                label: account.label,
+                state: account.state,
+              })),
+            }
+          : {}),
       },
     ];
   });
   return { preferredProvider, providers };
+}
+
+/** The account and backup models of an agent as `read_agent` and `update_profile` report them. */
+export function agentAccountSetup(agent: AgentSummary) {
+  const choice = (model: AgentModelChoice) => ({
+    provider: model.provider,
+    model: model.model,
+    providerAccountId: model.providerAccountId ?? DEFAULT_PROVIDER_ACCOUNT_ID,
+  });
+  return {
+    providerAccountId: agent.providerAccountId ?? DEFAULT_PROVIDER_ACCOUNT_ID,
+    backupModels: agent.backupModels
+      ? { automatic: agent.backupModels.automatic, order: agent.backupModels.order.map(choice) }
+      : null,
+    // Set while a usage limit or a provider error keeps the agent on a backup model: the model it goes back to.
+    usageLimitReturn: agent.usageLimitReturn
+      ? {
+          ...choice(agent.usageLimitReturn),
+          reasoningEffort: agent.usageLimitReturn.reasoningEffort,
+          ...(agent.usageLimitReturn.cause === "provider-error" ? { cause: "provider-error" } : {}),
+        }
+      : null,
+  };
+}
+
+/**
+ * The backup models that an `update_profile` request names, checked against the models and accounts
+ * of this computer, the ones the settings page offers. As the settings page writes it, the stored
+ * order omits the provider's own sign-in and the agent's own model, has each choice once, and an
+ * order that asks first with no model is null.
+ */
+export function requestedBackupModels(
+  request: AgentBackupModels | null,
+  models: AgentModelOption[],
+  accounts: ProviderAccountRows,
+  own: AgentModelChoice,
+): AgentBackupModels | null {
+  if (request === null) return null;
+  const order: AgentModelChoice[] = [];
+  for (const { provider, model, providerAccountId } of request.order) {
+    requestedToolModel({ provider, model }, models);
+    const accountId = providerAccountId ?? DEFAULT_PROVIDER_ACCOUNT_ID;
+    const rows = accounts(provider);
+    if (rows ? !rows.some((account) => account.id === accountId) : accountId !== DEFAULT_PROVIDER_ACCOUNT_ID) {
+      throw new AgentSettingsRefused(
+        sourceText("error.provider.accountNotFound", { provider: providerLabel(provider) }),
+      );
+    }
+    const choice: AgentModelChoice = {
+      provider,
+      model,
+      ...(accountId === DEFAULT_PROVIDER_ACCOUNT_ID ? {} : { providerAccountId: accountId }),
+    };
+    if (![own, ...order].some((other) => sameAgentModelChoice(other, choice))) order.push(choice);
+  }
+  return request.automatic || order.length > 0 ? { automatic: request.automatic, order } : null;
 }
 
 export function modelList(models: AgentModelOption[], provider?: AgentProvider): string {

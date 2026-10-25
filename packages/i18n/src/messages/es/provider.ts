@@ -71,9 +71,10 @@ export const messages = {
   "provider.aria.codeFallback": "Iniciar sesión en {name} con un código",
   "provider.aria.moreActions": "Más acciones para {name}",
   "provider.aria.use": "Usar {name} en OpenBot",
+  "provider.use.inUseOne": "{agent} usa {name}. Cambia el modelo de este agente y después desactiva {name}.",
   "provider.use.inUse": {
-    one: "{agents} usa {name}. Cambia el modelo de este agente y después desactiva {name}.",
-    other: "{agents} usan {name}. Cambia el modelo de estos agentes y después desactiva {name}.",
+    one: "{count} agente usa {name}. Cambia el modelo de este agente y después desactiva {name}.",
+    other: "{count} agentes usan {name}. Cambia el modelo de estos agentes y después desactiva {name}.",
   },
   "provider.codeLogin.title": "Iniciar sesión en {name} con un código",
   "provider.codeLogin.description": "Termina en tu teléfono u otro navegador. OpenBot espera aquí.",
@@ -174,4 +175,24 @@ export const messages = {
   "provider.account.finishSignIn": "Termina de iniciar sesión en el navegador.",
   "provider.account.remove": "Eliminar cuenta",
   "provider.account.actionFailed": "No se pudo cambiar la cuenta de {name}.",
+  "provider.account.resetUsage": "Restablecer uso",
+  "provider.account.resetUsageTitle": "¿Restablecer el uso de {name}?",
+  "provider.account.resetUsageDescription": {
+    one: "Esto usa tu último crédito de restablecimiento de uso. Los límites de uso agotados de esta cuenta empiezan de nuevo ahora. No puedes deshacerlo.",
+    other:
+      "Esto usa 1 de tus {count} créditos de restablecimiento de uso. Los límites de uso agotados de esta cuenta empiezan de nuevo ahora. No puedes deshacerlo.",
+  },
+  "provider.account.resetUsagePending": "Restableciendo…",
+  "provider.account.resetUsageDone": "Los límites de uso de {name} empiezan de nuevo ahora.",
+  "provider.account.resetUsageNothing": "{name} no tiene ningún límite de uso agotado. No se usó ningún crédito.",
+  "provider.account.resetUsageNoCredit": "{name} no tiene más créditos de restablecimiento de uso.",
+  "provider.account.resetUsageAlreadyRedeemed": "Este crédito de restablecimiento de {name} ya se usó.",
+  "provider.account.resetUsageFailed": "No se pudo restablecer el uso de {name}.",
+  "provider.settings.cache": "Caché",
+  "provider.settings.promptCache": "Caché de prompts",
+  "provider.settings.promptCacheDescription":
+    "Cuánto tiempo guarda Claude el contexto de un agente en la caché entre turnos.",
+  "provider.settings.promptCacheHour": "1 hora",
+  "provider.settings.promptCacheMinutes": "5 minutos",
+  "provider.settings.promptCacheLoadFailed": "No se pudo cargar la duración de la caché de prompts de este servidor.",
 } as const satisfies PartialTranslation<typeof source>;

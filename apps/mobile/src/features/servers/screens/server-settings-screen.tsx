@@ -2,7 +2,7 @@ import { DEFAULT_TEAM_MEMBER_LIMIT, INPUT_LIMITS } from "@openbot/contracts/inpu
 import { canAdministerServer } from "@openbot/contracts/ipc";
 import { WAKE_RECONNECT_STATES } from "@openbot/team-client/hosted-server-wake";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { router, useLocalSearchParams, useNavigation } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { usePreventRemove } from "expo-router/react-navigation";
 import { Typography } from "heroui-native";
 import { useThemeColor } from "heroui-native/hooks";
@@ -493,7 +493,6 @@ function ServerSitesRow({ serverId }: { serverId: string }) {
 function ServerIdentityForm({ server }: { server: MobileServer }) {
   const { t, errorMessage } = useText();
   const { canEditServerIdentity, updateServerIdentity } = useMobileWorkspace();
-  const navigation = useNavigation();
   const foreground = useThemeColor("foreground");
   const available = canEditServerIdentity(server.id);
   const [draftName, setDraftName] = useState<string | undefined>();
@@ -513,7 +512,9 @@ function ServerIdentityForm({ server }: { server: MobileServer }) {
     !nameChanged || (trimmed.length >= INPUT_LIMITS.serverNameMin && trimmed.length <= INPUT_LIMITS.serverName);
   const hasLogo = logo === undefined ? server.logoKey !== null : logo !== null;
 
-  usePreventRemove(dirty || saving || picking, ({ data }) => {
+  // Discard turns prevention off before it repeats the action, so the hook does not warn.
+  const [discarding, setDiscarding] = useState(false);
+  usePreventRemove(!discarding && (dirty || saving || picking), ({ repeat }) => {
     if (pending.current || picking) return;
     void haptics.notification("warning");
     Alert.alert(t("mobile.agent.discard.title"), t("mobile.agent.discard.body"), [
@@ -521,7 +522,10 @@ function ServerIdentityForm({ server }: { server: MobileServer }) {
       {
         text: t("mobile.agent.discard.discard"),
         style: "destructive",
-        onPress: () => navigation.dispatch(data.action),
+        onPress: () => {
+          setDiscarding(true);
+          repeat();
+        },
       },
     ]);
   });

@@ -18,7 +18,7 @@ import Radio from "lucide-react-native/icons/radio";
 import Server from "lucide-react-native/icons/server";
 import ShieldCheck from "lucide-react-native/icons/shield-check";
 import Sparkles from "lucide-react-native/icons/sparkles";
-import Trash2 from "lucide-react-native/icons/trash-2";
+import Trash2 from "lucide-react-native/icons/trash";
 import UserRound from "lucide-react-native/icons/user-round";
 import UsersRound from "lucide-react-native/icons/users-round";
 import Vibrate from "lucide-react-native/icons/vibrate";

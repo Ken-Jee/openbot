@@ -92,6 +92,7 @@ function agentRow(found: DetectedAcpAgent, saved: CustomAgentSummary | undefined
     args: formatAgentArgs(saved.args),
     added: true,
     envNames: saved.envNames,
+    usagePrompt: saved.usagePrompt,
   };
 }
 

@@ -5,6 +5,7 @@
  */
 
 import { type AgentProviderId, agentProviderDescriptor } from "./agent-providers";
+import { isAgentTaskLimit } from "./ipc-agent-tasks";
 import {
   type AgentAccess,
   type AgentBackupModels,
@@ -206,6 +207,35 @@ export function decodeAgentBackupModelSettings(value: unknown): AgentBackupModel
 export function parseUpdateAgentBackupModelsInput(value: unknown): UpdateAgentBackupModelsInput {
   if (!isDynamicRecord(value) || !isIdentifier(value.agentId)) throw new Error("Invalid backup models.");
   return { agentId: value.agentId, backupModels: decodeBackupModels(value.backupModels) };
+}
+
+/**
+ * How many tasks of one agent run a turn at the same time. The local window reads it from the agent
+ * summary; an owner or admin of a joined server reads it here. Null: the default,
+ * `AGENT_TASK_LIMIT_DEFAULT`.
+ */
+export interface AgentTaskLimitSettings {
+  taskLimit: number | null;
+}
+
+export interface UpdateAgentTaskLimitInput {
+  agentId: string;
+  taskLimit: number | null;
+}
+
+function decodeTaskLimit(value: unknown): number | null {
+  if (value !== null && !isAgentTaskLimit(value)) throw new Error("Invalid task limit.");
+  return value;
+}
+
+export function decodeAgentTaskLimitSettings(value: unknown): AgentTaskLimitSettings {
+  if (!isDynamicRecord(value)) throw new Error("Invalid task limit.");
+  return { taskLimit: decodeTaskLimit(value.taskLimit) };
+}
+
+export function parseUpdateAgentTaskLimitInput(value: unknown): UpdateAgentTaskLimitInput {
+  if (!isDynamicRecord(value) || !isIdentifier(value.agentId)) throw new Error("Invalid task limit.");
+  return { agentId: value.agentId, taskLimit: decodeTaskLimit(value.taskLimit) };
 }
 
 /** The agent a host added from a marketplace listing or a shared template. The agent list has the rest. */

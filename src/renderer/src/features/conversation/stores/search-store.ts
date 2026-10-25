@@ -183,6 +183,8 @@ export function createSearchStore(deps: SearchStoreDeps) {
   }
 
   function handleChatSearchShortcut(event: KeyboardEvent): void {
+    // A control that used the key, such as the search of a trace dialog, keeps it.
+    if (event.defaultPrevented) return;
     const primaryModifier = event.metaKey || event.ctrlKey;
     const key = event.key.toLocaleLowerCase();
     if (primaryModifier && !event.altKey && !event.shiftKey && key === "f") {

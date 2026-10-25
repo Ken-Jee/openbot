@@ -10,7 +10,11 @@ import {
   type CustomProviderSummary,
   DEFAULT_PROVIDER_ACCOUNT_ID,
   MAX_PROVIDER_ACCOUNTS,
+  PROMPT_CACHE_TTLS,
+  type PromptCacheTtl,
   type ProviderAccountState,
+  type ProviderUsageResetOutcome,
+  type ProviderUsageResets,
 } from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
 import {
@@ -23,6 +27,7 @@ import {
   Copy,
   DropdownMenu,
   Ellipsis,
+  Gauge,
   Input,
   Item,
   ItemActions,
@@ -67,6 +72,7 @@ import {
   providerAction,
   providerStatusLabel,
   servesCustomProvider,
+  showProviderInUse,
 } from "../../components/provider-row";
 import { useText } from "../../text";
 import { AccountUsageWindowList } from "../account/AccountUsageDetails";
@@ -82,6 +88,15 @@ export interface ProviderSettingsDetail {
 
 /** The custom endpoints are one choice of the default select. */
 export type ProviderDefaultChoice = AgentProviderId | "custom";
+
+/** How long Claude keeps the prompt cache of the host's agents. `value` is null until the host answers. */
+export interface ProviderPromptCache {
+  value: PromptCacheTtl | null;
+  pending: boolean;
+  /** A load or a save that failed. */
+  error: string | null;
+  onChange: (ttl: PromptCacheTtl) => void;
+}
 
 export interface ProviderSettingsPageProps extends ProviderRowHost {
   options: ProviderPickerOption[];
@@ -113,6 +128,8 @@ export interface ProviderSettingsPageProps extends ProviderRowHost {
   onRemoveCustomProvider?: ((provider: CustomProviderSummary) => void) | undefined;
   removingCustomProvider?: string | null | undefined;
   onDetailChange?: ((detail: ProviderSettingsDetail | null) => void) | undefined;
+  /** On the Claude page. Only for a host with `prompt-cache-ttl-v1` that this account administers. */
+  promptCache?: ProviderPromptCache | undefined;
   /** Below the list: what the host found, and the other agents the user can add. */
   footer?: JSX.Element;
 }
@@ -489,6 +506,9 @@ function ProviderPage(props: PageProps) {
           <ApiKeySection {...props} row={row} />
         </Show>
         <RuntimeSection {...props} row={row} />
+        <Show when={props.option.id === "claude" && props.promptCache}>
+          {(cache) => <PromptCacheSection cache={cache()} disabled={props.disabled} menuMount={props.menuMount} />}
+        </Show>
       </Show>
       <UseSection {...props} row={row} />
     </>
@@ -533,12 +553,62 @@ function AccountsSection(props: SectionProps) {
   const { t, format, errorMessage, sourceText } = useText();
   const accounts = () => props.option.accounts ?? [];
   const [removing, setRemoving] = createSignal<ProviderPickerAccount | null>(null);
+  const [resetting, setResetting] = createSignal<ProviderPickerAccount | null>(null);
   const [error, setError] = createSignal<string | null>(null);
+  /** How the last usage reset ended, when it did not fail. */
+  const [notice, setNotice] = createSignal<string | null>(null);
+  const [usageResets, setUsageResets] = createSignal<readonly ProviderUsageResets[]>([]);
   const run = (name: string, action: () => Promise<void> | undefined) => {
     setError(null);
+    setNotice(null);
     void Promise.resolve(action()).catch((failure: unknown) =>
       setError(errorMessage(failure, t("provider.account.actionFailed", { name }))),
     );
+  };
+  /** The credits are read again when an account connects or goes, and after each reset. Only the last read counts. */
+  let resetsRead = 0;
+  const readUsageResets = (): void => {
+    const serial = ++resetsRead;
+    const read = props.accountActions?.usageResets;
+    const apply = (readings: readonly ProviderUsageResets[]) => {
+      if (serial === resetsRead) setUsageResets(readings);
+    };
+    if (read) void read(props.option.id).then(apply, () => apply([]));
+    else apply([]);
+  };
+  // The actions can arrive after the page: a joined server's capabilities come after its status.
+  createEffect(
+    () => [
+      props.option.id,
+      accounts()
+        .map((account) => `${account.id}:${account.state}`)
+        .join(),
+      props.accountActions?.usageResets,
+    ],
+    readUsageResets,
+  );
+  const resetsLeft = (accountId: string) =>
+    usageResets().find((reading) => reading.accountId === accountId)?.available ?? 0;
+  const resetUsage = async (target: ProviderPickerAccount) => {
+    const name = providerAccountName(t, accounts(), target.id);
+    setError(null);
+    setNotice(null);
+    try {
+      const outcome = await props.accountActions?.resetUsage?.(props.option.id, target.id);
+      if (outcome) {
+        const text: Record<ProviderUsageResetOutcome, string> = {
+          reset: t("provider.account.resetUsageDone", { name }),
+          nothingToReset: t("provider.account.resetUsageNothing", { name }),
+          noCredit: t("provider.account.resetUsageNoCredit", { name }),
+          alreadyRedeemed: t("provider.account.resetUsageAlreadyRedeemed", { name }),
+        };
+        setNotice(text[outcome]);
+      }
+    } catch (failure) {
+      setError(errorMessage(failure, t("provider.account.resetUsageFailed", { name })));
+    }
+    setResetting(null);
+    readUsageResets();
   };
   const adding = () => accounts().some((account) => account.state === "connecting" && account.email == null);
   const removeDescription = (account: ProviderPickerAccount | null) => {
@@ -584,6 +654,8 @@ function AccountsSection(props: SectionProps) {
               accounts={accounts()}
               run={run}
               onRemove={() => setRemoving({ ...account() })}
+              resetsLeft={props.accountActions?.resetUsage ? resetsLeft(account().id) : 0}
+              onResetUsage={() => setResetting({ ...account() })}
             />
           )}
         </For>
@@ -591,6 +663,7 @@ function AccountsSection(props: SectionProps) {
       <Show when={props.option.checkError}>
         {(message) => <ItemDescription>{sourceText(message())}</ItemDescription>}
       </Show>
+      <Show when={notice()}>{(message) => <ItemDescription role="status">{message()}</ItemDescription>}</Show>
       {/* A Reconnect of the provider's own sign-in reports here, as the sign-in card does. */}
       <Show
         when={
@@ -625,10 +698,28 @@ function AccountsSection(props: SectionProps) {
           }
         }}
       />
+      <ConfirmDialog
+        open={resetting() !== null}
+        tone="default"
+        icon={<Gauge aria-hidden="true" />}
+        title={t("provider.account.resetUsageTitle", {
+          name: resetting() ? providerAccountName(t, accounts(), resetting()?.id ?? "") : "",
+        })}
+        description={t("provider.account.resetUsageDescription", {
+          count: resetsLeft(resetting()?.id ?? ""),
+        })}
+        confirmLabel={t("provider.account.resetUsage")}
+        pendingLabel={t("provider.account.resetUsagePending")}
+        initialFocus="cancel"
+        onCancel={() => setResetting(null)}
+        onConfirm={() => {
+          const target = resetting();
+          return target ? resetUsage(target) : undefined;
+        }}
+      />
     </SettingsSection>
   );
 }
-
 const ACCOUNT_STATE_TEXT = {
   connected: "provider.status.connected",
   connecting: "provider.account.finishSignIn",
@@ -644,6 +735,9 @@ function AccountRow(
     accounts: readonly ProviderPickerAccount[];
     run: (name: string, action: () => Promise<void> | undefined) => void;
     onRemove: () => void;
+    /** The usage reset credits the provider gave this account; the menu offers a reset only when there is one. */
+    resetsLeft: number;
+    onResetUsage: () => void;
   },
 ) {
   const { t, format } = useText();
@@ -752,6 +846,12 @@ function AccountRow(
                 <Pencil aria-hidden="true" />
                 {t("common.rename")}
               </DropdownMenu.Item>
+              <Show when={state() === "connected" && props.resetsLeft > 0}>
+                <DropdownMenu.Item onSelect={() => props.onResetUsage()}>
+                  <Gauge aria-hidden="true" />
+                  {t("provider.account.resetUsage")}
+                </DropdownMenu.Item>
+              </Show>
               <Show when={reconnect()}>
                 {(action) => (
                   <DropdownMenu.Item onSelect={() => props.row.runAction(action())}>
@@ -1175,15 +1275,75 @@ function RuntimeSection(props: SectionProps) {
   );
 }
 
+/* ---------------------------------------------- Prompt cache */
+
+/** Claude only: the other providers take no cache time. A change applies to the next Claude process. */
+function PromptCacheSection(props: {
+  cache: ProviderPromptCache;
+  disabled: boolean | undefined;
+  menuMount: HTMLElement | undefined;
+}) {
+  const { t } = useText();
+  const label = (ttl: PromptCacheTtl) =>
+    ttl === "1h" ? t("provider.settings.promptCacheHour") : t("provider.settings.promptCacheMinutes");
+  return (
+    <SettingsSection title={t("provider.settings.cache")}>
+      <ItemGroup class="settings-modal-card">
+        <Item class="settings-modal-row">
+          <ItemContent>
+            <ItemTitle id="provider-settings-prompt-cache-label">{t("provider.settings.promptCache")}</ItemTitle>
+            <Show
+              when={props.cache.error}
+              fallback={<ItemDescription>{t("provider.settings.promptCacheDescription")}</ItemDescription>}
+            >
+              {(message) => (
+                <ItemDescription class="provider-settings-error" role="alert">
+                  {message()}
+                </ItemDescription>
+              )}
+            </Show>
+          </ItemContent>
+          <Show when={props.cache.value}>
+            {(value) => (
+              <ItemActions>
+                <Select<PromptCacheTtl>
+                  options={[...PROMPT_CACHE_TTLS]}
+                  value={value()}
+                  disabled={Boolean(props.disabled || props.cache.pending)}
+                  placement="bottom-end"
+                  // The select also reports the value that it shows, which is not a choice of the user.
+                  onChange={(ttl) => {
+                    if (ttl && ttl !== props.cache.value) props.cache.onChange(ttl);
+                  }}
+                  itemComponent={(item) => <SelectItem item={item.item}>{label(item.item.rawValue)}</SelectItem>}
+                >
+                  <SelectTrigger size="sm" aria-labelledby="provider-settings-prompt-cache-label">
+                    <SelectValue<PromptCacheTtl>>
+                      {(state) => {
+                        const selected = state.selectedOption();
+                        return selected ? label(selected) : "";
+                      }}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent mount={props.menuMount} />
+                </Select>
+              </ItemActions>
+            )}
+          </Show>
+        </Item>
+      </ItemGroup>
+    </SettingsSection>
+  );
+}
+
 /* ---------------------------------------------- Use */
 
 /** The default and the switch, at the end of the page, as the other settings pages keep their switches. */
 function UseSection(props: SectionProps) {
-  const { t, format, errorMessage } = useText();
-  const [change, setChange] = createStore<{ pending: boolean; error: string | null; refused: object | null }>({
+  const { t, errorMessage } = useText();
+  const [change, setChange] = createStore<{ pending: boolean; error: string | null }>({
     pending: false,
     error: null,
-    refused: null,
   });
   const usedBy = () => props.option.usedBy ?? [];
   const isDefault = () => props.defaultProvider?.value === props.option.id;
@@ -1199,18 +1359,12 @@ function UseSection(props: SectionProps) {
     const name = defaultName();
     return name ? t("provider.settings.startsWith", { name }) : null;
   };
-  /** The refused attempt, until the agents move to another provider. */
-  const refusal = () => (change.refused && usedBy().length > 0 ? change.refused : null);
   async function setOn(on: boolean) {
     if (!on && usedBy().length > 0) {
-      // Each attempt is a new object, so the message is drawn again and a screen reader reads it again.
-      setChange((state) => {
-        state.refused = {};
-      });
+      showProviderInUse(t, usedBy(), props.option.name);
       return;
     }
     setChange((state) => {
-      state.refused = null;
       state.pending = true;
       state.error = null;
     });
@@ -1258,15 +1412,6 @@ function UseSection(props: SectionProps) {
             <Item class="settings-modal-row">
               <ItemContent>
                 <ItemTitle>{t("provider.settings.useTitle", { name: props.option.name })}</ItemTitle>
-                <Show when={refusal()} keyed>
-                  <ItemDescription class="provider-settings-error" role="alert">
-                    {t("provider.use.inUse", {
-                      count: usedBy().length,
-                      agents: format.list(usedBy()),
-                      name: props.option.name,
-                    })}
-                  </ItemDescription>
-                </Show>
                 <Show when={change.error}>
                   {(message) => (
                     <ItemDescription class="provider-settings-error" role="alert">

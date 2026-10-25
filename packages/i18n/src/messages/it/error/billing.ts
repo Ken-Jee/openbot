@@ -7,6 +7,7 @@ export const messages = {
   "error.billing.confirmMismatch": "Scrivi il nome del server per eliminarlo.",
   "error.billing.restartBusy": "Il server non può riavviarsi ora. Riprova tra un minuto.",
   "error.billing.planRequired": "Il piano di questo server è terminato. Rinnovalo per avviare il server.",
+  "error.billing.planSoldOut": "Questo piano è esaurito. Scegli un altro piano.",
   "error.billing.licenseExists": "Questo account ha già una licenza. Modifica invece i suoi utenti.",
   "error.billing.licenseCurrency": "La licenza deve usare la valuta degli altri piani.",
   "error.billing.licenseUsersInUse": "La licenza non può avere meno utenti delle persone che la usano ora.",

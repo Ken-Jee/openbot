@@ -26,7 +26,12 @@ export const LANDING_FAQ: readonly LandingQuestion[] = [
   {
     question: "Which AI models can OpenBot use?",
     answer:
-      "Codex, Claude Code, Gemini, Grok, OpenCode, Cursor and Cline. You can also connect any OpenAI-compatible endpoint, and local models in Ollama or LM Studio.",
+      "Codex, Claude Code, Gemini, Grok, OpenCode, Cursor, Cline, Muse Code and Pi, and Inception's Mercury models. You can also run any agent that speaks the Agent Client Protocol, such as Goose or Qwen Code, connect any OpenAI-compatible endpoint, and use local models in Ollama or LM Studio.",
+  },
+  {
+    question: "What happens when my plan reaches its limit?",
+    answer:
+      "An agent can move to a backup model on another provider when its plan reaches its limit, or when its provider is overloaded or down. It keeps its chat and workspace, and a note in the chat shows the switch.",
   },
   {
     question: "How do I start?",

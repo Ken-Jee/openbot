@@ -38,6 +38,8 @@ export interface ContextCompactionOptions {
     threadId: string,
   ): Effect.Effect<string | null, ThreadOperationFailed>;
   changed?(): void;
+  /** A provider session finished a compaction: its summary replaces what it read before. */
+  compacted?(threadId: string): void;
 }
 
 /** Whether OpenBot can ask for a compaction of this client, automatically or for the user. */
@@ -83,11 +85,13 @@ export class ContextCompaction {
   readonly #awaitingPostCompaction = new Set<string>();
   readonly #durations = new Map<string, number>();
   readonly #changed: () => void;
+  readonly #compacted: (threadId: string) => void;
   readonly #timers = new Map<string, NodeJS.Timeout>();
   #usageTimer: NodeJS.Timeout | null = null;
 
   constructor(options: ContextCompactionOptions) {
     this.#changed = options.changed ?? (() => {});
+    this.#compacted = options.compacted ?? (() => {});
     this.#timeoutMs = options.timeoutMs ?? CONTEXT_COMPACTION_TIMEOUT_MS;
     this.#graceMs = Math.ceil(this.#timeoutMs / 4);
     this.#store = options.store;
@@ -184,6 +188,7 @@ export class ContextCompaction {
       this.#durations.set(threadId, Math.max(1, Date.now() - startedAt));
     this.#display.set(threadId, display);
     this.#emitChanged();
+    if (status === "completed") this.#compacted(threadId);
   }
 
   /** Ends a running compaction whose provider stopped before it reported the result. */

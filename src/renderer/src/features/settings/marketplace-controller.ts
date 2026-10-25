@@ -10,6 +10,7 @@ import type {
   McpSignInRelayPage,
 } from "@openbot/contracts/ipc";
 import { mcpConfigErrors } from "@openbot/contracts/ipc";
+import type { McpConnectFlow } from "@openbot/contracts/mcp-connect-flows";
 import { createPluginShareUrl } from "@openbot/contracts/plugin-links";
 import { connectorSummary } from "@openbot/ui/features/connectors/ConnectorDetailPanel";
 import { CONNECTOR_LISTINGS } from "@openbot/ui/features/connectors/connector-catalog";
@@ -30,7 +31,6 @@ import {
   type MarketplacePluginDetail,
   type MarketplacePluginPrompt,
 } from "@openbot/ui/features/settings/marketplace-plugins";
-import type { McpConnectFlow } from "@openbot/ui/features/settings/mcp-connect-auth";
 import type { PluginUninstallPlan } from "@openbot/ui/features/settings/PluginUninstallDialog";
 import { useText } from "@openbot/ui/text";
 import { errorReference } from "@openbot/user-errors";

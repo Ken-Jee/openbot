@@ -34,7 +34,6 @@
     },
     "plugins": [
       "./plugins/with-rocketsim",
-      "./plugins/with-android-feature-flags",
       "expo-router",
       "expo-video",
       [
@@ -111,9 +110,6 @@
             "usesCleartextTraffic": true,
             "enableMinifyInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true
-          },
-          "ios": {
-            "enableSceneSupport": true
           }
         }
       ],

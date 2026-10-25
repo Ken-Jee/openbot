@@ -30,6 +30,7 @@ export function createQueueStore(deps: QueueStoreDeps) {
       queue: deps.props.queue?.agentId === deps.props.agent?.id ? deps.props.queue : undefined,
       agents: deps.props.agents,
       self: deps.props.agent,
+      waits: deps.props.agentWaits,
     }).filter((row) => !(hidden.has(row.id) && (row.state === "replied" || row.state === "failed")));
   });
   const [renderedQueueDeliveries, setRenderedQueueDeliveries] = createSignal<QueueDelivery[]>([]);

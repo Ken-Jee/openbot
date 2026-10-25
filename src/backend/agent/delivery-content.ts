@@ -1,16 +1,10 @@
 import { createHash } from "node:crypto";
 import { expandAttachmentReferences } from "@openbot/contracts/attachment-references";
 import { expandChatTagReferences } from "@openbot/contracts/chat-tag-references";
-import type {
-  AgentSummary,
-  AgentWait,
-  ConversationSnapshot,
-  QueueDeliveryStatus,
-  RoutineRun,
-} from "@openbot/contracts/ipc";
+import type { AgentSummary, AgentWait, ConversationSnapshot, QueueDelivery, RoutineRun } from "@openbot/contracts/ipc";
 import { wokenWaitsPromptText } from "../agent-waits/agent-waits";
 import type { DeliveryContext } from "../mailbox-store";
-import { quietRoutineRun, ROUTINE_NO_UPDATE_TOOL } from "./routine-quiet-runs";
+import { quietRoutineRun, ROUTINE_NO_UPDATE_TOOL, ROUTINE_REPORT_FAILURE_TOOL } from "./routine-quiet-runs";
 
 export function responseAttachmentMessageId(threadId: string, turnId: string, callId: string): string {
   const digest = createHash("sha256").update(`${threadId}\0${turnId}\0${callId}`).digest("hex").slice(0, 32);
@@ -45,7 +39,11 @@ export function conversationContentSignature(snapshot: ConversationSnapshot): st
   return createHash("sha256").update(content).digest("base64");
 }
 
-export function routineStatusForDelivery(status: QueueDeliveryStatus) {
+/**
+ * A completed delivery with an error is a run whose agent answered and reported that the task failed
+ * (`routine_report_failure`). Its delivery stays completed; the run fails.
+ */
+export function routineStatusForDelivery({ status, error }: Pick<QueueDelivery, "status" | "error">) {
   switch (status) {
     case "queued":
     case "starting":
@@ -53,7 +51,7 @@ export function routineStatusForDelivery(status: QueueDeliveryStatus) {
     case "running":
       return "running";
     case "completed":
-      return "succeeded";
+      return error === null ? "succeeded" : "failed";
     case "failed":
       return "failed";
     case "interrupted":
@@ -237,9 +235,11 @@ export function deliveryPromptInput(context: DeliveryContext, sources: DeliveryP
       "The routine already exists, and its schedule is already configured.",
       "Do not create, update, delete, list, or test routines during this run.",
       "Perform the task below now. Do not answer only that the routine or monitoring is active.",
+      "A task can tell you to remind the user or to send the user a message. When it names no other place, write that message as your final answer. OpenBot shows your final answer to the user in this chat. openbot.send_message sends to other agents, not to the user.",
       testRun
         ? "This is a manual Test run. Report the action and result even when a normal scheduled run would suppress a notification because there is no change."
-        : `This is a ${runKind}. Follow the notification conditions in the routine task. When they give nothing to report, call the ${ROUTINE_NO_UPDATE_TOOL} tool instead of a written answer.`,
+        : `This is a ${runKind}. Follow the notification conditions in the routine task. When they give nothing to report, call the ${ROUTINE_NO_UPDATE_TOOL} tool instead of a written answer. A requested reminder or message is a report, also when there is no new information. Do not call ${ROUTINE_NO_UPDATE_TOOL} for it unless the notification conditions of the task say to send nothing.`,
+      `When the task could not be done, call the ${ROUTINE_REPORT_FAILURE_TOOL} tool with a short reason, then give your answer as usual.`,
       "--- routine task ---",
       displayText,
     ].join("\n");

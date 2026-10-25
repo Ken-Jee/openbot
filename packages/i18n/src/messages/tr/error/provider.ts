@@ -271,6 +271,7 @@ export const messages = {
     "Bir ajan kimliği küçük harfler, rakamlar veya `-` olmalıdır ve yerleşik bir sağlayıcının kimliği olamaz.",
   "error.provider.customAgentEnvInvalid":
     "Bir değişken adı harfler, rakamlar veya `_` olmalı ve bir rakamla başlamamalıdır. Her adı bir kez, en fazla 16 ad kullanın.",
+  "error.provider.customAgentUsagePromptInvalid": "Kullanım komutu en fazla 256 karakterlik tek bir satır olmalıdır.",
   "error.provider.customAgentCommandInvalid":
     "Komut tam bir yol, ~/ ile başlayan bir yol veya boşluk içermeyen bir komut adı olmalıdır.",
   "error.provider.customAgentArgsInvalid":
@@ -302,6 +303,8 @@ export const messages = {
   "error.provider.useChangeFailed": "OpenBot sağlayıcı ayarını değiştiremedi.",
   "error.provider.accountsUnsupported": "{provider} yalnızca bir hesap destekler.",
   "error.provider.accountNeedsConnection": "Başka bir hesap eklemeden önce {provider} sağlayıcısına bağlanın.",
+  "error.provider.usageResetUnsupported": "{provider} kullanım sınırlarını sıfırlayamaz.",
+  "error.provider.usageResetNotConnected": "Kullanımını sıfırlamadan önce bu {provider} hesabında yeniden oturum açın.",
   "error.provider.accountLimit": "{provider} en fazla {limit} hesap destekler.",
   "error.provider.accountNotFound": "Bu {provider} hesabı bu bilgisayarda yok. Yenileyip tekrar deneyin.",
   "error.provider.accountAlreadyAdded": "Bu {provider} hesabı zaten bağlı.",

@@ -3,6 +3,9 @@ import { defineMessages } from "../../message";
 export const messages = defineMessages("composer", {
   "composer.queueEdit.body": "You are editing a queued message. Save or cancel the edit to let it run.",
   "composer.queueEdit.cancel": "Cancel edit",
+  "composer.providerWait.offlineTitle": "No internet connection",
+  "composer.providerWait.offline": "{provider} cannot reply until this computer is online again.",
+  "composer.providerWait.silent": "{provider} has sent no update for {duration}.",
   "composer.notice.dismiss": "Dismiss error",
   "composer.signIn.title": "Sign in required",
   "composer.signIn.body": "Sign in to {provider} to send messages.",
@@ -70,6 +73,8 @@ export const messages = defineMessages("composer", {
   "composer.upload.cancel": "Cancel upload",
   "composer.voice.progress": "Downloading voice model {progress}%",
   "composer.voice.recording": "Voice recording",
+  "composer.voice.limitSoon": "Recording stops in {seconds} seconds.",
+  "composer.voice.limitReached": "Recording stopped at the 2-minute limit. What you said is in the message.",
   "composer.send.saveQueued": "Save queued message",
   "composer.send.voice": "Send voice message",
   "composer.send.message": "Send message",

@@ -271,6 +271,8 @@ export const messages = {
     "ID agenta może zawierać tylko małe litery, cyfry lub `-` i nie może być ID wbudowanego dostawcy.",
   "error.provider.customAgentEnvInvalid":
     "Nazwa zmiennej może zawierać litery, cyfry lub `_` i nie może zaczynać się od cyfry. Użyj każdej nazwy raz, maksymalnie 16 nazw.",
+  "error.provider.customAgentUsagePromptInvalid":
+    "Polecenie użycia musi być jednym wierszem o długości maksymalnie 256 znaków.",
   "error.provider.customAgentCommandInvalid":
     "Polecenie musi być pełną ścieżką, ścieżką zaczynającą się od ~/ albo nazwą polecenia bez spacji.",
   "error.provider.customAgentArgsInvalid":
@@ -302,6 +304,9 @@ export const messages = {
   "error.provider.useChangeFailed": "Nie udało się zmienić ustawienia dostawcy.",
   "error.provider.accountsUnsupported": "{provider} obsługuje tylko jedno konto.",
   "error.provider.accountNeedsConnection": "Połącz {provider}, zanim dodasz kolejne konto.",
+  "error.provider.usageResetUnsupported": "{provider} nie może resetować limitów użycia.",
+  "error.provider.usageResetNotConnected":
+    "Zaloguj się ponownie do tego konta {provider}, zanim zresetujesz jego użycie.",
   "error.provider.accountLimit": "Maksymalna liczba kont dla {provider} to {limit}.",
   "error.provider.accountNotFound": "Tego konta {provider} nie ma na tym komputerze. Odśwież i spróbuj ponownie.",
   "error.provider.accountAlreadyAdded": "To konto {provider} jest już połączone.",

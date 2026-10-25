@@ -155,6 +155,9 @@ export const messages = {
   "customProvider.acp.commandHint": "起動するプログラムです。OpenBot は PATH からこれを探します。",
   "customProvider.acp.args": "引数",
   "customProvider.acp.argsHint": "引数はスペースで区切ってください。スペースを含む引数は引用符で囲んでください。",
+  "customProvider.acp.usagePrompt": "使用量コマンド",
+  "customProvider.acp.usagePromptHint":
+    "OpenBot は最短 5 分ごとにこれを送信し、最新の回答を表示します。/usage など、エージェント自身が答えるコマンドを使用してください。",
   "customProvider.acp.env": "環境変数",
   "customProvider.acp.env.name": "変数 {number} の名前",
   "customProvider.acp.env.value": "変数 {number} の値",
@@ -185,6 +188,7 @@ export const messages = {
   "customProvider.acp.error.envDuplicate": "このエージェントはすでに {name} を設定しています。",
   "customProvider.acp.error.envValueRequired": "この変数の値を入力してください。",
   "customProvider.acp.error.envValueLength": "値は {max} 文字未満にしてください。",
+  "customProvider.acp.error.usagePromptInvalid": "{max} 文字以内の 1 行にしてください。",
   "customProvider.acp.error.agentIdPattern":
     "小文字の英字、数字、ハイフンを使い、英字か数字で始めてください。40 文字以内にしてください。",
 

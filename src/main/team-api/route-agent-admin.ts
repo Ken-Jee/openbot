@@ -2,6 +2,7 @@ import {
   parseUpdateAgentAdminSettingsInput,
   parseUpdateAgentBackupModelsInput,
   parseUpdateAgentHostSettingsInput,
+  parseUpdateAgentTaskLimitInput,
 } from "@openbot/contracts/ipc";
 import { AGENT_ADMIN_CAPABILITY, AGENT_ADMIN_ROUTES } from "@openbot/contracts/team-protocol/agent-admin-v1";
 import {
@@ -12,6 +13,10 @@ import {
   AGENT_HOST_SETTINGS_CAPABILITY,
   AGENT_HOST_SETTINGS_ROUTES,
 } from "@openbot/contracts/team-protocol/agent-host-settings-v1";
+import {
+  AGENT_TASK_LIMIT_CAPABILITY,
+  AGENT_TASK_LIMIT_ROUTES,
+} from "@openbot/contracts/team-protocol/agent-task-limit-v1";
 import { sourceText } from "@openbot/i18n/source";
 import { runCauseEffect } from "../../backend/effect-boundary";
 import { AgentNotFoundError } from "../agent-admin-settings";
@@ -125,6 +130,42 @@ export async function routeAgentBackupModels(
       throw new HttpError(400, error instanceof Error ? error.message : "Invalid backup models.");
     }
     return json(200, await runCauseEffect(settings.updateBackupModels(input)));
+  } catch (error) {
+    if (error instanceof AgentNotFoundError) throw new HttpError(404, error.message);
+    throw error;
+  }
+}
+
+/**
+ * How many tasks of one agent run a turn at the same time, changed from a joined server. It decides
+ * how much work the agent puts on this computer, so only an owner or admin can read or change it.
+ * Frozen by `agent-task-limit-v1`.
+ */
+export async function routeAgentTaskLimit(
+  context: TeamApiRequestContext,
+  admin: TeamApiAdmin | undefined,
+  hiddenAgentIds: ReadonlySet<string>,
+): Promise<RouteOutcome> {
+  const { method, url, capabilities, member, request, json } = context;
+  const read = method === "POST" && url.pathname === AGENT_TASK_LIMIT_ROUTES.settings;
+  const update = method === "POST" && url.pathname === AGENT_TASK_LIMIT_ROUTES.update;
+  if (!read && !update) return "unmatched";
+  const settings = admin?.agentHost;
+  if (!settings || !capabilities.has(AGENT_TASK_LIMIT_CAPABILITY))
+    throw new HttpError(400, sourceText("error.team.agentSettingsUnsupported"));
+  requireAdmin(member);
+  // `readJson` has already run the body through the agent-task-limit wire codec.
+  const body = await readJson(request);
+  requireVisibleBodyAgent(body, hiddenAgentIds);
+  try {
+    if (read) return json(200, settings.readTaskLimit(stringField(body, "agentId")));
+    let input: ReturnType<typeof parseUpdateAgentTaskLimitInput>;
+    try {
+      input = parseUpdateAgentTaskLimitInput(body);
+    } catch (error) {
+      throw new HttpError(400, error instanceof Error ? error.message : "Invalid task limit.");
+    }
+    return json(200, await runCauseEffect(settings.updateTaskLimit(input)));
   } catch (error) {
     if (error instanceof AgentNotFoundError) throw new HttpError(404, error.message);
     throw error;

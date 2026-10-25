@@ -1,7 +1,7 @@
 import type { UiAction, UiActionStyle, UiConfirmBlock as UiConfirmSpec } from "@openbot/contracts/ui-blocks";
 import { Button, NativeSelect, Spinner } from "@openbot/ui";
 import type { JSX } from "@solidjs/web";
-import { createEffect, createSignal, createUniqueId, For, flush, Match, Show, Switch } from "solid-js";
+import { createEffect, createSignal, createUniqueId, For, flush, Match, onSettled, Show, Switch } from "solid-js";
 import { useText } from "../../../text";
 import { cx } from "../../../utils";
 import { UiBlockCard } from "./UiBlockCard";
@@ -25,6 +25,71 @@ export interface UiConfirmBlockProps extends UiBlockProps<UiConfirmSpec> {
 
 function actionStyle(action: UiAction): UiActionStyle {
   return action.style ?? "secondary";
+}
+
+/**
+ * A long draft stops at a fixed height and scrolls. A button under it opens the rest, because a
+ * scroll bar that the system hides does not show that more text is there. The button is there only
+ * when the text is cut off. Whether it is is a measurement, made again when the text or the width
+ * changes.
+ */
+function UiConfirmPreview(props: { children: JSX.Element }) {
+  const { t } = useText();
+  const previewId = createUniqueId();
+  const [expanded, setExpanded] = createSignal(false);
+  const [clamped, setClamped] = createSignal(false);
+  let preview: HTMLElement | undefined;
+
+  // An open preview shows everything, so it cannot say whether the closed one cuts anything off.
+  function measure(): void {
+    if (!preview || expanded()) return;
+    setClamped(preview.scrollHeight > preview.clientHeight);
+  }
+
+  // A text that fits after the card got wider while open keeps the box height on close, so no
+  // resize says that nothing is cut off any more.
+  function toggle(): void {
+    setExpanded((open) => !open);
+    flush();
+    measure();
+  }
+
+  onSettled(() => {
+    if (!preview || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(preview);
+    // The box stops growing at its limit, so a change in the text shows only on the content.
+    for (const child of preview.children) observer.observe(child);
+    return () => observer.disconnect();
+  });
+
+  return (
+    <>
+      <section
+        ref={(element) => (preview = element)}
+        id={previewId}
+        class="ui-block-preview"
+        data-expanded={expanded() ? "true" : undefined}
+        aria-label={t("uiBlock.confirm.previewLabel")}
+        tabindex="0"
+      >
+        {props.children}
+      </section>
+      <Show when={clamped() || expanded()}>
+        <Button
+          type="button"
+          variant="link"
+          size="xs"
+          class="ui-block-preview-toggle"
+          aria-expanded={expanded() ? "true" : "false"}
+          aria-controls={previewId}
+          onClick={toggle}
+        >
+          {expanded() ? t("uiBlock.confirm.hideFullPreview") : t("uiBlock.confirm.showFullPreview")}
+        </Button>
+      </Show>
+    </>
+  );
 }
 
 export function UiConfirmBlock(props: UiConfirmBlockProps) {
@@ -144,11 +209,11 @@ export function UiConfirmBlock(props: UiConfirmBlockProps) {
       </Show>
       <Show when={props.spec.preview}>
         {(preview) => (
-          <section class="ui-block-preview" aria-label={t("uiBlock.confirm.previewLabel")}>
+          <UiConfirmPreview>
             <Show when={props.renderPreview} fallback={<p class="ui-block-preview-text">{preview()}</p>}>
               {(render) => render()(preview())}
             </Show>
-          </section>
+          </UiConfirmPreview>
         )}
       </Show>
       <Show when={!frozen() && confirming()}>

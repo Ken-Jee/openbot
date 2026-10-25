@@ -33,6 +33,7 @@ const FAILURE_OPERATIONS: Record<MobileEventName, Operation> = {
   routine_action: "routine",
   agent_action: "agent",
   agent_template_action: "agent",
+  marketplace_action: "marketplace",
   memory_action: "memory",
   search_action: "search",
   account_sign_out: "auth",

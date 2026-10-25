@@ -1,6 +1,12 @@
 import { createHash } from "node:crypto";
 import { sortConversationMessages } from "@openbot/contracts/conversation-order";
-import type { AgentEvent, AgentSummary, ConversationMessage, ConversationSnapshot } from "@openbot/contracts/ipc";
+import {
+  type AgentEvent,
+  type AgentSummary,
+  CONVERSATION_SNAPSHOT_MESSAGE_LIMIT,
+  type ConversationMessage,
+  type ConversationSnapshot,
+} from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
 import type { AgentClient } from "../agent-client";
 import type { AgentStore } from "../agent-store";
@@ -18,9 +24,6 @@ interface TransactionScope {
  * opened. A chat that goes is read again from the database when it is next needed, the same as a
  * chat that was not opened since the app started.
  */
-/** The most recent completed messages retained in the process for one conversation. */
-export const CONVERSATION_CACHE_MESSAGE_LIMIT = 100;
-
 /** The maximum serialized size retained for one completed conversation. */
 export const CONVERSATION_CACHE_BYTES_LIMIT = 8 * 1024 * 1024;
 
@@ -912,7 +915,7 @@ function boundedConversationSnapshot(snapshot: ConversationSnapshot): CachedSnap
     ? snapshot.messages.filter((message) => isActiveMessage(message, snapshot.activeTurnId))
     : [];
   const allCompletedMessages = snapshot.messages.filter((message) => !activeMessages.includes(message));
-  const completedMessages = allCompletedMessages.slice(-CONVERSATION_CACHE_MESSAGE_LIMIT);
+  const completedMessages = allCompletedMessages.slice(-CONVERSATION_SNAPSHOT_MESSAGE_LIMIT);
   const completedSnapshot = { ...snapshot, messages: completedMessages };
   let completedBytes = conversationSnapshotBytes(completedSnapshot);
   if (completedBytes > CONVERSATION_CACHE_BYTES_LIMIT) {

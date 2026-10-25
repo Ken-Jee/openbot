@@ -16,9 +16,11 @@ import { Route as ChangelogRouteImport } from './routes/changelog'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as JoinRouteImport } from './routes/join'
 import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
+import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
 import { Route as ReportSiteRouteImport } from './routes/report-site'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as TeamsRouteImport } from './routes/teams'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as DotwellKnownAppleAppSiteAssociationRouteImport } from './routes/[.]well-known/apple-app-site-association'
 import { Route as DotwellKnownJwksDotjsonRouteImport } from './routes/[.]well-known/jwks[.]json'
 import { Route as AgentsTemplateIdRouteImport } from './routes/agents/$templateId'
@@ -142,6 +144,7 @@ import { Route as V2RemoteHostsHostIdAndroidNotificationRouteImport } from './ro
 import { Route as V2RemoteHostsHostIdDiscordDisconnectRouteImport } from './routes/v2/remote/hosts/$hostId/discord-disconnect'
 import { Route as V2RemoteHostsHostIdDiscordRouteRouteImport } from './routes/v2/remote/hosts/$hostId/discord-route'
 import { Route as V2RemoteHostsHostIdInvitesRouteImport } from './routes/v2/remote/hosts/$hostId/invites'
+import { Route as V2RemoteHostsHostIdKeyHandoverRouteImport } from './routes/v2/remote/hosts/$hostId/key-handover'
 import { Route as V2RemoteHostsHostIdLiveActivityRouteImport } from './routes/v2/remote/hosts/$hostId/live-activity'
 import { Route as V2RemoteHostsHostIdLogoRouteImport } from './routes/v2/remote/hosts/$hostId/logo'
 import { Route as V2RemoteHostsHostIdNotificationRouteImport } from './routes/v2/remote/hosts/$hostId/notification'
@@ -196,6 +199,11 @@ const LlmsDottxtRoute = LlmsDottxtRouteImport.update({
   path: '/llms.txt',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrivacyPolicyRoute = PrivacyPolicyRouteImport.update({
+  id: '/privacy-policy',
+  path: '/privacy-policy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ReportSiteRoute = ReportSiteRouteImport.update({
   id: '/report-site',
   path: '/report-site',
@@ -209,6 +217,11 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
 const TeamsRoute = TeamsRouteImport.update({
   id: '/teams',
   path: '/teams',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DotwellKnownAppleAppSiteAssociationRoute =
@@ -863,6 +876,12 @@ const V2RemoteHostsHostIdInvitesRoute =
     path: '/v2/remote/hosts/$hostId/invites',
     getParentRoute: () => rootRouteImport,
   } as any)
+const V2RemoteHostsHostIdKeyHandoverRoute =
+  V2RemoteHostsHostIdKeyHandoverRouteImport.update({
+    id: '/v2/remote/hosts/$hostId/key-handover',
+    path: '/v2/remote/hosts/$hostId/key-handover',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const V2RemoteHostsHostIdLiveActivityRoute =
   V2RemoteHostsHostIdLiveActivityRouteImport.update({
     id: '/v2/remote/hosts/$hostId/live-activity',
@@ -979,9 +998,11 @@ export interface FileRoutesByFullPath {
   '/contact': typeof ContactRoute
   '/join': typeof JoinRoute
   '/llms.txt': typeof LlmsDottxtRoute
+  '/privacy-policy': typeof PrivacyPolicyRoute
   '/report-site': typeof ReportSiteRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/teams': typeof TeamsRoute
+  '/terms': typeof TermsRoute
   '/.well-known/apple-app-site-association': typeof DotwellKnownAppleAppSiteAssociationRoute
   '/.well-known/jwks.json': typeof DotwellKnownJwksDotjsonRoute
   '/agents/$templateId': typeof AgentsTemplateIdRoute
@@ -1103,6 +1124,7 @@ export interface FileRoutesByFullPath {
   '/v2/remote/hosts/$hostId/discord-disconnect': typeof V2RemoteHostsHostIdDiscordDisconnectRoute
   '/v2/remote/hosts/$hostId/discord-route': typeof V2RemoteHostsHostIdDiscordRouteRoute
   '/v2/remote/hosts/$hostId/invites': typeof V2RemoteHostsHostIdInvitesRoute
+  '/v2/remote/hosts/$hostId/key-handover': typeof V2RemoteHostsHostIdKeyHandoverRoute
   '/v2/remote/hosts/$hostId/live-activity': typeof V2RemoteHostsHostIdLiveActivityRoute
   '/v2/remote/hosts/$hostId/logo': typeof V2RemoteHostsHostIdLogoRoute
   '/v2/remote/hosts/$hostId/notification': typeof V2RemoteHostsHostIdNotificationRoute
@@ -1132,9 +1154,11 @@ export interface FileRoutesByTo {
   '/contact': typeof ContactRoute
   '/join': typeof JoinRoute
   '/llms.txt': typeof LlmsDottxtRoute
+  '/privacy-policy': typeof PrivacyPolicyRoute
   '/report-site': typeof ReportSiteRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/teams': typeof TeamsRoute
+  '/terms': typeof TermsRoute
   '/.well-known/apple-app-site-association': typeof DotwellKnownAppleAppSiteAssociationRoute
   '/.well-known/jwks.json': typeof DotwellKnownJwksDotjsonRoute
   '/agents/$templateId': typeof AgentsTemplateIdRoute
@@ -1256,6 +1280,7 @@ export interface FileRoutesByTo {
   '/v2/remote/hosts/$hostId/discord-disconnect': typeof V2RemoteHostsHostIdDiscordDisconnectRoute
   '/v2/remote/hosts/$hostId/discord-route': typeof V2RemoteHostsHostIdDiscordRouteRoute
   '/v2/remote/hosts/$hostId/invites': typeof V2RemoteHostsHostIdInvitesRoute
+  '/v2/remote/hosts/$hostId/key-handover': typeof V2RemoteHostsHostIdKeyHandoverRoute
   '/v2/remote/hosts/$hostId/live-activity': typeof V2RemoteHostsHostIdLiveActivityRoute
   '/v2/remote/hosts/$hostId/logo': typeof V2RemoteHostsHostIdLogoRoute
   '/v2/remote/hosts/$hostId/notification': typeof V2RemoteHostsHostIdNotificationRoute
@@ -1286,9 +1311,11 @@ export interface FileRoutesById {
   '/contact': typeof ContactRoute
   '/join': typeof JoinRoute
   '/llms.txt': typeof LlmsDottxtRoute
+  '/privacy-policy': typeof PrivacyPolicyRoute
   '/report-site': typeof ReportSiteRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/teams': typeof TeamsRoute
+  '/terms': typeof TermsRoute
   '/.well-known/apple-app-site-association': typeof DotwellKnownAppleAppSiteAssociationRoute
   '/.well-known/jwks.json': typeof DotwellKnownJwksDotjsonRoute
   '/agents/$templateId': typeof AgentsTemplateIdRoute
@@ -1410,6 +1437,7 @@ export interface FileRoutesById {
   '/v2/remote/hosts/$hostId/discord-disconnect': typeof V2RemoteHostsHostIdDiscordDisconnectRoute
   '/v2/remote/hosts/$hostId/discord-route': typeof V2RemoteHostsHostIdDiscordRouteRoute
   '/v2/remote/hosts/$hostId/invites': typeof V2RemoteHostsHostIdInvitesRoute
+  '/v2/remote/hosts/$hostId/key-handover': typeof V2RemoteHostsHostIdKeyHandoverRoute
   '/v2/remote/hosts/$hostId/live-activity': typeof V2RemoteHostsHostIdLiveActivityRoute
   '/v2/remote/hosts/$hostId/logo': typeof V2RemoteHostsHostIdLogoRoute
   '/v2/remote/hosts/$hostId/notification': typeof V2RemoteHostsHostIdNotificationRoute
@@ -1441,9 +1469,11 @@ export interface FileRouteTypes {
     | '/contact'
     | '/join'
     | '/llms.txt'
+    | '/privacy-policy'
     | '/report-site'
     | '/sitemap.xml'
     | '/teams'
+    | '/terms'
     | '/.well-known/apple-app-site-association'
     | '/.well-known/jwks.json'
     | '/agents/$templateId'
@@ -1565,6 +1595,7 @@ export interface FileRouteTypes {
     | '/v2/remote/hosts/$hostId/discord-disconnect'
     | '/v2/remote/hosts/$hostId/discord-route'
     | '/v2/remote/hosts/$hostId/invites'
+    | '/v2/remote/hosts/$hostId/key-handover'
     | '/v2/remote/hosts/$hostId/live-activity'
     | '/v2/remote/hosts/$hostId/logo'
     | '/v2/remote/hosts/$hostId/notification'
@@ -1594,9 +1625,11 @@ export interface FileRouteTypes {
     | '/contact'
     | '/join'
     | '/llms.txt'
+    | '/privacy-policy'
     | '/report-site'
     | '/sitemap.xml'
     | '/teams'
+    | '/terms'
     | '/.well-known/apple-app-site-association'
     | '/.well-known/jwks.json'
     | '/agents/$templateId'
@@ -1718,6 +1751,7 @@ export interface FileRouteTypes {
     | '/v2/remote/hosts/$hostId/discord-disconnect'
     | '/v2/remote/hosts/$hostId/discord-route'
     | '/v2/remote/hosts/$hostId/invites'
+    | '/v2/remote/hosts/$hostId/key-handover'
     | '/v2/remote/hosts/$hostId/live-activity'
     | '/v2/remote/hosts/$hostId/logo'
     | '/v2/remote/hosts/$hostId/notification'
@@ -1747,9 +1781,11 @@ export interface FileRouteTypes {
     | '/contact'
     | '/join'
     | '/llms.txt'
+    | '/privacy-policy'
     | '/report-site'
     | '/sitemap.xml'
     | '/teams'
+    | '/terms'
     | '/.well-known/apple-app-site-association'
     | '/.well-known/jwks.json'
     | '/agents/$templateId'
@@ -1871,6 +1907,7 @@ export interface FileRouteTypes {
     | '/v2/remote/hosts/$hostId/discord-disconnect'
     | '/v2/remote/hosts/$hostId/discord-route'
     | '/v2/remote/hosts/$hostId/invites'
+    | '/v2/remote/hosts/$hostId/key-handover'
     | '/v2/remote/hosts/$hostId/live-activity'
     | '/v2/remote/hosts/$hostId/logo'
     | '/v2/remote/hosts/$hostId/notification'
@@ -1901,9 +1938,11 @@ export interface RootRouteChildren {
   ContactRoute: typeof ContactRoute
   JoinRoute: typeof JoinRoute
   LlmsDottxtRoute: typeof LlmsDottxtRoute
+  PrivacyPolicyRoute: typeof PrivacyPolicyRoute
   ReportSiteRoute: typeof ReportSiteRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TeamsRoute: typeof TeamsRoute
+  TermsRoute: typeof TermsRoute
   DotwellKnownAppleAppSiteAssociationRoute: typeof DotwellKnownAppleAppSiteAssociationRoute
   DotwellKnownJwksDotjsonRoute: typeof DotwellKnownJwksDotjsonRoute
   AgentsTemplateIdRoute: typeof AgentsTemplateIdRoute
@@ -2007,6 +2046,7 @@ export interface RootRouteChildren {
   V2RemoteHostsHostIdDiscordDisconnectRoute: typeof V2RemoteHostsHostIdDiscordDisconnectRoute
   V2RemoteHostsHostIdDiscordRouteRoute: typeof V2RemoteHostsHostIdDiscordRouteRoute
   V2RemoteHostsHostIdInvitesRoute: typeof V2RemoteHostsHostIdInvitesRoute
+  V2RemoteHostsHostIdKeyHandoverRoute: typeof V2RemoteHostsHostIdKeyHandoverRoute
   V2RemoteHostsHostIdLiveActivityRoute: typeof V2RemoteHostsHostIdLiveActivityRoute
   V2RemoteHostsHostIdLogoRoute: typeof V2RemoteHostsHostIdLogoRoute
   V2RemoteHostsHostIdNotificationRoute: typeof V2RemoteHostsHostIdNotificationRoute
@@ -2078,6 +2118,13 @@ declare module '@tanstack/solid-router' {
       preLoaderRoute: typeof LlmsDottxtRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/privacy-policy': {
+      id: '/privacy-policy'
+      path: '/privacy-policy'
+      fullPath: '/privacy-policy'
+      preLoaderRoute: typeof PrivacyPolicyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/report-site': {
       id: '/report-site'
       path: '/report-site'
@@ -2097,6 +2144,13 @@ declare module '@tanstack/solid-router' {
       path: '/teams'
       fullPath: '/teams'
       preLoaderRoute: typeof TeamsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/.well-known/apple-app-site-association': {
@@ -2960,6 +3014,13 @@ declare module '@tanstack/solid-router' {
       preLoaderRoute: typeof V2RemoteHostsHostIdInvitesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/v2/remote/hosts/$hostId/key-handover': {
+      id: '/v2/remote/hosts/$hostId/key-handover'
+      path: '/v2/remote/hosts/$hostId/key-handover'
+      fullPath: '/v2/remote/hosts/$hostId/key-handover'
+      preLoaderRoute: typeof V2RemoteHostsHostIdKeyHandoverRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/v2/remote/hosts/$hostId/live-activity': {
       id: '/v2/remote/hosts/$hostId/live-activity'
       path: '/v2/remote/hosts/$hostId/live-activity'
@@ -3231,9 +3292,11 @@ const rootRouteChildren: RootRouteChildren = {
   ContactRoute: ContactRoute,
   JoinRoute: JoinRoute,
   LlmsDottxtRoute: LlmsDottxtRoute,
+  PrivacyPolicyRoute: PrivacyPolicyRoute,
   ReportSiteRoute: ReportSiteRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TeamsRoute: TeamsRoute,
+  TermsRoute: TermsRoute,
   DotwellKnownAppleAppSiteAssociationRoute:
     DotwellKnownAppleAppSiteAssociationRoute,
   DotwellKnownJwksDotjsonRoute: DotwellKnownJwksDotjsonRoute,
@@ -3342,6 +3405,7 @@ const rootRouteChildren: RootRouteChildren = {
     V2RemoteHostsHostIdDiscordDisconnectRoute,
   V2RemoteHostsHostIdDiscordRouteRoute: V2RemoteHostsHostIdDiscordRouteRoute,
   V2RemoteHostsHostIdInvitesRoute: V2RemoteHostsHostIdInvitesRoute,
+  V2RemoteHostsHostIdKeyHandoverRoute: V2RemoteHostsHostIdKeyHandoverRoute,
   V2RemoteHostsHostIdLiveActivityRoute: V2RemoteHostsHostIdLiveActivityRoute,
   V2RemoteHostsHostIdLogoRoute: V2RemoteHostsHostIdLogoRoute,
   V2RemoteHostsHostIdNotificationRoute: V2RemoteHostsHostIdNotificationRoute,

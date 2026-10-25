@@ -41,6 +41,7 @@ import {
   providerStatusVariant,
   runtimeStoreAction,
   servesCustomProvider,
+  showProviderInUse,
 } from "./provider-row";
 
 /**
@@ -149,7 +150,7 @@ export interface ProviderPickerProps {
   onCancelProviderRestart?: ((provider: AgentProviderId) => void | Promise<void>) | undefined;
   /**
    * Turns a provider on or off in OpenBot. With it each provider row has a switch. A row whose
-   * `usedBy` names an agent stays on and names the agents, so no agent loses its provider silently.
+   * `usedBy` names an agent stays on, and a toast tells why, so no agent loses its provider silently.
    */
   onSetProviderOn?: ((provider: AgentProviderId, on: boolean) => void | Promise<void>) | undefined;
   onInstallProvider?: ((provider: AgentProviderId) => void | Promise<void>) | undefined;
@@ -249,12 +250,6 @@ export function ProviderPicker(props: ProviderPickerProps) {
       state[provider] = { pending: false, error: null };
     });
   }
-  /**
-   * The last switch the user tried to turn off while agents use its provider. Each attempt is a new
-   * object, so the message is drawn again and a screen reader announces it again.
-   */
-  const [refusedOff, setRefusedOff] = createSignal<{ provider: AgentProviderId } | null>(null);
-
   /** One custom row; inside group when choosable, after when add-only. */
   const customRow = (engine: () => ProviderPickerOption) => (
     <div
@@ -483,12 +478,6 @@ export function ProviderPicker(props: ProviderPickerProps) {
               const actionsMenu = () =>
                 alternative() !== null || updateOffered() || restartOffered() || diagnosticsOffered();
               const inputId = () => `${pickerId}-${option().id}`;
-              /** The refused attempt on this row, until the agents move to another provider. */
-              const refusal = () => {
-                const attempt = refusedOff();
-                return attempt?.provider === option().id && (option().usedBy?.length ?? 0) > 0 ? attempt : undefined;
-              };
-              const usedById = () => `${inputId()}-used-by`;
               /** An off row is not a choice, so it never holds the check. */
               const checked = () => !off() && checkedProvider() === option().id;
               /** From the second account on, the row counts them and lists each one under it. */
@@ -811,13 +800,12 @@ export function ProviderPicker(props: ProviderPickerProps) {
                         )}
                         aria-busy={useChanges[option().id]?.pending ? "true" : "false"}
                         aria-label={t("provider.aria.use", { name: option().name })}
-                        aria-describedby={refusal() ? usedById() : undefined}
                         onChange={(on: boolean) => {
-                          if (!on && (option().usedBy?.length ?? 0) > 0) {
-                            setRefusedOff({ provider: option().id });
+                          const usedBy = option().usedBy ?? [];
+                          if (!on && usedBy.length > 0) {
+                            showProviderInUse(t, usedBy, option().name);
                             return;
                           }
-                          setRefusedOff(null);
                           void setProviderOn(option().id, on);
                         }}
                       />
@@ -854,15 +842,6 @@ export function ProviderPicker(props: ProviderPickerProps) {
                         {message()}
                       </small>
                     )}
-                  </Show>
-                  <Show when={refusal()} keyed>
-                    <small id={usedById()} class="provider-picker-check-error provider-picker-used-by" role="alert">
-                      {t("provider.use.inUse", {
-                        count: option().usedBy?.length ?? 0,
-                        agents: format.list(option().usedBy ?? []),
-                        name: option().name,
-                      })}
-                    </small>
                   </Show>
                 </div>
               );

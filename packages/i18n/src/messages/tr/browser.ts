@@ -103,6 +103,8 @@ export const messages = {
   "browser.userControl.status": "Bu sayfayı siz kontrol ediyorsunuz",
   "browser.dock.messageTo": "{name} için mesaj",
   "browser.dock.needsYou": "{name} bu sayfada size ihtiyaç duyuyor",
+  "browser.dock.needsAnswer": "{name} yanıtınızı bekliyor",
+  "browser.dock.needsApproval": "{name} onayınızı bekliyor",
   "browser.dock.answerInChat": "Sohbette yanıtla",
   "browser.tab.newRight": "Sağa yeni sekme",
   "browser.tab.duplicate": "Çoğalt",
@@ -126,4 +128,44 @@ export const messages = {
   "browser.address.switchToTab": "Sekmeye geç",
   "browser.address.search": "Google'da ara",
   "browser.pageActions": "Sayfa işlemleri",
+  "browser.signIn.local": "Bu bilgisayarda oturum aç",
+  "browser.signIn.title": "{site} sitesinde oturum aç",
+  "browser.signIn.description":
+    "Bazı siteler bir sunucudan oturum açmayı reddeder. Bu bilgisayarda oturum açın; OpenBot {site} oturumunu {server} sunucusuna gönderir. {server} üzerindeki tüm ajanlar ve üyeler bunu tarayıcıda kullanabilir.",
+  "browser.signIn.windowOpen":
+    "Açılan pencerede oturum açın. Oturum açma tamamlanınca OpenBot onu gönderir. Pencere açık kalırsa Bitti'yi seçin.",
+  "browser.signIn.windowClosed":
+    "Oturum açma penceresi kapalı. Oturumu göndermek için Bitti'yi seçin veya pencereyi yeniden açın.",
+  "browser.signIn.reopen": "Oturum açma penceresini aç",
+  "browser.signIn.sending": "{server} sunucusuna gönderiliyor…",
+  "browser.signIn.sent": "{server} üzerinde {site} oturumu açıldı",
+  "browser.signIn.notFound": "OpenBot {site} için oturum bulamadı. Pencerede oturum açın, sonra Bitti'yi seçin.",
+  "browser.signIn.stillSignedOut":
+    "{server} hâlâ {site} için bir oturum açma sayfası gösteriyor. Oturum açmayı pencerede tamamlayın.",
+  "browser.signIn.failed": "OpenBot oturumu gönderemedi.",
+  "browser.profiles.title": "Tarayıcı profilleri",
+  "browser.profiles.subtitle":
+    "Her profil kendi oturum açma bilgilerini, çerezlerini ve site verilerini OpenBot'u çalıştıran bilgisayarda tutar.",
+  "browser.profiles.label": "Tarayıcı profilleri",
+  "browser.profiles.newName": "Profil adı",
+  "browser.profiles.create": "Ekle",
+  "browser.profiles.usage": "{agents} · {tabs}",
+  "browser.profiles.agents": { one: "{count} ajan", other: "{count} ajan" },
+  "browser.profiles.tabs": { one: "{count} açık sekme", other: "{count} açık sekme" },
+  "browser.profiles.renameLabel": "{name} profilini yeniden adlandır",
+  "browser.profiles.actionsFor": "{name} için eylemler",
+  "browser.profiles.colorLabel": "{name} profilinin rengi",
+  "browser.profiles.save": "Kaydet",
+  "browser.profiles.clear": "Verileri temizle",
+  "browser.profiles.clearTitle": "{name} profilinin verileri temizlensin mi?",
+  "browser.profiles.clearDescription":
+    "Bu işlem, bu profildeki tüm sitelerden oturumu kapatır ve profilin çerezlerini ve site verilerini siler. Açık sekmeleri kapanır.",
+  "browser.profiles.deleteTitle": "{name} profili silinsin mi?",
+  "browser.profiles.deleteDescription":
+    "Bu işlem profilin oturum açma bilgilerini, çerezlerini ve site verilerini siler. Açık sekmeleri kapanır.",
+  "browser.profiles.deleteAgents": "Bu ajanlar paylaşılan profile geçer: {agents}.",
+  "browser.profiles.failed": "OpenBot tarayıcı profillerini değiştiremedi.",
+  "browser.profiles.loadFailed": "OpenBot tarayıcı profillerini yükleyemedi.",
+  "browser.profiles.tabLabel": "Profil: {name}",
+  "browser.profiles.agentTabLabel": "Ajanın kendi profili",
 } as const satisfies PartialTranslation<typeof source>;

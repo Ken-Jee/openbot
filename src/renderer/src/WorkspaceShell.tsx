@@ -6,7 +6,7 @@ import {
   serverWorkspacePhase,
 } from "@openbot/ui/features/servers/ServerConnectionNotice";
 import { useText } from "@openbot/ui/text";
-import { createMemo, Show } from "solid-js";
+import { createEffect, createMemo, Show } from "solid-js";
 import { useAccountUsagePolling } from "./features/account/account-usage-polling";
 import { useAgents } from "./features/agents/agents-context";
 import { WorkspaceAgentSetup } from "./features/agents/WorkspaceAgentSetup";
@@ -17,6 +17,7 @@ import { useConversation } from "./features/conversation/conversation-context";
 import { useDirectMessages } from "./features/conversation/direct-messages-context";
 import { WorkspaceConversation } from "./features/conversation/WorkspaceConversation";
 import { WorkspaceDirectConversation } from "./features/conversation/WorkspaceDirectConversation";
+import { useCustomAgentUsagePolling } from "./features/custom-agents/custom-agent-usage-polling";
 import { WorkspaceServerOnboarding } from "./features/onboarding/WorkspaceServerOnboarding";
 import { useRemoteDesktop } from "./features/remote-desktop/remote-desktop-context";
 import { WorkspaceRoutineFlows } from "./features/routine-flows/WorkspaceRoutineFlows";
@@ -62,6 +63,8 @@ import { WorkspaceOverlays } from "./WorkspaceOverlays";
  */
 export function WorkspaceShell(props: { account: () => CentralAuthUser }) {
   const platform = usePlatform();
+  /** A window that main opened for one chat shows that chat alone, with no rail and no sidebar. */
+  const chatWindow = platform.chatWindow !== null;
   const { sourceText, t } = useText();
   const scope = useServerScope();
   const settings = useSettings();
@@ -70,6 +73,7 @@ export function WorkspaceShell(props: { account: () => CentralAuthUser }) {
   const windowPage = useWindowPage();
   const usage = useUsage();
   useAccountUsagePolling();
+  useCustomAgentUsagePolling();
   const layout = useLayout();
   const {
     activeServer,
@@ -81,7 +85,7 @@ export function WorkspaceShell(props: { account: () => CentralAuthUser }) {
     refreshServers,
   } = useServers();
   const { remoteDesktopWorkspaceVisible } = useRemoteDesktop();
-  const { agentSetupOpen, serverOnboardingOpen, activeAgent } = useAgents();
+  const { agentSetupOpen, serverOnboardingOpen, activeAgent, agentList, agentListSettled } = useAgents();
   const { conversations, retryConversation } = useConversation();
   const activeConversation = () => conversations[activeAgent()?.id ?? ""];
   const { activeDirectMember } = useDirectMessages();
@@ -90,6 +94,7 @@ export function WorkspaceShell(props: { account: () => CentralAuthUser }) {
    * Then the Agent form, then a channel, then a person, then the Agent or its routines.
    */
   const middlePane = createMemo(() => {
+    if (chatWindow) return "agent";
     if (windowPage.page() === "tasks") return "tasks";
     if (agentSetupOpen()) return "agent-setup";
     if (channelOpen()) return "channel";
@@ -97,6 +102,21 @@ export function WorkspaceShell(props: { account: () => CentralAuthUser }) {
     return layout.sidebarView() === "routines" ? "routines" : "agent";
   });
   const agentChatOpen = () => middlePane() === "agent";
+  if (chatWindow) {
+    // The title names the chat. The window closes when its agent is gone, so it never shows another.
+    createEffect(
+      () => activeAgent()?.name,
+      (name) => {
+        if (name) document.title = name;
+      },
+    );
+    createEffect(
+      () => agentListSettled() && !agentList().some((agent) => agent.id === platform.chatWindow?.agentId),
+      (gone) => {
+        if (gone) window.close();
+      },
+    );
+  }
   /** The list stays while a connection screen covers the page: the screen does not span the sidebar. */
   const tasksAgentsHidden = () =>
     middlePane() === "tasks" &&
@@ -142,17 +162,19 @@ export function WorkspaceShell(props: { account: () => CentralAuthUser }) {
     if (server.state === "online") scope.retry();
     else void retryServerConnection(server.id);
   };
-  createServerConnectionToast(() => {
-    const server = activeServer();
-    return server?.kind === "remote"
-      ? {
-          id: server.id,
-          name: server.name,
-          ready: scope.loaded(),
-          quiet: Boolean(server.hostedSleep || server.hostRestart?.state === "restarting" || blockedRemoteServer()),
-        }
-      : null;
-  });
+  // The main window shows the toasts and prompts of the servers once.
+  if (!chatWindow)
+    createServerConnectionToast(() => {
+      const server = activeServer();
+      return server?.kind === "remote"
+        ? {
+            id: server.id,
+            name: server.name,
+            ready: scope.loaded(),
+            quiet: Boolean(server.hostedSleep || server.hostRestart?.state === "restarting" || blockedRemoteServer()),
+          }
+        : null;
+    });
 
   const remoteHosts = (): HostRestartView[] =>
     servers().flatMap((server) =>
@@ -168,17 +190,20 @@ export function WorkspaceShell(props: { account: () => CentralAuthUser }) {
           ]
         : [],
     );
-  // The update dialog explains the restart of the update that it follows.
-  createHostRestartToasts(() => remoteHosts().filter((host) => !followsServerUpdate(host.id)));
-  createRoutineTimezonePrompt(() => desktopRoutineZoneTargets(servers()));
+  if (!chatWindow) {
+    // The update dialog explains the restart of the update that it follows.
+    createHostRestartToasts(() => remoteHosts().filter((host) => !followsServerUpdate(host.id)));
+    createRoutineTimezonePrompt(() => desktopRoutineZoneTargets(servers()));
+  }
 
   return (
     // The overlays and the chat cards show the same connectors.
     <ConnectorsProvider>
       {/* The page rail sits at the left of the frame. The frame is the card of the page that the rail selects. */}
       <div class="app-window">
-        <WorkspacePageRail hidden={remoteDesktopWorkspaceVisible()} />
+        <WorkspacePageRail hidden={chatWindow || remoteDesktopWorkspaceVisible()} />
         <WorkspaceFrame
+          class={chatWindow ? "app-frame-chat-window" : undefined}
           compact={layout.leftPanelCompact()}
           initialLoading={!serversLoaded() || !scope.connection.hasContent}
           connection={
@@ -238,16 +263,18 @@ export function WorkspaceShell(props: { account: () => CentralAuthUser }) {
           windowPage={windowPage.page()}
           sidebarHidden={tasksAgentsHidden()}
           left={
-            <>
+            <Show when={!chatWindow}>
               <WorkspaceServerRail />
               <WorkspaceSidebar peopleEnabled={activePeopleEnabled()} />
-            </>
+            </Show>
           }
           page={<WindowPageView />}
           after={
             <>
               <WorkspaceOverlays account={props.account} />
-              <ServerUpdateDialogHost hosts={remoteHosts()} />
+              <Show when={!chatWindow}>
+                <ServerUpdateDialogHost hosts={remoteHosts()} />
+              </Show>
             </>
           }
         >

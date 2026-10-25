@@ -3,6 +3,7 @@ import type { AvatarImageInput, ServerNotificationLevel } from "@openbot/contrac
 import { SERVER_NOTIFICATION_LEVELS } from "@openbot/contracts/ipc";
 import {
   Button,
+  ConfirmDialog,
   Image,
   ImageRemoveButton,
   Input,
@@ -31,6 +32,7 @@ import { ServerLogo } from "@openbot/ui/features/servers/ServerLogo";
 import { useText } from "@openbot/ui/text";
 import type { JSX } from "@solidjs/web";
 import { type Accessor, createStore, Show, snapshot } from "solid-js";
+import { actionToast } from "../../action-toast";
 import { ServerMemoryLimitSetting } from "./ServerMemoryLimitSetting";
 import { ServerTimezoneSetting } from "./ServerTimezoneSetting";
 import { serverCanAdminister } from "./server-capabilities";
@@ -61,12 +63,14 @@ interface ServerIdentityDraft {
  */
 interface GeneralPanels {
   confirmLeave: boolean;
+  confirmRotateKey: boolean;
   identity: ServerIdentityDraft;
 }
 
 interface ServerGeneralSection {
   Panel: () => JSX.Element;
   LeaveDialog: () => JSX.Element;
+  RotateKeyDialog: () => JSX.Element;
   /** True while the user edits the identity, so the server's own name and logo do not replace the draft. */
   editing: Accessor<boolean>;
   identityDirty: Accessor<boolean>;
@@ -86,9 +90,10 @@ interface ServerGeneralSection {
 /** The General section: server identity, agent settings, notifications, and leaving a joined server. */
 export function createServerGeneralSection(host: ServerSettingsSectionHost): ServerGeneralSection {
   const { t, format, errorMessage } = useText();
-  const { props, local, actionsAvailable, busy, run } = host;
+  const { props, local, published, actionsAvailable, busy, run } = host;
   const [panels, setPanels] = createStore<GeneralPanels>({
     confirmLeave: false,
+    confirmRotateKey: false,
     identity: {
       editing: false,
       logo: undefined,
@@ -122,6 +127,8 @@ export function createServerGeneralSection(host: ServerSettingsSectionHost): Ser
   const canLeave = () => Boolean(props.onLeaveServer) && !local() && props.server.role !== "owner";
   /** The owner removes the server from the account instead. The host does not need to be online. */
   const canRemove = () => Boolean(props.onRemoveServer) && !local() && props.server.role === "owner";
+  /** The key handover goes through the account service, so the server must be published. */
+  const canRotateKey = () => Boolean(props.onRotateHostKey) && local() && published();
   const identityDirty = () =>
     canEditIdentity() &&
     (trimmedName() !== panels.identity.savedName ||
@@ -239,6 +246,7 @@ export function createServerGeneralSection(host: ServerSettingsSectionHost): Ser
   function resetForServer(): void {
     setPanels((state) => {
       state.confirmLeave = false;
+      state.confirmRotateKey = false;
       state.identity.editing = false;
       state.identity.nameTouched = false;
       state.identity.nameShaking = false;
@@ -470,6 +478,33 @@ export function createServerGeneralSection(host: ServerSettingsSectionHost): Ser
             </ItemGroup>
           </SettingsSection>
         </Show>
+        <Show when={canRotateKey()}>
+          <SettingsSection title={t("server.settings.hostKeyTitle")}>
+            <ItemGroup class="settings-modal-card">
+              <Item>
+                <ItemContent>
+                  <ItemTitle>{t("server.settings.hostKeyRotate")}</ItemTitle>
+                  <ItemDescription>{t("server.settings.hostKeyDescription")}</ItemDescription>
+                </ItemContent>
+                <ItemActions>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={Boolean(busy())}
+                    onClick={() =>
+                      setPanels((state) => {
+                        state.confirmRotateKey = true;
+                      })
+                    }
+                  >
+                    {t("server.settings.hostKeyRotateAction")}
+                  </Button>
+                </ItemActions>
+              </Item>
+            </ItemGroup>
+          </SettingsSection>
+        </Show>
         <Show when={canLeave()}>
           <SettingsSection title={t("server.settings.leaveTitle")}>
             <ItemGroup class="settings-modal-card">
@@ -547,9 +582,38 @@ export function createServerGeneralSection(host: ServerSettingsSectionHost): Ser
     );
   }
 
+  function RotateKeyDialog() {
+    const close = () =>
+      setPanels((state) => {
+        state.confirmRotateKey = false;
+      });
+    return (
+      <Show when={panels.confirmRotateKey && canRotateKey()}>
+        <ConfirmDialog
+          open
+          tone="default"
+          initialFocus="cancel"
+          pending={busy() === "rotate-host-key"}
+          title={t("server.settings.hostKeyConfirmTitle")}
+          description={t("server.settings.hostKeyConfirmDescription")}
+          confirmLabel={t("server.settings.hostKeyRotateAction")}
+          onCancel={close}
+          onConfirm={async () => {
+            await run("rotate-host-key", async () => {
+              await props.onRotateHostKey?.();
+              close();
+              actionToast.success(t("server.settings.hostKeyRotated"));
+            });
+          }}
+        />
+      </Show>
+    );
+  }
+
   return {
     Panel,
     LeaveDialog,
+    RotateKeyDialog,
     editing: () => panels.identity.editing,
     identityDirty,
     resetIdentity,

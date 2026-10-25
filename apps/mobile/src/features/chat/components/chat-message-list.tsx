@@ -39,6 +39,7 @@ import {
   StyleSheet,
   useWindowDimensions,
   View,
+  type ViewInstance,
   type ViewStyle,
 } from "react-native";
 import Animated, {
@@ -334,7 +335,7 @@ interface MessageRowShared {
     selectionChange: (selected: string) => void;
     nativeSelection: (message: ChatBubbleMessage, selected: string) => void;
     /** The row of the selected message. A tap outside it ends the selection. */
-    selectionArea: (view: View | null) => void;
+    selectionArea: (view: ViewInstance | null) => void;
   };
 }
 
@@ -606,6 +607,7 @@ const MessageRow = memo(function MessageRow({
               alignment={message.author === "user" ? "right" : "left"}
               upload={upload ? uploadProgressAt(index, upload.completed, upload.current) : undefined}
               tint={shared.attachmentTint}
+              visual={message.visual}
             />
           ),
         )}
@@ -1022,7 +1024,7 @@ export const ChatMessageList = memo(function ChatMessageList({
   const onListReady = motion.onListReady;
   const hasRows = rows.length > 0;
   const onReady = useCallback(() => onListReady(hasRows), [onListReady, hasRows]);
-  const selectionArea = useRef<View | null>(null);
+  const selectionArea = useRef<ViewInstance | null>(null);
   const actionHandlers = useRef({
     onReply,
     onReact,

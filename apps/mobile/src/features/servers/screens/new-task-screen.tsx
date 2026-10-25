@@ -3,7 +3,7 @@ import type { AgentTasksSnapshot } from "@openbot/contracts/ipc";
 import { plainTaskTitle } from "@openbot/team-client/agent-tasks";
 import { useQueryClient } from "@tanstack/react-query";
 import * as Crypto from "expo-crypto";
-import { router, Stack, useLocalSearchParams, useNavigation } from "expo-router";
+import { router, Stack, useLocalSearchParams } from "expo-router";
 import { usePreventRemove } from "expo-router/react-navigation";
 import { Typography } from "heroui-native";
 import Check from "lucide-react-native/icons/check";
@@ -37,7 +37,6 @@ export function NewTaskScreen() {
   const { serverId, agentId: initialAgentId } = useLocalSearchParams<{ serverId: string; agentId?: string }>();
   const queryScope = useQueryScope();
   const queryClient = useQueryClient();
-  const navigation = useNavigation();
   const accent = String(useCSSVariable("--openbot-accent"));
   const { startAgentTask } = useMobileWorkspace();
   const { agents, online, supported } = useServerTasks(serverId, { enabled: false });
@@ -52,14 +51,19 @@ export function NewTaskScreen() {
   const dirty = title !== "";
   const canSave = online && supported && Boolean(chosen) && dirty && !finished;
 
-  usePreventRemove(!finished && (dirty || saving), ({ data }) => {
+  // Discard turns prevention off before it repeats the action, so the hook does not warn.
+  const [discarding, setDiscarding] = useState(false);
+  usePreventRemove(!discarding && !finished && (dirty || saving), ({ repeat }) => {
     if (pending.current) return;
     Alert.alert(t("mobile.agent.discard.title"), t("mobile.agent.discard.body"), [
       { text: t("mobile.agent.discard.keepEditing"), style: "cancel" },
       {
         text: t("mobile.agent.discard.discard"),
         style: "destructive",
-        onPress: () => navigation.dispatch(data.action),
+        onPress: () => {
+          setDiscarding(true);
+          repeat();
+        },
       },
     ]);
   });

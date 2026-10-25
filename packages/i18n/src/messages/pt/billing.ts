@@ -55,7 +55,6 @@ export const messages = {
   "billing.lifecycle.automatic": "A renovação automática é retomada",
   "billing.lifecycle.noRefund": "Sem reembolso por tempo não usado",
   "billing.lifecycle.noRenewal": "Sem novas renovações",
-  "billing.lifecycle.open": "Abrir prévia do design",
   "billing.lifecycle.dateUtc": "{date} UTC",
   "billing.lifecycle.renews": "A renovação automática está ligada.",
   "billing.lifecycle.schedule": "Excluir no fim do período",

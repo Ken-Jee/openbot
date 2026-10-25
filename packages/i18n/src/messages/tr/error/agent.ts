@@ -62,6 +62,8 @@ export const messages = {
   "error.agent.duplicateIds": "Ajan durumu yinelenen ajan kimlikleri içeriyor; üzerine yazılması reddedildi.",
   "error.agent.copyNameFailed": "OpenBot benzersiz bir ajan kopya adı oluşturamadı.",
   "error.agent.endpointRemoved": "Bu ajanın kullandığı uç nokta kaldırıldı. Ajan için başka bir model seçin.",
+  "error.agent.turnStalled":
+    "{provider} yanıt vermeyi bıraktı, bu yüzden OpenBot bu turu bitirdi. Mesajı yeniden gönderin veya başka bir model seçin.",
   "error.agent.selectedGone": "Seçilen ajan artık mevcut değil.",
   "error.agent.profileEndpointsChanged": "Bu işlem oluşturulurken özel uç noktalar değişti. Tekrar deneyin.",
   "error.agent.profileInvalid": "Sağlayıcı geçersiz bir profil döndürdü. İsteminizi revize etmeyi deneyin.",

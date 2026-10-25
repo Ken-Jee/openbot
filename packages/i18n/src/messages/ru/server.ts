@@ -304,6 +304,16 @@ export const messages = {
   "server.settings.notReachable": "Недоступен из интернета. Существующие участники и приглашения сохраняются.",
   "server.settings.notPublished": "Недоступен из интернета.",
   "server.settings.generatedName": "Сервер: {name}",
+  "server.settings.hostKeyTitle": "Ключ сервера",
+  "server.settings.hostKeyRotate": "Сменить ключ сервера",
+  "server.settings.hostKeyDescription":
+    "Создаёт новый ключ идентификации этого сервера. Связанные компьютеры, телефоны и маршруты вебхуков остаются подключёнными.",
+  "server.settings.hostKeyRotateAction": "Сменить",
+  "server.settings.hostKeyConfirmTitle": "Сменить ключ сервера?",
+  "server.settings.hostKeyConfirmDescription":
+    "Текущий и новый ключи подписывают передачу. Приложения участников перейдут на новый ключ при следующем подключении. Сделайте это, если файл ключа был скопирован или раскрыт.",
+  "server.settings.hostKeyRotated": "Ключ сервера изменён",
+  "server.settings.hostKeyLocalOnly": "Здесь ключ может сменить только сервер на этом компьютере.",
   "server.settings.removeTitle": "Удалить сервер",
   "server.settings.removeDescription":
     "Удалить этот сервер из сервиса аккаунтов для всех участников. Используйте, когда его компьютер больше недоступен.",
@@ -404,6 +414,8 @@ export const messages = {
   "server.invite.pendingTitle": "Ожидающие приглашения",
   "server.invite.pendingCount": "Ожидают: {total}",
   "server.invite.noPending": "Ожидающих приглашений нет.",
+  "server.invite.emptyTitle": "Отправьте первое {word}.",
+  "server.invite.emptyWord": "приглашение",
   "server.invite.neverExpires": {
     one: "Не истекает · {count} присоединение",
     few: "Не истекает · {count} присоединения",

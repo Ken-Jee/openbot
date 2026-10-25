@@ -237,6 +237,7 @@ const agentBrowser: AgentBrowserHost = {
   clearControls: () => {},
   endControl: () => {},
   close: () => Effect.void,
+  clearAgentSession: () => Effect.void,
 };
 const teamBrowser: TeamApiBrowser = {
   listTabs: () => [],
@@ -258,6 +259,7 @@ const teamBrowser: TeamApiBrowser = {
   startView: unused,
   dispatchViewInput: unused,
   copyViewSelection: unused,
+  importSignIn: unused,
 };
 /** Stored tokens are not read here: the local server has none. */
 const cipher = {
@@ -408,6 +410,7 @@ try {
   assert.ok(channels);
   const forwarders = createRendererForwarders({
     getMainWindow: () => mainWindow,
+    getChatWindows: () => [],
     getAgentService: () => agents ?? null,
     getHostService: () => host,
     getHostAnalytics: () => null,

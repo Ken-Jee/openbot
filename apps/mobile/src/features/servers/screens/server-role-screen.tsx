@@ -1,6 +1,6 @@
 import { AGENT_ACCESS_LEVELS, AGENT_ACCESS_ROLE_NAME_LIMIT, type AgentAccessLevel } from "@openbot/contracts/ipc";
 import type { MobileTextKey } from "@openbot/i18n/mobile";
-import { router, useLocalSearchParams, useNavigation } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { usePreventRemove } from "expo-router/react-navigation";
 import { Typography } from "heroui-native";
 import { useRef, useState } from "react";
@@ -34,7 +34,6 @@ const LEVEL_KEYS = {
 export function ServerRoleScreen() {
   const { t, errorMessage } = useText();
   const { theme } = useUniwind();
-  const navigation = useNavigation();
   const {
     serverId,
     roleId,
@@ -53,9 +52,12 @@ export function ServerRoleScreen() {
   /** True after Delete: the page leaves without the question about the name. */
   const leaving = useRef(false);
 
-  usePreventRemove(dirty, ({ data }) => {
+  // Discard turns prevention off before it repeats the action, so the hook does not warn.
+  const [discarding, setDiscarding] = useState(false);
+  usePreventRemove(!discarding && dirty, ({ repeat }) => {
     if (leaving.current) {
-      navigation.dispatch(data.action);
+      setDiscarding(true);
+      repeat();
       return;
     }
     void haptics.notification("warning");
@@ -64,7 +66,10 @@ export function ServerRoleScreen() {
       {
         text: t("mobile.agent.discard.discard"),
         style: "destructive",
-        onPress: () => navigation.dispatch(data.action),
+        onPress: () => {
+          setDiscarding(true);
+          repeat();
+        },
       },
     ]);
   });

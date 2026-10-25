@@ -74,6 +74,23 @@ the Dynamic Island shows no new reply. A client without the capability gets the 
 `turn-completed` event and shows the run as finished, as before. A malformed
 `quiet-turn-completed` event is an error.
 
+## Failed routine runs
+
+A run's status comes from its queue delivery (`routineStatusForDelivery`), so a completed turn is a
+`succeeded` run, also when the task inside it failed. Every run prompt names the
+`routine_report_failure` tool, the Test run and a flow handoff too. The agent calls it with a short
+`reason` when the task could not be done. The reason is held in memory until the turn completes.
+When the turn completes, each routine delivery of the turn ends `completed` with the reason in its
+`error` column (redacted as other errors). The agent did answer, so the answer, the chat digest and
+the notification are as before. `routineStatusForDelivery` maps a completed delivery with an error to
+a `failed` run with that error, so the run goes from `running` to `failed` in one step, and every
+later reconcile keeps it failed. No column was added. A failed run is never quiet, also after a call
+to `routine_no_update`: that call then answers `shown`, and the history import keeps the answers. A provider error or an interrupt still wins: the delivery then ends `failed`
+or `interrupted` with its own error. The run history shows the error of a failed run. A result
+destination gets the answer of a failed run whose delivery completed; a provider failure has no
+answer and sends nothing. Outside a routine run the tool returns the same error as
+`routine_no_update`.
+
 A routine run whose last answer is only the marker, also a Test run that shows it in the chat, does
 not put the marker in the preview either. The provider history import
 (`src/backend/provider-history-import.ts`) decides from the staged items alone: in a turn that a
@@ -142,7 +159,8 @@ on a joined host.
   skipped, so a failure never leaves a flow waiting.
 - A handoff is a mailbox delivery from the routine (`RoutineScheduler.enqueueHandoff`). It names the
   same routine and run, but `reconcileDelivery` finds a run only by its own delivery, so the run status
-  does not change.
+  does not change. A `routine_report_failure` call in a handoff turn fails only that step, through its
+  completed delivery's error, and the agents after it are skipped.
 - A canvas shows routines of every trigger kind (`routine-flow-routines.ts`). A webhook routine
   carries its endpoint, event type and filters; the details panel saves them, rotates the secret and
   runs a test through the events API, as the routine settings do. On a joined host only an owner or
@@ -173,6 +191,18 @@ A joined desktop, the web client and the mobile app use the optional `agent-hidd
 owner or an admin hides or restores an agent on a host.
 `/v1/agents` and the released agent codecs do not carry `hiddenAt`.
 
+## Browser profile
+
+Agent settings > Advanced selects the browser profile of an agent: Shared or a named profile
+that other agents can also use. For a joined server, an owner or admin sees the select when the host
+serves `browser-profiles-v1`; the agent summary does not carry the profile, so the panel reads it
+from the host. "Only this agent" shows only for an agent that already uses it. A change closes the agent's open tabs. "Manage" opens
+the Browser profiles section of the settings of the agent's server (`ServerBrowserProfilesPanel`), which adds,
+renames, changes the color of, clears and deletes the named profiles. It lists Shared first, with
+its agent count and no actions. A joined server without the capability has no section. The select, the browser toolbar and the tabs show the color of a named profile. A delete moves
+the profile's agents to Shared. The agent has no tool to change its profile, and tool results do not
+name it. See [Browser sessions](browser.md#browser-sessions) for the storage and the partitions.
+
 ## Agent tasks
 
 A task is a separate execution thread of one agent. The agent keeps one identity, workspace and
@@ -181,7 +211,8 @@ provider settings; each task has its own provider thread, conversation, queue, p
 `taskId` belongs to that task, and `DrainScheduler` drains each task as its own lane. The main chat
 lane does not count toward the task limit. At most `limit` task turns of one agent run at the same
 time. `agentTaskLimit` gives the limit: the agent's local `taskLimit` setting (1 to
-`AGENT_TASK_LIMIT_MAX`, in `agent_json`), else `AGENT_TASK_LIMIT_DEFAULT` (2). A provider whose
+`AGENT_TASK_LIMIT_MAX`, in `agent_json`), else `AGENT_TASK_LIMIT_DEFAULT` (2). An owner or admin of
+a joined server reads and sets it on `agent-task-limit-v1`. A provider whose
 descriptor has `concurrentTurns: false` (custom ACP agents) gets 1, and its chat and tasks run one
 turn at a time. Other task messages wait with a `hold` reason: `task-limit`, `agent-restarting`,
 `usage-limit`, `server-busy`, `agent-busy` or `one-turn`. The server-wide `TurnSlots` limit of a
@@ -340,14 +371,23 @@ These are manual model evaluations, separate from the fake-provider lifecycle re
 Users create and edit agent profiles by asking an agent in the normal desktop or mobile
 conversation. `openbot.create_agent` creates a persistent teammate with instructions and a first
 task; `openbot.update_profile` changes an existing agent's name, title, instructions, generated
-or custom avatar, provider, model, reasoning effort, access, Computer Use, or notifications. `avatarPath` accepts a local PNG, JPEG, or WebP file up to 512 KB, with relative
+or custom avatar, provider, model, reasoning effort, account, backup models, access, Computer Use, or notifications. `avatarPath` accepts a local PNG, JPEG, or WebP file up to 512 KB, with relative
 paths resolved from the calling agent’s workspace. The agent uses its available tools to resize or
 compress a copy when needed. OpenBot validates the prepared file before profile changes and copies
 it into managed avatar storage. Generated avatar settings remove the custom image. Both run through
 the existing agent service and validate arguments before changing state.
 `openbot.create_agent` also accepts an optional `provider`, `model` and `reasoningEffort`. The
 read-only `openbot.list_models` returns the models of each provider that the model picker shows, with
-their reasoning efforts and the default model for a request that names only a provider. An unknown
+their reasoning efforts and the default model for a request that names only a provider. A provider
+that can hold more than one account also lists its accounts, with the provider's own sign-in
+(`default`) first: the id, the name the user gave it (or null), and the state. It never lists the
+account email, credentials or account folders. `update_profile` takes the
+agent's `providerAccountId` and its `backupModels` (`automatic` and an `order` of provider, model
+and account), the same choices that the settings page offers. OpenBot checks each backup model and
+account against the lists before it writes, and the agent service checks the primary account; an
+account change, like a provider change, waits until the agent is idle. These changes apply at once,
+as the other profile fields do. `read_agent` and the `update_profile` result return the account,
+the backup models and `usageLimitReturn`, the model that the agent left for a usage limit or a provider error (`cause: "provider-error"`). An unknown
 model or an unsupported effort is an error that names the valid values; OpenBot checks them before
 it creates the agent. Without a provider and a model, the new agent starts on the calling agent's
 provider, model and reasoning effort, so a team that one agent creates runs where that agent runs.
@@ -359,6 +399,11 @@ and the names and transports of the MCP servers it gets. It does not return MCP 
 environment values, URLs, or headers, because they can hold secrets. `install_local_skill`,
 `set_skill_enabled`, `uninstall_skill`, and the routine tools take an optional `agentId`; without
 it they act on the caller. `uninstall_skill` never removes skill files that the user changed.
+`openbot.update_agents` gives several agents the same provider, model, reasoning effort, access,
+Computer Use, or notifications setting in one call. Each agent gets the checks of `update_profile`
+and its own `updateAgent` write, in order. A failure for one agent does not stop or undo the others,
+and the result reports `ok` with the new settings, or the error, for each agent id. A provider or
+model that is not listed fails the whole call before any write.
 An agent can only restrict access and Computer Use, for itself or a teammate. The router writes
 only a restriction, so a user change between its check and the write is never undone. Only the
 user widens them again, and only the user moves an agent between Ask first and Full access, and changes local script runs. An agent changes MCP servers only with the MCP server tools, after the user's request and approval. A new agent gets
@@ -386,7 +431,18 @@ the page on `openbot-visual:` (`openbot-remote-visual:` for a remote host) with
 `Content-Security-Policy: sandbox allow-scripts allow-forms` and the frame script, and the frame has
 the same sandbox without `allow-same-origin`. The page runs its scripts and can load files from the
 network, but it has an opaque origin, gets no permission, and talks to the app only with the checked
-MCP Apps messages for its height, its theme and a link that the user clicked. Mobile shows the
+messages of `parseChatVisualMessage`: its height, its theme, its display mode, a link, a message, its
+context, an image and an app shortcut. The frame script gives the page `window.openbotPage`
+(`sendMessage`, `setContext`, `requestFullscreen`, `exitFullscreen`, `displayMode`) over the MCP Apps
+methods `ui/message`, `ui/update-model-context` and `ui/request-display-mode`. A link, a message, the
+context, an image, full screen and a shortcut need the frame to have the focus and the user's
+activation, so a page acts only after a click or a key in it. A message goes at the end of the draft,
+and the user sends it. The context is a quote tag of the visual message
+at the start of the draft, so it shows as a quote chip and is saved and sent with the draft; the
+page's next context replaces it. Full screen puts the frame's
+box in the top layer with the Popover API, so the frame does not load again; it exits before the app
+opens a dialog for the page. Only the renderer's allowlist of shortcuts (`chat-visual-shortcuts.ts`)
+leaves the page, as a key event on the frame element. Mobile shows the
 page as its file and does not run it: in react-native-webview, a script in any frame can reach the
 bridge to the app. `html_preview` lets the agent look at a page before it publishes it: the main
 process draws it in a hidden window with its own in-memory session (`ChatVisualPreviewer`)

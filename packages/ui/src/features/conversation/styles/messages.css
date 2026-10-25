@@ -37,11 +37,6 @@
   grid-row: 3;
 }
 
-.message-entry-with-author .ui-message-footer {
-  grid-column: 2;
-  grid-row: 4;
-}
-
 .message-author-avatar {
   grid-column: 1;
   grid-row: 2;
@@ -490,6 +485,14 @@
   animation: image-generation-shine 2.25s cubic-bezier(0.25, 0.1, 0.25, 1) infinite;
 }
 
+/* A wait for the provider is not work, so its label does not shine. */
+.agent-activity-entry[data-waiting="true"] .agent-activity-label {
+  animation: none;
+  background: none;
+  color: var(--openbot-text-secondary);
+  -webkit-text-fill-color: currentColor;
+}
+
 .agent-activity-elapsed {
   flex: 0 0 auto;
   color: var(--openbot-text-muted);
@@ -808,7 +811,8 @@ button.chat-action-target:active,
 /* Markers without a target pill keep the same optical label-to-time rhythm. */
 .chat-action-marker-unavailable .chat-action-marker-label,
 .chat-action-marker-context-reset .chat-action-marker-label,
-.chat-action-marker-model-switch .chat-action-marker-label {
+.chat-action-marker-model-switch .chat-action-marker-label,
+.chat-action-marker-channel-change .chat-action-marker-label {
   padding-inline-end: var(--openbot-space-1-5);
 }
 
@@ -865,6 +869,13 @@ button.chat-action-target:active,
 .chat-action-marker-agent-message .chat-action-agent-menu-trigger:active {
   background: color-mix(in srgb, var(--chat-action-agent-color) 34%, transparent);
   color: var(--openbot-text-primary);
+}
+
+/* The open text of an agent message reads as a chat message under its centred marker. */
+.chat-action-message-text {
+  align-self: stretch;
+  margin-block: var(--openbot-space-2);
+  text-align: start;
 }
 
 .chat-action-target-status-in-progress .ui-marker-icon {
@@ -1374,24 +1385,41 @@ button.chat-action-target:active,
   }
 }
 
-/* A message the host has not stored yet. It reads as the user's own, a step quieter, until it is. */
-.message-entry-pending .message-shell {
-  opacity: 0.7;
-}
-
+/* A failed send, beside the time under the bubble. A send in flight leaves it empty. */
 .pending-send-status {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
-  gap: var(--openbot-space-1);
+  gap: 2px;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  line-height: var(--openbot-leading-sm);
 }
 
-.pending-send-status[data-state="failed"] .pending-send-label {
+.pending-send-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-1);
   color: var(--openbot-danger-text);
 }
 
+.pending-send-label:not(:empty) {
+  margin-inline-end: var(--openbot-space-1);
+}
+
+.pending-send-label > svg {
+  width: var(--openbot-icon-sm);
+  height: var(--openbot-icon-sm);
+  flex: none;
+}
+
 .pending-send-error {
-  margin-inline-start: var(--openbot-space-2);
+  color: var(--openbot-text-muted);
   overflow-wrap: anywhere;
+}
+
+.pending-send-error::before {
+  content: "·";
+  margin-inline-end: var(--openbot-space-1);
 }

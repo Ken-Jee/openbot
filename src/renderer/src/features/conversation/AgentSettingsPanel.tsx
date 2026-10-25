@@ -1,4 +1,9 @@
-import { agentAutomationAllowed, type FilePreview } from "@openbot/contracts/ipc";
+import {
+  type AgentBrowserProfile,
+  agentAutomationAllowed,
+  DEFAULT_AGENT_DEFAULTS,
+  type FilePreview,
+} from "@openbot/contracts/ipc";
 import { BookMarked, CalendarClock, Folder, Gauge, Puzzle, Table2, Upload } from "@openbot/ui";
 import { SettingsLinkGroup, SettingsLinkRow } from "@openbot/ui/components/SettingsPanel";
 import type { AgentProfile } from "@openbot/ui/data";
@@ -7,13 +12,17 @@ import {
   type AgentSessionSettingsApi,
 } from "@openbot/ui/features/conversation/AgentSessionSettings";
 import SharedAgentSettingsPanel, {
+  type AgentBrowserProfileOptions,
   type AgentSettingsPanelProps as SharedAgentSettingsPanelProps,
 } from "@openbot/ui/features/conversation/AgentSettingsPanel";
 import { agentFilesLinkValue } from "@openbot/ui/features/files/AgentFilesView";
 import { useText } from "@openbot/ui/text";
-import { createEffect, createMemo, createStore, Show, untrack } from "solid-js";
+import { createEffect, createMemo, createSignal, createStore, Show, untrack } from "solid-js";
+import { actionToast } from "../../action-toast";
 import { createSettingsPanelWidth, saveSettingsPanelWidth } from "../../components/settings-panel-width";
 import { agentSkillCalls, skillsPort } from "../../skills-port";
+import type { BrowserProfileCalls } from "../browser/browser-profiles-port";
+import { createBrowserProfilesStore } from "../browser/stores/browser-profiles-store";
 import { type AgentFilesOptions, AgentFilesSettings } from "../files/AgentFilesSettings";
 import { createStorageUsage } from "../files/storage-usage";
 import { AgentMemoriesModal } from "./AgentMemoriesModal";
@@ -29,7 +38,7 @@ import { SharedTablesModal } from "./SharedTablesModal";
 interface AgentSettingsPanelProps
   extends Omit<
     SharedAgentSettingsPanelProps,
-    "width" | "onResize" | "onResizeEnd" | "links" | "detailOpen" | "children"
+    "width" | "onResize" | "onResizeEnd" | "links" | "detailOpen" | "children" | "browserProfiles"
   > {
   remoteClient?: boolean;
   /** Routines can copy local run commands only on the computer that runs the agent. */
@@ -65,12 +74,16 @@ interface AgentSettingsPanelProps
   onAddFromMarketplace?: ((agentId: string) => void) | undefined;
   /** The Files row. Left out for a remote server without `storage-v1`. */
   files?: AgentFilesOptions | undefined;
+  /** The profile calls of the host that runs the agent, for an owner or admin. Absent hides the row. */
+  browserProfileCalls?: BrowserProfileCalls | undefined;
+  /** Opens the Browser profiles section of the settings of the server that runs the agent. */
+  onManageBrowserProfiles?: ((trigger: HTMLElement) => void) | undefined;
 }
 
 export type { AgentSkillsMode };
 
 export default function AgentSettingsPanel(props: AgentSettingsPanelProps) {
-  const { t } = useText();
+  const { t, errorMessage } = useText();
   const sessionSettings = createMemo((): AgentSessionSettingsApi | undefined => {
     if (!props.sessionSettingsEditable) return undefined;
     if (props.remoteClient) return props.adminCalls?.sessionSettings;
@@ -99,11 +112,60 @@ export default function AgentSettingsPanel(props: AgentSettingsPanelProps) {
     files: { open: false },
     skills: { count: 0, open: false, reopenAfterMarketplace: false },
   });
+  // One store per host. It goes with the host, so the list of the last server never shows for the next.
+  const browserProfiles = createMemo(() => {
+    const calls = props.browserProfileCalls;
+    return calls ? createBrowserProfilesStore(() => calls) : undefined;
+  });
+  // The summary of an agent on a joined server does not carry its profile, so the panel reads it
+  // from the host. Undefined until it arrives, and for an agent on this computer.
+  const [hostChoice, setHostChoice] = createSignal<AgentBrowserProfile | undefined>(undefined);
+  let choiceRequest = 0;
+  // The settings page covers the conversation while it changes the profiles, so the list loads again
+  // each time the conversation shows.
+  createEffect(
+    () => ({
+      store: props.workspaceCovered === true ? undefined : browserProfiles(),
+      calls: props.browserProfileCalls,
+      agentId: props.agent.id,
+      local: props.localHost === true,
+    }),
+    ({ store, calls, agentId, local }) => {
+      const request = ++choiceRequest;
+      setHostChoice(undefined);
+      if (!store || !calls) return;
+      const failed = (error: unknown) => actionToast.error(errorMessage(error, t("browser.profiles.loadFailed")));
+      store.refresh().catch(failed);
+      if (local) return;
+      calls
+        .readAgent(agentId)
+        .then((choice) => {
+          if (request === choiceRequest) setHostChoice(choice);
+        })
+        .catch(failed);
+    },
+  );
+  const browserProfileOptions = (): AgentBrowserProfileOptions | undefined => {
+    const store = browserProfiles();
+    const manage = props.onManageBrowserProfiles;
+    const current = hostChoice();
+    if (!store || !manage || (!props.localHost && !current)) return undefined;
+    return {
+      profiles: store.state.profiles,
+      current,
+      onChange: async (agentId, profile) => {
+        const saved = await store.assign(agentId, profile);
+        if (!props.localHost && agentId === props.agent.id) setHostChoice(saved);
+      },
+      onCreate: store.create,
+      onManage: manage,
+    };
+  };
   const memoriesPort = createMemo(() => agentMemoriesPort(props.agent.id, props.agent.name, props.memoryLimit ?? null));
   const legacyRoutinesPort = createMemo(() =>
     agentRoutinesPort(
       props.agent.id,
-      props.localHost === true && agentAutomationAllowed(props.agent),
+      props.localHost === true && agentAutomationAllowed(props.agent, props.agentDefaults ?? DEFAULT_AGENT_DEFAULTS),
       // Set only for the host on this computer, the one place the policy is kept.
       props.localHost === true,
     ),
@@ -268,6 +330,7 @@ export default function AgentSettingsPanel(props: AgentSettingsPanelProps) {
   return (
     <SharedAgentSettingsPanel
       {...props}
+      browserProfiles={browserProfileOptions()}
       width={panelWidth()}
       onResize={setPanelWidth}
       onResizeEnd={saveSettingsPanelWidth}

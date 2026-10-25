@@ -7,7 +7,7 @@ import { Cause, Effect, Exit, Option, Semaphore } from "effect";
 import { providerLabel } from "../backend/agent/thread-items";
 import type { AgentService } from "../backend/agent-service";
 import type { BrowserHost } from "../backend/browser-host";
-import { HostSignInPages } from "./host-sign-in-pages";
+import { type HostSignInPageMode, HostSignInPages } from "./host-sign-in-pages";
 
 export interface ProviderAccountsHostDependencies {
   service: Pick<
@@ -73,17 +73,28 @@ export class ProviderAccountsHost {
   }).bind(this);
 
   /** The sign-in it replaces ends first, so that account does not stay connecting where no cancel reaches it. */
-  startSignIn(provider: AgentProviderId, accountId: string | null) {
+  startSignIn(provider: AgentProviderId, accountId: string | null, mode: HostSignInPageMode = "tab") {
     return this.#pages.interrupt(provider).pipe(
       Effect.andThen(
         this.#pages.start(
           provider,
           (openPage) => this.#dependencies.service.signInProviderAccountOnHost(provider, accountId, openPage),
           (exit) => resultOf(provider, exit),
+          mode,
         ),
       ),
       (start) => this.#starting.withPermit(start),
     );
+  }
+
+  /** Starts the sign-in with no tab: the page address waits for a client to open it (`provider-account-relay-v1`). */
+  startRelay(provider: AgentProviderId, accountId: string | null) {
+    return this.startSignIn(provider, accountId, "relay");
+  }
+
+  /** The page address of a relayed sign-in, and how it ended. */
+  relayStatus(provider: AgentProviderId): { pageUrl: string | null; result: { error: string | null } | null } {
+    return { pageUrl: this.#pages.pageUrl(provider), result: this.signInStatus(provider).result };
   }
 
   signInStatus(provider: AgentProviderId) {

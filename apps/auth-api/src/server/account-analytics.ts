@@ -75,7 +75,7 @@ const ANALYTICS_MAX_LICENSE_USERS = 10_000;
 export function isAnalyticsLicenseUsers(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value > 0 && value <= ANALYTICS_MAX_LICENSE_USERS;
 }
-const WAKE_REASONS = ["message", "restart", "schedule"] as const;
+const WAKE_REASONS = ["message", "restart", "schedule", "retention"] as const;
 /** Why a plan ended: the account cancelled it, or Stripe ended it after unpaid invoices. */
 const PLAN_END_REASONS = ["canceled", "unpaid"] as const;
 export type PlanEndReason = (typeof PLAN_END_REASONS)[number];

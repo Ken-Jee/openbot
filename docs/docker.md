@@ -372,7 +372,7 @@ message from a person starts first. The browser opens no new tab and unloads idl
 
 The memory ceiling is the smaller of the memory of the host and the memory limit of the container
 (`--memory`, or `mem_limit` in Compose). Without a limit, the ceiling is the memory of the host. A
-fixed number of turns run at the same time: 4 up to 5 GiB of ceiling, 8 up to 10 GiB, and 16 above.
+fixed number of turns run at the same time: 2 up to 5 GiB of ceiling, 8 up to 10 GiB, and 16 above.
 `/dev/shm` and the `tmpfs` folders count toward the limit too. `docker exec openbot openbot status`
 shows the ceiling, the free memory, the level (`ok`, `low` or `critical`) and the turn limit.
 
@@ -435,10 +435,13 @@ does not use systemd.
 
 - Remote desktop and Computer Use need a display. The container has a virtual display for the
   agents, but remote desktop and Computer Use were not tested in it. The arm64 release has no remote desktop runtime.
-- Voice prompts are not available on Linux.
+- Voice prompts are not available: the container has no microphone, and the web app has no voice prompts.
 - Gemini signs in on a Google page in the browser of the container. An owner or admin opens it
   with Connect in the app, and signs in through the live view of that page. This needs a release
   with `provider-host-sign-in-v1` on both sides. It was not tested in a container.
+- Bitwarden and Vaultwarden connect with an API key and the master password (`bitwarden-connector-v1`).
+  The container must reach the vault server over HTTPS. On a host with several instances, the
+  firewall blocks private addresses, so a Vaultwarden server on the local network cannot be used.
 
 ## Not confirmed
 

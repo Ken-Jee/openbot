@@ -1,4 +1,5 @@
 import { type FileQuoteTarget, fileQuoteId } from "@openbot/contracts/chat-tag-references";
+import type { AgentProfile } from "@openbot/ui/data";
 import { findChatSearchMatches } from "./chat-search";
 import type { SidebarFilePreview } from "./conversation-types";
 
@@ -33,14 +34,39 @@ export function highlightQuotedText(blocks: HTMLElement[], text: string): Range 
 /**
  * The quote id, with no lines, of the file that the side panel shows. The agent can read a workspace
  * file, a shared file and an attachment, so a passage of one can be quoted. A folder cannot.
+ * `workspacePath` is set in a channel. A quote id names no agent, so there a workspace file is named
+ * by its absolute path, which is in the workspace of one agent only.
  */
-export function filePreviewQuoteId(file: SidebarFilePreview | null | undefined): string | undefined {
+export function filePreviewQuoteId(
+  file: SidebarFilePreview | null | undefined,
+  workspacePath?: string | undefined,
+): string | undefined {
   const source = file?.source;
   if (source?.kind === "attachment")
     return fileQuoteId({ source: "attachment", attachmentId: source.attachment.id, name: source.attachment.name });
-  return source?.kind === "workspace" || source?.kind === "shared"
-    ? fileQuoteId({ source: source.kind, path: source.path })
-    : undefined;
+  if (source?.kind === "workspace")
+    return fileQuoteId({
+      source: "workspace",
+      path: workspacePath ? absoluteWorkspacePath(workspacePath, source.path) : source.path,
+    });
+  return source?.kind === "shared" ? fileQuoteId({ source: "shared", path: source.path }) : undefined;
+}
+
+function absoluteWorkspacePath(workspacePath: string, path: string): string {
+  if (/^(?:~[/\\]|[/\\]|[A-Za-z]:[/\\])/u.test(path)) return path;
+  const separator = workspacePath.includes("\\") && !workspacePath.includes("/") ? "\\" : "/";
+  return `${workspacePath.replace(/[/\\]+$/u, "")}${separator}${path.replace(/^\.[/\\]/u, "")}`;
+}
+
+/** The agent whose workspace holds an absolute path. A workspace inside another one wins. */
+export function workspaceAgentOfPath(agents: readonly AgentProfile[], path: string): string | undefined {
+  let found: { id: string; root: string } | undefined;
+  for (const agent of agents) {
+    const root = agent.workspacePath?.replace(/[/\\]+$/u, "");
+    if (!root || !(path.startsWith(`${root}/`) || path.startsWith(`${root}\\`))) continue;
+    if (!found || root.length > found.root.length) found = { id: agent.id, root };
+  }
+  return found?.id;
 }
 
 /**

@@ -81,10 +81,11 @@ export class ServerMemory implements HostMemory {
     return this.#sample;
   }
 
-  turnLimit(): 4 | 8 | 16 {
-    // A margin over the plan sizes of 4 and 8 GB: the kernel keeps some memory for itself.
+  turnLimit(): 2 | 8 | 16 {
+    // A margin over the plan sizes of 4 and 8 GB: the kernel keeps some memory for itself. On 4 GB,
+    // four turns that start together reserve enough `TURN_RESERVE_BYTES` to reach the low level.
     const total = this.#sample?.total ?? 0;
-    if (total <= 5 * GIB) return 4;
+    if (total <= 5 * GIB) return 2;
     if (total <= 10 * GIB) return 8;
     return 16;
   }

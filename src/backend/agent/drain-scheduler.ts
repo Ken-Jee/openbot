@@ -662,21 +662,28 @@ export class DrainScheduler {
           item.sender.kind === "agent" && item.replyToMessageId ? [item.replyToMessageId] : [],
         ),
       );
-      const input = combinedPromptInput(
-        batch.map((item) =>
-          deliveryPromptInput(item, {
-            agentNames,
-            snapshot,
-            routineRun:
-              item.delivery.sender.kind === "routine" ? this.#routines.runForDelivery(item.delivery.id) : null,
-            wokenWaits: item.delivery.sender.kind === "routine" ? this.#routines.wokenWaits(item.delivery.id) : [],
-            ...(execution?.text === undefined ? {} : { executionText: execution.text }),
-          }),
-        ),
-        [...requestIds].flatMap((requestId) => this.#mailbox.unansweredRecipients(requestId)),
-        agentNames,
-      );
-      const inputForThread = (providerThreadId: string): typeof input => {
+      const promptInput = (executionText: string | undefined) =>
+        combinedPromptInput(
+          batch.map((item) =>
+            deliveryPromptInput(item, {
+              agentNames,
+              snapshot,
+              routineRun:
+                item.delivery.sender.kind === "routine" ? this.#routines.runForDelivery(item.delivery.id) : null,
+              wokenWaits: item.delivery.sender.kind === "routine" ? this.#routines.wokenWaits(item.delivery.id) : [],
+              ...(executionText === undefined ? {} : { executionText }),
+            }),
+          ),
+          [...requestIds].flatMap((requestId) => this.#mailbox.unansweredRecipients(requestId)),
+          agentNames,
+        );
+      const completeInput = promptInput(execution?.text);
+      // A channel packet with only unread messages goes only to the session that read the others. The
+      // session can change from here to the retry below, as when the provider cannot resume it.
+      const delta = channelDelivery ? channels?.delta(delivery.id) : undefined;
+      const deltaInput = delta ? promptInput(delta.text) : null;
+      const inputForThread = (providerThreadId: string) => {
+        const input = deltaInput && channels?.sendsDelta(delivery.id, providerThreadId) ? deltaInput : completeInput;
         const handoff = this.#threads.consumePendingHandoff(providerThreadId);
         if (!handoff) return input;
         return input.map((item, index) =>

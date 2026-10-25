@@ -1,8 +1,10 @@
 {
-  "version": "0.48.1",
+  "version": "0.49.0",
   "highlights": [
-    "Channels route messages again when the lead agent uses a free OpenCode model.",
-    "Agent profiles that a free OpenCode model writes work again.",
-    "Did a channel show \"Routing failed. Choose a member or try again.\" after the last update? Update to fix it."
+    "On macOS, sign in to Gemini again after you update. Then a Gemini agent with Workspace only access can use your Google sign-in.",
+    "Choose a light theme in Settings > General > Theme. On macOS, you can also turn on a transparent window.",
+    "Give agents named browser profiles, so different agents can use different accounts on the same site.",
+    "Open the steps of an agent's turn to see its thinking, its tool steps and its memory searches.",
+    "When a task needs an API key, the agent shows a secure form. The key does not go into the chat."
   ]
 }

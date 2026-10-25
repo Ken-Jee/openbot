@@ -1,5 +1,6 @@
 import { Stack } from "expo-router/stack";
 import { useCSSVariable } from "uniwind";
+import { headerFontOptions } from "@/shared/lib/app-font";
 import { isIOS } from "@/shared/lib/platform";
 import { sheetHeaderInsetOptions } from "@/shared/lib/sheet-header";
 
@@ -27,6 +28,7 @@ export function SheetPageStack({
       screenOptions={{
         ...sheetHeaderInsetOptions,
         presentation: "card",
+        ...headerFontOptions,
         headerShadowVisible: false,
         // Between the left and right actions on iOS. Android keeps the Material title, next to the left action.
         headerTitleAlign: isIOS ? "center" : "left",

@@ -231,7 +231,6 @@ export const messages = defineMessages("mobile.agent", {
   "mobile.agent.record.lateMonthDay": "Months without day {day} are skipped.",
   "mobile.agent.record.cronHint":
     "Five fields: minute, hour, day of month, month and weekday. For example, 0 9 * * 1-5 runs at 9:00 on weekdays.",
-  "mobile.agent.record.problem.endBeforeStart": "The end time must be after the start time.",
   "mobile.agent.record.problem.invalidDate": "This month does not have this day.",
   "mobile.agent.record.problem.cronRequired": "Enter a cron expression.",
   "mobile.agent.record.problem.cronTooLong": "The cron expression is too long.",

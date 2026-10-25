@@ -30,7 +30,7 @@ body:has(.browser-full-view) .app-frame {
   min-height: 0;
   flex-direction: column;
   padding: 0 var(--browser-full-edge) var(--browser-full-edge);
-  background: color-mix(in srgb, var(--openbot-bg-canvas) 50%, var(--openbot-bg-notch));
+  background: var(--openbot-bg-frame);
   color: var(--openbot-text-primary);
 }
 
@@ -186,6 +186,19 @@ body:has(.browser-full-view) .app-frame {
   flex: 0 1 200px;
   user-select: none;
   transition: flex-basis var(--openbot-duration-normal) var(--openbot-ease-out);
+}
+
+/* A tab of a named profile has a line in the profile's color under its title. */
+.browser-full-chip[data-profile-color]::after {
+  position: absolute;
+  right: var(--openbot-space-2);
+  bottom: 2px;
+  left: var(--openbot-space-2);
+  height: 2px;
+  border-radius: var(--openbot-radius-pill);
+  background: var(--browser-profile-color);
+  content: "";
+  pointer-events: none;
 }
 
 /* After a close with the pointer, the chips keep their width until the pointer leaves the row. */

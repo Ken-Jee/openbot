@@ -12,6 +12,8 @@ import type {
   BrowserDisplayState,
   BrowserEnvironment,
   BrowserLiveViewEvent,
+  BrowserLocalSignInEnd,
+  BrowserLocalSignInResult,
   BrowserPictureInPictureEvent,
   BrowserPreview,
   BrowserTab,
@@ -87,6 +89,18 @@ export function decodeBrowserBounds(value: unknown): BrowserBounds {
     width: requiredNumber(bounds, "width"),
     height: requiredNumber(bounds, "height"),
   };
+}
+
+export function decodeBrowserLocalSignInEnd(value: unknown): BrowserLocalSignInEnd {
+  const end = decodeRecord(value, "browser sign-in end");
+  return { signedIn: requiredBoolean(end, "signedIn") };
+}
+
+/** Null when the person cancelled the sign-in. */
+export function decodeBrowserLocalSignInResult(value: unknown): BrowserLocalSignInResult | null {
+  if (value === null) return null;
+  const result = decodeRecord(value, "browser sign-in result");
+  return { cookies: requiredNumber(result, "cookies"), signedIn: requiredBoolean(result, "signedIn") };
 }
 
 export function decodeBrowserLiveViewEvent(value: unknown): BrowserLiveViewEvent {

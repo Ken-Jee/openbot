@@ -94,7 +94,7 @@
 .provider-model-trigger:focus-visible,
 .provider-model-rail-button:focus-visible,
 .provider-model-option:focus-visible {
-  outline: 1px solid var(--openbot-accent);
+  outline: 1px solid var(--openbot-border-focus);
   outline-offset: 1px;
 }
 
@@ -281,7 +281,7 @@
 }
 
 .provider-model-popover {
-  --provider-model-rail-bg: color-mix(in srgb, var(--openbot-bg-notch) 22%, var(--ui-menu-bg));
+  --provider-model-rail-bg: var(--openbot-bg-sheet-inset);
   --provider-model-segment-radius: calc(var(--ui-menu-item-radius) - var(--openbot-space-0-5));
   position: relative;
   z-index: var(--openbot-layer-dropdown);

@@ -56,7 +56,7 @@ export function agentTaskStatus(task: AgentTask, t: TextValue["t"], waitsForAppr
  * nothing else in it; the thinking of a turn shows only while the task runs, in its activity row.
  */
 function shownInPanel(message: AgentMessage): boolean {
-  if (message.kind === "thinking") return false;
+  if (message.kind === "thinking" || message.kind === "memory-changes") return false;
   return (
     message.author === "you" ||
     message.streaming === true ||

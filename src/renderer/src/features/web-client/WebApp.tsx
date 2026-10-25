@@ -17,6 +17,7 @@ import type { DesktopAnalyticsProperties } from "../../analytics";
 import { configureWebReports, reportNotification } from "../../error-reports";
 import { StaticI18nProvider } from "../../i18n-context";
 import type { WebWorkspace } from "./WebWorkspace";
+import { createWebAppearancePreference } from "./web-appearance-preference";
 import { WEB_APP_BILLING_PARAM } from "./web-billing";
 import type { WebRuntimeFactory } from "./web-client-context";
 import { takeHostingReturn } from "./web-hosted-servers";
@@ -350,6 +351,7 @@ export function WebApp(props: { createRuntime?: WebRuntimeFactory } = {}) {
   });
   const variant: AppVariant = import.meta.env.DEV ? "dev" : "production";
   const languagePreference = createWebLanguagePreference();
+  const appearancePreference = createWebAppearancePreference();
   return (
     <StaticI18nProvider
       locale={resolveLocale(languagePreference.language(), navigator.language)}
@@ -402,6 +404,8 @@ export function WebApp(props: { createRuntime?: WebRuntimeFactory } = {}) {
                   onHostingReturnConsumed={() => setHostingReturn(null)}
                   language={languagePreference.language()}
                   onChangeLanguage={languagePreference.setLanguage}
+                  appearance={appearancePreference.appearance()}
+                  onChangeAppearance={appearancePreference.setAppearance}
                 />
               )}
             </Show>

@@ -12,6 +12,11 @@ table, IPC channel or product string, or when a term in the code disagrees with 
   (`ipc-agent-templates.ts`, `agent-templates:*`, D1 `agent_templates`, `openbot.run/agents/<id>`).
   It holds no workspace files and no memories. It is not a marketplace agent: it has no review and
   no listing.
+- **browser profile**: a named, persistent browser session on the computer that runs the agents
+  (`browser_profiles`, `BrowserProfileSummary`, `AgentBrowserProfile`, `agent:admin:*-browser-profile*`,
+  `persist:openbot-browser-profile-<id>`). The built-in choices "Shared" and "Only this agent" (shown
+  only to an agent that already uses it) are also profiles in the UI, but they have no row. It is not an **agent profile** (`AgentProfile`, the
+  display data of an agent) or the account profile (`v1/me/profile`).
 - **bot**: do not use for new product code. Keep released names: Team API v1-v3
   `bot`/`botId`/`bots-changed` (`current-agent-keys.ts` translates), `bots.json`, `mailbox.json`,
   `legacy-import:bots:v1`, and readable `~/OpenBot/Bots` path prefixes. Accept `bot-<uuid>` IDs from

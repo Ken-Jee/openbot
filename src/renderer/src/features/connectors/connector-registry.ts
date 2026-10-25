@@ -42,7 +42,7 @@ export function createConnectorSet(transports: ConnectorTransports, options: Mes
   }
   if (transports.github) set.github = createGitHubConnector(transports.github, options.hostName);
   if (transports.onePassword) set.onepassword = createOnePasswordConnector(transports.onePassword, options.hostName);
-  if (transports.bitwarden) set.bitwarden = createBitwardenConnector(transports.bitwarden);
+  if (transports.bitwarden) set.bitwarden = createBitwardenConnector(transports.bitwarden, options.hostName);
   return set;
 }
 

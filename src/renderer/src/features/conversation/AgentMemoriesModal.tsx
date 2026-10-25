@@ -1,9 +1,10 @@
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import type { AgentMemorySelectionState, MemoryEntry, SetAgentMemoryInclusionInput } from "@openbot/contracts/ipc";
-import type { AppFormat, AppMessages, AppTextKey } from "@openbot/i18n";
+import type { AppFormat, AppMessages } from "@openbot/i18n";
 import { Button, ConfirmDialog, Dialog, IconButton, Plus, Textarea, Trash2, toast, X } from "@openbot/ui";
 import { createScrollFades } from "@openbot/ui/components/createScrollFades";
 import { AGENT_DELETE_UNDO_MS } from "@openbot/ui/features/agents/AgentDeleteUndoToast";
+import { AgentMemoriesEmpty } from "@openbot/ui/features/conversation/AgentMemoriesEmpty";
 import { useText } from "@openbot/ui/text";
 import { createEffect, createMemo, createSignal, For, onCleanup, onSettled, Show, untrack } from "solid-js";
 import { actionToast } from "../../action-toast";
@@ -22,11 +23,6 @@ const LIMIT_TEXT = {
   agent: "memory.limitAgent",
   channel: "memory.limitChannel",
 } as const satisfies Record<MemoriesPort["ownerNoun"], keyof AppMessages>;
-
-const EMPTY_TEXT = {
-  agent: "memory.emptyAgent",
-  channel: "memory.emptyChannel",
-} as const satisfies Record<MemoriesPort["ownerNoun"], AppTextKey>;
 
 export function AgentMemoriesModal(props: AgentMemoriesModalProps) {
   const { t, format, errorMessage } = useText();
@@ -135,8 +131,9 @@ export function AgentMemoriesModal(props: AgentMemoriesModalProps) {
       analytics.track("memory_action", { action: "create", result: "succeeded" });
       operationSucceeded = true;
       setNewText("");
-      setAddOpen(false);
+      // The composer closes after the reload, so the empty state does not show again for a moment.
       await loadMemories(false);
+      setAddOpen(false);
     } catch (caught) {
       if (!operationSucceeded) {
         analytics.track("memory_action", { action: "create", result: "failed", failure_code: "create_failed" });
@@ -338,7 +335,8 @@ export function AgentMemoriesModal(props: AgentMemoriesModalProps) {
             </header>
 
             <div class="agent-memories-body">
-              <Show when={selection()}>
+              {/* The selection explains how memories reach the agent, so it waits for the first memory. */}
+              <Show when={visibleMemories().length > 0 ? selection() : null}>
                 {(state) => (
                   <div class="agent-memory-limit">
                     <p>{t("memory.inclusion.explanation")}</p>
@@ -409,7 +407,16 @@ export function AgentMemoriesModal(props: AgentMemoriesModalProps) {
               <Show when={!loading()} fallback={<p class="agent-memory-state">{t("memory.loading")}</p>}>
                 <Show
                   when={visibleMemories().length > 0}
-                  fallback={<p class="agent-memory-state">{t(EMPTY_TEXT[props.port.ownerNoun])}</p>}
+                  fallback={
+                    <Show when={!addOpen() && !error()}>
+                      <AgentMemoriesEmpty
+                        ownerNoun={props.port.ownerNoun}
+                        ownerLabel={props.port.ownerLabel}
+                        addDisabled={reachedLimit() !== null}
+                        onAdd={openAddComposer}
+                      />
+                    </Show>
+                  }
                 >
                   <ul
                     ref={scrollFades.bind}

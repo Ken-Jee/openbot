@@ -66,9 +66,11 @@ export const messages = {
   "provider.aria.moreActions": "{name} için diğer eylemler",
 
   "provider.aria.use": "OpenBot'ta {name} kullan",
+  "provider.use.inUseOne":
+    "{agent}, {name} kullanıyor. Bu ajanın modelini değiştirin, ardından {name} sağlayıcısını kapatın.",
   "provider.use.inUse": {
-    one: "{agents}, {name} kullanıyor. Bu ajanın modelini değiştirin, ardından {name} sağlayıcısını kapatın.",
-    other: "{agents}, {name} kullanıyor. Bu ajanların modelini değiştirin, ardından {name} sağlayıcısını kapatın.",
+    one: "{count} ajan {name} kullanıyor. Bu ajanın modelini değiştirin, ardından {name} sağlayıcısını kapatın.",
+    other: "{count} ajan {name} kullanıyor. Bu ajanların modelini değiştirin, ardından {name} sağlayıcısını kapatın.",
   },
   "provider.codeLogin.title": "Kodla {name} hesabında oturum açın",
   "provider.codeLogin.description": "Telefonunuzda veya başka bir tarayıcıda tamamlayın. OpenBot burada bekler.",
@@ -171,4 +173,24 @@ export const messages = {
   "provider.account.finishSignIn": "Oturum açma işlemini tarayıcıda tamamlayın.",
   "provider.account.remove": "Hesabı kaldır",
   "provider.account.actionFailed": "{name} hesabı değiştirilemedi.",
+  "provider.account.resetUsage": "Kullanımı sıfırla",
+  "provider.account.resetUsageTitle": "{name} kullanımı sıfırlansın mı?",
+  "provider.account.resetUsageDescription": {
+    one: "Bu, son kullanım sıfırlama kredinizi kullanır. Bu hesabın dolan kullanım sınırları şimdi yeniden başlar. Bu işlemi geri alamazsınız.",
+    other:
+      "Bu, {count} kullanım sıfırlama kredinizden birini kullanır. Bu hesabın dolan kullanım sınırları şimdi yeniden başlar. Bu işlemi geri alamazsınız.",
+  },
+  "provider.account.resetUsagePending": "Sıfırlanıyor…",
+  "provider.account.resetUsageDone": "{name} kullanım sınırları şimdi yeniden başladı.",
+  "provider.account.resetUsageNothing": "{name} hesabında dolan kullanım sınırı yok. Kredi kullanılmadı.",
+  "provider.account.resetUsageNoCredit": "{name} hesabında kullanım sıfırlama kredisi kalmadı.",
+  "provider.account.resetUsageAlreadyRedeemed": "{name} hesabının bu sıfırlama kredisi zaten kullanıldı.",
+  "provider.account.resetUsageFailed": "{name} kullanımı sıfırlanamadı.",
+  "provider.settings.cache": "Önbellek",
+  "provider.settings.promptCache": "İstem önbelleği",
+  "provider.settings.promptCacheDescription":
+    "Claude'un bir ajanın bağlamını turlar arasında önbellekte ne kadar tuttuğu.",
+  "provider.settings.promptCacheHour": "1 saat",
+  "provider.settings.promptCacheMinutes": "5 dakika",
+  "provider.settings.promptCacheLoadFailed": "Bu sunucunun istem önbelleği süresi yüklenemedi.",
 } as const satisfies PartialTranslation<typeof source>;

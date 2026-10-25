@@ -8,6 +8,7 @@ import {
   COMPUTER_USE_MCP_SERVER_ID,
   isReservedMcpServerName,
   type McpServerConfig,
+  type McpTransport,
 } from "@openbot/contracts/ipc";
 import { type DynamicRecord, isDynamicRecord } from "@openbot/contracts/runtime-values";
 import { sourceText } from "@openbot/i18n/source";
@@ -483,6 +484,11 @@ export function claudeMcpServers(servers: readonly UsableMcpServer[]): McpHandof
  * in the provider's own. A server told to open `./data.db` would otherwise pass its test and then
  * create a second, empty database beside the agent's workspace. The form says so before the save,
  * the row says so afterwards, and the hand-off reports it as a drop.
+ *
+ * **Names travel as `providerMcpServerName`.** Antigravity refuses `session/new` with `invalid
+ * params` when one name has a space, so a server the user named "My Server" failed every Gemini
+ * task (#2801). A changed name that another server already has, such as "computer use", or that is
+ * one of OpenBot's own, is reported as a drop. So is the second of two names that become the same.
  */
 export type AcpMcpServer =
   | { name: string; command: string; args: string[]; env: Array<{ name: string; value: string }> }
@@ -491,12 +497,21 @@ export type AcpMcpServer =
 export function acpMcpServers(servers: readonly UsableMcpServer[]): McpHandoff<AcpMcpServer[]> {
   const entries: AcpMcpServer[] = [];
   const dropped: McpServerDrop[] = [];
+  const configured = new Set(servers.map((server) => server.config.name));
   for (const server of servers) {
     if (server.error !== undefined) {
       dropped.push(unusableDrop(server));
       continue;
     }
     const { config } = server;
+    const name = providerMcpServerName(config.name);
+    if (
+      entries.some((entry) => entry.name === name) ||
+      (name !== config.name && (configured.has(name) || isReservedMcpServerName(name)))
+    ) {
+      dropped.push({ name: config.name, reason: "name_conflict", detail: NAME_CONFLICT });
+      continue;
+    }
     if (config.transport === "stdio") {
       if (config.workingDirectory) {
         dropped.push({
@@ -507,7 +522,7 @@ export function acpMcpServers(servers: readonly UsableMcpServer[]): McpHandoff<A
         continue;
       }
       entries.push({
-        name: config.name,
+        name,
         command: server.command,
         args: [...config.args],
         env: Object.entries(mcpLaunchEnvironment(server)).map(([name, value]) => ({ name, value })),
@@ -515,7 +530,7 @@ export function acpMcpServers(servers: readonly UsableMcpServer[]): McpHandoff<A
     } else {
       entries.push({
         type: "http",
-        name: config.name,
+        name,
         url: server.url,
         headers: Object.entries(mcpHandoffHeaders(server)).map(([name, value]) => ({ name, value })),
       });
@@ -539,26 +554,59 @@ export function acpMcpServers(servers: readonly UsableMcpServer[]): McpHandoff<A
  * app-server: an entry with an invalid credential is listed as failed with the server's own 401,
  * which is the handshake reaching the server rather than the shape being dropped.
  *
- * **Names travel as `codexMcpServerName`.** Codex does not start a server whose name does not match
+ * **Names travel as `providerMcpServerName`.** Codex does not start a server whose name does not match
  * `^[a-zA-Z0-9_-]+$`, and it tells no one. A server the user named "Home Assistant" passed its test
  * and gave a Codex agent no tools. Two names that become the same key keep the first; the second is
  * reported as a drop.
+ *
+ * **A key Codex's own files use with the other transport travels as `openbot_<key>`.** See
+ * `codexMcpServerKey`.
  */
 export type CodexMcpServer =
   | { command: string; args: string[]; env: Record<string, string>; enabled?: boolean; tools?: DynamicRecord }
   | { url: string; http_headers: Record<string, string> };
 
-export const codexDisabledServers = Effect.fn("McpShape.codexDisabledServers")(function* (
-  readConfig: () => Effect.Effect<DynamicRecord, McpShapeFailed>,
-) {
-  const config = yield* readConfig();
-  const configured = getRecord(getRecord(config, "config"), "mcp_servers");
+/**
+ * The disabled placeholders OpenBot saves in the Codex user file for its own servers, so Codex can
+ * keep their tool approvals. They are not the user's entries.
+ */
+export const CODEX_PLACEHOLDER_COMMAND = "openbot-mcp";
+export const CODEX_PLACEHOLDER_URL = "http://127.0.0.1:1";
+
+/** The transport of each server that Codex's own files declare, without OpenBot's placeholders. */
+export type CodexOwnTransports = Readonly<Record<string, McpTransport>>;
+
+/** What Codex declares in its own files: each name turned off, and the transport each one uses. */
+export interface CodexOwnServers {
+  disabled: Record<string, CodexDisabledMcpServer>;
+  transports: CodexOwnTransports;
+}
+
+export function codexOwnTransports(configured: DynamicRecord | null): CodexOwnTransports {
   return Object.fromEntries(
-    Object.keys(configured ?? {}).map((name) => {
-      const tools = getRecord(getRecord(configured, name), "tools");
-      return [name, { enabled: false, ...(tools ? { tools } : {}) } satisfies CodexDisabledMcpServer];
+    Object.entries(configured ?? {}).flatMap(([name, entry]): Array<[string, McpTransport]> => {
+      if (!isDynamicRecord(entry)) return [];
+      if (typeof entry.command === "string" && entry.command !== CODEX_PLACEHOLDER_COMMAND) return [[name, "stdio"]];
+      if (typeof entry.url === "string" && entry.url !== CODEX_PLACEHOLDER_URL) return [[name, "http"]];
+      return [];
     }),
   );
+}
+
+export const codexDisabledServers = Effect.fn("McpShape.codexDisabledServers")(function* (
+  readConfig: () => Effect.Effect<DynamicRecord, McpShapeFailed>,
+): Effect.fn.Return<CodexOwnServers, McpShapeFailed> {
+  const config = yield* readConfig();
+  const configured = getRecord(getRecord(config, "config"), "mcp_servers");
+  return {
+    disabled: Object.fromEntries(
+      Object.keys(configured ?? {}).map((name) => {
+        const tools = getRecord(getRecord(configured, name), "tools");
+        return [name, { enabled: false, ...(tools ? { tools } : {}) } satisfies CodexDisabledMcpServer];
+      }),
+    ),
+    transports: codexOwnTransports(configured),
+  };
 });
 
 /** A name Codex found in its own file and must not start. It carries no command; that is the point. */
@@ -567,12 +615,73 @@ export interface CodexDisabledMcpServer {
   tools?: DynamicRecord;
 }
 
-/** A server name in the form Codex accepts. Claude makes the same change by itself. */
-export function codexMcpServerName(name: string): string {
+/** A server name in the form Codex and ACP agents accept. Claude makes the same change by itself. */
+export function providerMcpServerName(name: string): string {
   return name.replace(/[^A-Za-z0-9_-]/gu, "_");
 }
 
-export function codexMcpServers(servers: readonly UsableMcpServer[]): McpHandoff<Record<string, CodexMcpServer>> {
+/**
+ * The key one server travels under to Codex. Codex merges a thread entry with the entry of the same
+ * key in its own files. A stdio `command` and an http `url` under one key stop Codex from loading
+ * its configuration at all, and the chat cannot start. The server then travels as `openbot_<key>`,
+ * and the user's own entry stays as written, turned off. A clash with the same transport keeps the
+ * key.
+ *
+ * Computer Use keeps its key: its tool consent and its instructions are found by that name.
+ */
+export function codexMcpServerKey(config: McpServerConfig, own: CodexOwnTransports = {}): string {
+  const name = providerMcpServerName(config.name);
+  return config.id !== COMPUTER_USE_MCP_SERVER_ID && Object.hasOwn(own, name) && own[name] !== config.transport
+    ? `openbot_${name}`
+    : name;
+}
+
+/** Whether a key from `codexMcpServerKey` is taken by another server, or a renamed key by OpenBot's own tools. */
+function codexMcpServerKeyTaken(
+  key: string,
+  config: McpServerConfig,
+  own: CodexOwnTransports,
+  record: Readonly<Record<string, CodexMcpServer>>,
+): boolean {
+  if (Object.hasOwn(record, key)) return true;
+  if (key === providerMcpServerName(config.name)) return false;
+  return Object.hasOwn(own, key) || isReservedMcpServerName(key);
+}
+
+/**
+ * The thread's `mcp_servers`: every name from Codex's own files turned off, then OpenBot's servers
+ * turned on. A name in both resolves to the one the panel shows, with the approvals Codex saved.
+ */
+export function codexThreadMcpServers(
+  disabled: Readonly<Record<string, CodexDisabledMcpServer>>,
+  servers: Readonly<Record<string, CodexMcpServer>>,
+): Record<string, CodexMcpServer | CodexDisabledMcpServer> {
+  const record: Record<string, CodexMcpServer | CodexDisabledMcpServer> = { ...disabled, ...servers };
+  for (const [name, server] of Object.entries(servers)) {
+    record[name] = { ...disabled[name], ...server, enabled: true };
+  }
+  return record;
+}
+
+/**
+ * The namespace Codex gives the tools of each server OpenBot turns on. For a code-mode-only model,
+ * such as GPT-6, Codex otherwise defers MCP tools into `exec` without naming them, and the model
+ * does not find them. These join the direct-only list, so the request names the tools. The keys are
+ * the ones `codexMcpServers` chose, renamed keys included; a name Codex's own files declare is turned
+ * off and has no tools. Codex changes each character other than a letter, a digit or `_` to `_`, then
+ * adds `mcp__` unless the name starts with it.
+ */
+export function codexMcpNamespaces(servers: Readonly<Record<string, CodexMcpServer>>): string[] {
+  return Object.keys(servers).map((key) => {
+    const name = key.replace(/[^A-Za-z0-9_]/gu, "_");
+    return name.startsWith("mcp__") ? name : `mcp__${name}`;
+  });
+}
+
+export function codexMcpServers(
+  servers: readonly UsableMcpServer[],
+  own: CodexOwnTransports = {},
+): McpHandoff<Record<string, CodexMcpServer>> {
   const record: Record<string, CodexMcpServer> = {};
   const dropped: McpServerDrop[] = [];
   for (const server of servers) {
@@ -580,8 +689,8 @@ export function codexMcpServers(servers: readonly UsableMcpServer[]): McpHandoff
       dropped.push(unusableDrop(server));
       continue;
     }
-    const name = codexMcpServerName(server.config.name);
-    if (Object.hasOwn(record, name)) {
+    const name = codexMcpServerKey(server.config, own);
+    if (codexMcpServerKeyTaken(name, server.config, own, record)) {
       dropped.push({ name: server.config.name, reason: "name_conflict", detail: NAME_CONFLICT });
       continue;
     }

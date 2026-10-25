@@ -4,6 +4,8 @@ import {
   decodeHostAnalytics,
   decodeHostProviderAccounts,
   decodeInstalledSkills,
+  decodeProviderUsageResetOutcome,
+  decodeProviderUsageResets,
   type HostProviderAccounts,
   isAgentHostSettings,
   isAgentSessionSettings,
@@ -25,6 +27,8 @@ import type {
   DraftAttachment,
   DuplicateAgentResult,
   InstalledSkill,
+  ProviderUsageResetOutcome,
+  ProviderUsageResets,
   QueuedMessageReceipt,
   QueueSnapshot,
   SidebarLayoutSnapshot,
@@ -45,7 +49,7 @@ import {
   isSidebarLayoutSnapshot,
 } from "@openbot/contracts/ipc";
 import { decodeRecord, guardedDecoder, guardedListDecoder } from "@openbot/contracts/ipc-decoding";
-import { isNumber, isString } from "@openbot/contracts/runtime-values";
+import { isDynamicRecord, isNumber, isString } from "@openbot/contracts/runtime-values";
 
 export const decodeAgentHostSettingsFromHost = guardedDecoder(isAgentHostSettings, "agent host settings response");
 export const decodeHiddenAgentsFromHost = guardedDecoder(isHiddenAgentsSnapshot, "hidden agents response");
@@ -132,6 +136,17 @@ export function decodeAgentStatusFromHost(value: unknown): AgentStatus {
 /** The `provider-accounts-v1` list, as the web client also reads it: an unknown provider is left out. */
 export function decodeHostProviderAccountsFromHost(value: unknown): HostProviderAccounts {
   return decodeHostProviderAccounts(value);
+}
+
+/** The `provider-usage-reset-v1` list: an unknown provider is left out. */
+export function decodeProviderUsageResetsFromHost(value: unknown): ProviderUsageResets[] {
+  if (!isDynamicRecord(value)) throw new Error("Invalid provider usage resets.");
+  return decodeProviderUsageResets(value.accounts);
+}
+
+export function decodeProviderUsageResetOutcomeFromHost(value: unknown): ProviderUsageResetOutcome {
+  if (!isDynamicRecord(value)) throw new Error("Invalid provider usage reset.");
+  return decodeProviderUsageResetOutcome(value.outcome);
 }
 
 export function decodeAccountUsageFromHost(value: unknown): AccountUsage {

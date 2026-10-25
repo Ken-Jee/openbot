@@ -24,7 +24,7 @@ export const messages = {
   "agentSettings.backupModels.intro":
     "Wenn {model} sein Nutzungslimit erreicht, bevor {name} zu schreiben beginnt, fragt {name} dich, welches Modell verwendet werden soll.",
   "agentSettings.backupModels.introAutomatic":
-    "Wenn {model} sein Nutzungslimit erreicht, bevor {name} zu schreiben beginnt, wechselt {name} zum ersten verfügbaren Modell in der Reihenfolge.",
+    "Wenn {model} sein Nutzungslimit erreicht oder mit einem Anbieterfehler scheitert, bevor {name} zu schreiben beginnt, wechselt {name} zum ersten verfügbaren Modell in der Reihenfolge.",
   "agentSettings.backupModels.ask": "Vor dem Wechsel fragen",
   "agentSettings.backupModels.order": "Reihenfolge",
   "agentSettings.backupModels.listLabel": "Ersatzmodelle in Reihenfolge",
@@ -37,7 +37,7 @@ export const messages = {
   "agentSettings.backupModels.unavailable": "Gerade nicht verfügbar · übersprungen",
   "agentSettings.backupModels.withAccount": "{model} · {account}",
   "agentSettings.backupModels.note":
-    "{name} wechselt nie, nachdem das Schreiben begonnen hat. Wenn das Limit endet, kehrt {name} zu {model} zurück.",
+    "{name} wechselt nie, nachdem das Schreiben begonnen hat. Wenn das Limit endet oder 10 Minuten nach einem Anbieterfehler, kehrt {name} zu {model} zurück.",
   "agentSettings.groups.brain": "Gehirn",
   "agentSettings.groups.knows": "Wissen",
   "agentSettings.groups.does": "Aufgaben",
@@ -161,6 +161,15 @@ export const messages = {
   "agentSettings.quickAcknowledgement.title": "Plan vor langen Aufgaben zeigen",
   "agentSettings.quickAcknowledgement.description":
     "Vor einer langen Aufgabe zeigt der Agent seinen Plan. Er beginnt nach 10 s oder wenn du auf Start drückst.",
+  "agentSettings.browserProfile.label": "Browser-Profil",
+  "agentSettings.browserProfile.shared": "Gemeinsam",
+  "agentSettings.browserProfile.agent": "Nur dieser Agent",
+  "agentSettings.browserProfile.missing": "Gelöschtes Profil",
+  "agentSettings.browserProfile.new": "Neues Profil",
+  "agentSettings.browserProfile.manageTitle": "Browser-Profile",
+  "agentSettings.browserProfile.manageDescription":
+    "Jedes Profil behält eigene Anmeldungen und Cookies. Eine Änderung schließt die offenen Tabs des Agenten.",
+  "agentSettings.browserProfile.manage": "Verwalten",
   "agentSettings.runtime.workspaceEnforcedProcess":
     "Der gesamte Prozess von {provider} läuft in einer Sandbox, daher schlagen Schreibzugriffe außerhalb fehl. Nur unter macOS verfügbar.",
 } as const satisfies PartialTranslation<typeof source>;

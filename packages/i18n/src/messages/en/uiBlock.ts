@@ -13,6 +13,8 @@ export const messages = defineMessages("uiBlock", {
   "uiBlock.confirm.accept": "Confirm",
   "uiBlock.confirm.autoActionLabel": "{action} · {seconds} s",
   "uiBlock.confirm.previewLabel": "Preview",
+  "uiBlock.confirm.showFullPreview": "Show all",
+  "uiBlock.confirm.hideFullPreview": "Show less",
   "uiBlock.choice.submit": "Send",
   "uiBlock.choice.shortcutHint": "Press {first} to {last} to choose",
   "uiBlock.choice.selectedCount": { one: "{count} selected", other: "{count} selected" },

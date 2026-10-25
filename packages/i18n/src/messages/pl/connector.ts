@@ -430,4 +430,17 @@ export const messages = {
   "connector.bitwarden.connected": "Połączono",
   "connector.bitwarden.disconnected": "Nie połączono",
   "connector.bitwarden.actionFailed": "OpenBot nie mógł zmienić połączenia z Bitwarden.",
+  "connector.bitwarden.descriptionHost": "Wypełniaj loginy w przeglądarce na {host} z Bitwarden lub Vaultwarden.",
+  "connector.bitwarden.setupHost":
+    "{host} loguje się własnym Bitwarden CLI. W sejfie utwórz folder o nazwie Shared with OpenBot i umieść w nim tylko loginy, których agenci mogą używać. W sejfie internetowym otwórz Ustawienia › Zabezpieczenia › Klucze i wyświetl klucz API. Poniżej wpisz adres serwera, client_id, client_secret i hasło główne.",
+  "connector.bitwarden.scopeHost":
+    "Wszyscy agenci na {host} mogą używać pasujących loginów z Shared with OpenBot. OpenBot używa dokładnych źródeł HTTPS. Nie używa elementów, które wymagają ponownego podania hasła głównego, ani elementów z własną regułą dopasowania URI.",
+  "connector.bitwarden.sessionHost":
+    "{host} przechowuje klucz API i hasło główne w postaci zaszyfrowanej, aby po ponownym uruchomieniu znowu odblokować sejf. Ten komputer ich nie przechowuje. Rozłączenie usuwa je z {host}. {host} musi łączyć się z adresem serwera przez HTTPS.",
+  "connector.bitwarden.serverUrl": "Adres serwera",
+  "connector.bitwarden.clientId": "client_id klucza API",
+  "connector.bitwarden.clientSecret": "client_secret klucza API",
+  "connector.bitwarden.masterPassword": "Hasło główne",
+  "connector.bitwarden.connecting": "Łączenie",
+  "connector.bitwarden.connectedServer": "Połączono z {server}.",
 } as const satisfies PartialTranslation<typeof source>;

@@ -56,11 +56,9 @@ const resourcesRoot =
   platform === "macos"
     ? join(distRoot, process.arch === "arm64" ? "mac-arm64" : "mac", "OpenBot.app", "Contents", "Resources")
     : join(distRoot, platform === "windows" ? "win-unpacked" : `${platform}-unpacked`, "resources");
-// Linux ships no voice runtime. macOS and Windows ship it, and download the model on first use.
-if (platform === "macos" || platform === "windows") {
-  if (!existsSync(join(resourcesRoot, "voice", "runtime", "sherpa-onnx.node"))) {
-    throw new Error("The packaged application has no voice runtime.");
-  }
+// Every platform ships the voice runtime and downloads the model on first use.
+if (!existsSync(join(resourcesRoot, "voice", "runtime", "sherpa-onnx.node"))) {
+  throw new Error("The packaged application has no voice runtime.");
 }
 if (
   existsSync(join(resourcesRoot, "voice", "model")) ||

@@ -1,13 +1,4 @@
-import type { AppInfo } from "@openbot/contracts/ipc";
 import { currentText } from "@openbot/ui/text";
-/**
- * Whether this build can transcribe at all. The voice runtime is prepared for macOS and Windows
- * only, so the Linux package ships without one and the composer offers no microphone rather than a
- * control that always fails.
- */
-export function voiceSupported(platform: AppInfo["platform"] | undefined): boolean {
-  return platform !== "linux";
-}
 
 export function voiceCaptureError(error: unknown) {
   const { t } = currentText();

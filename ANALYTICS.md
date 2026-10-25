@@ -19,13 +19,13 @@ Every event has these low-cardinality properties:
 - `surface`: `desktop`, `desktop_host`, `landing`, `web`, `mobile`, or `account_api`;
 - `environment`: currently `production` only;
 - `event_schema_version`: the integer schema generation of that surface: currently `11` on `desktop`,
-  `9` on `desktop_host`, `10` on `landing`, `11` on `account_api`, `3` on `mobile`, and `2` on `web`;
+  `10` on `desktop_host`, `10` on `landing`, `11` on `account_api`, `4` on `mobile`, and `2` on `web`;
 - `app_version` and `platform` on desktop surfaces;
 - `acquisition_source` on landing surfaces: `direct`, `search`, `social`, `github`, or `other`;
 - `source_platform` on landing surfaces: an allowlisted platform name, or `unknown`.
 
 Each surface counts its own generations, so a report filters by `surface` and that surface's current
-generation. Desktop generation 11 adds `trigger` on the `interrupt` action of
+generation. Host generation 10 adds `provider_auth` on `system_turn_completed`. Desktop generation 11 adds `trigger` on the `interrupt` action of
 `voice_conversation_action`. Desktop generation 10 adds the billing, license and activation events
 (`hosted_server_plans_action`, `limit_reached`, `license_action`, `sales_contact_clicked`,
 `billing_return_viewed`, `onboarding_step`, `usage_limit_action`, `agent_template_action`,
@@ -35,7 +35,8 @@ generation. Desktop generation 11 adds `trigger` on the `interrupt` action of
 `skipped` on `onboarding_completed`, two `team_action` actions, and removes `maintenance_action`,
 which had no sender. Web generation 2 sends the desktop product events from `/app`, with
 `surface: web`; generation 1 sent only failure reports. Mobile generation 3 adds sign-in, pairing
-`entry_point`, plans, onboarding, notification, Live Activity, voice and template events. Desktop generation 9 adds `voice_conversation_action`, `voice_turn`, `speech_reply`,
+`entry_point`, plans, onboarding, notification, Live Activity, voice and template events. Mobile generation 4 adds
+`marketplace_action` for agent, skill and plugin installs and agent updates, without `listing_slug`. Desktop generation 9 adds `voice_conversation_action`, `voice_turn`, `speech_reply`,
 `speech_model_action` and `speech_settings_action`. Desktop generation 8 adds `hosted_server_upsell`. Host generation 9 adds the token
 properties of `system_turn_completed` and `system_token_usage`. Host generation 8 adds `system_resources`. Desktop and host generation 7 adds safe error causes and durable failure delivery. Generation 6 added the usage events below (`system_tool_used`,
 `system_site_visited`, `system_routine_run`, `system_inventory`), `agent_source` and `agent_listing`
@@ -107,7 +108,7 @@ off. Turning analytics off on any surface first sends one `analytics_preference_
 | `agent_action` | Can accounts create and manage agents? | Persistence operation completed |
 | `message_send` | Can accounts send agent and direct messages? | Send operation returned a receipt. From desktop generation 10, `attachment_kinds` lists each kind once: `image`, `document`, `spreadsheet`, `zip`, or `other`. File names and types are not sent |
 | `system_turn_started` | How many host turns begin and from which origin? | Host accepted a unique turn start |
-| `system_turn_completed` | Are turns reliable and fast, and how many tokens do they use? | Host emitted completion; status describes outcome. From host generation 9, a turn that this host saw start adds `token_usage` and the counts that the provider reported for the turn: `uncached_input_tokens`, `cached_input_tokens` (cache reads), `cache_write_tokens`, `output_tokens`, and `total_tokens` (the sum of the sent counts). The counts come from the usage records of the local Usage view, summed over all models of the turn; `model` is the agent's model. `system_token_usage` has the counts of each model `token_usage` is `reported`, `partial` (a count is missing and is not sent), or `unknown` (the provider reported no usage before completion; no count is sent, never 0) |
+| `system_turn_completed` | Are turns reliable and fast, and how many tokens do they use? | Host emitted completion; status describes outcome. From host generation 9, a turn that this host saw start adds `token_usage` and the counts that the provider reported for the turn: `uncached_input_tokens`, `cached_input_tokens` (cache reads), `cache_write_tokens`, `output_tokens`, and `total_tokens` (the sum of the sent counts). The counts come from the usage records of the local Usage view, summed over all models of the turn; `model` is the agent's model. `system_token_usage` has the counts of each model `token_usage` is `reported`, `partial` (a count is missing and is not sent), or `unknown` (the provider reported no usage before completion; no count is sent, never 0). From host generation 10, `provider_auth` is how the turn is paid for: `subscription` (a provider plan, such as a ChatGPT plan or OpenCode Go, also when a key signs in to it), `api_key` (a key the user saved), `free` (a free model or a free plan), `custom` (an endpoint that the user added, local or remote) or `unknown`. The host reads it from the sign-in type that the provider CLI reports and from whether a key is saved; it never sends the key or the account |
 | `system_agent_input_requested` | Where do agents need human input? | Host requested a prompt answer or approval |
 | `system_operation_failed` | Which host/provider area fails? | Host emitted a safe, allowlisted operation code and cause code. The host sends this once; remote observers do not repeat it |
 | `notification_shown` | Which errors and warnings reach users? | An error/warning toast, shared alert or chat banner, or native error/warning alert is presented. Success, information, and confirmation dialogs are excluded |
@@ -126,7 +127,7 @@ off. Turning analytics off on any surface first sends one `analytics_preference_
 | `search_action` | Is search useful and healthy? | Search returned a safe result count |
 | `remote_desktop_action` | Is Remote Desktop usable? | Session/display operation completed |
 | `update_action` | Do update checks and downloads work? | Returned status is not an error; actual installs use `app_updated` |
-| `marketplace_action` | Do marketplace views convert to installs/updates? | Marketplace operation completed. `entity` is `skill`, `agent`, or `plugin`; `listing_slug` names only a curated skill or agent or a catalog plugin |
+| `marketplace_action` | Do marketplace views convert to installs/updates? | Marketplace operation completed. `entity` is `skill`, `agent`, or `plugin`; `listing_slug` names only a curated skill or agent or a catalog plugin. Mobile from generation 4 sends `install` and `update` with no `listing_slug` |
 | `memory_action` | Are manual memories used? | Memory persistence operation completed |
 | `voice_transcription` | Is local voice input reliable and fast? | Transcription returned text without sending it to analytics |
 | `voice_conversation_action` | Do users talk to agents in the Voice pane, and for how long? | `action`: `start` (both voice models are ready; `duration_ms` includes a speech model download; fails with `load_failed`), `end` (the pane closed; `duration_ms` of the conversation and `turn_count` of sent turns), `interrupt`, `mute`, or `unmute`. From desktop generation 11, `interrupt` has `trigger`: `button` (the Stop button) or `voice` (the user spoke while the agent thought or spoke). `server_kind` is `local` or `remote`; `transcription` is `local` or `cloud`. Mobile from generation 3 sends `start` and `end` only, with `server_kind: remote` and no `transcription` |
@@ -168,7 +169,7 @@ off. Turning analytics off on any surface first sends one `analytics_preference_
 | `billing_action` | Do accounts start, pay for, change and keep paid plans? | `action`: `checkout_started`, `checkout_returned`, `checkout_expired`, `plan_started`, `payment_succeeded`, `payment_failed`, `payment_refunded`, `refund_failed`, `payment_disputed`, `dispute_lost`, `plan_changed`, `cancel_scheduled`, `cancel_withdrawn`, `plan_ended`, or `portal_opened`, as the account service stores it. Optional `plan`, `interval`, `currency`, `amount` (minor units of `currency`, from Stripe), `recovery`, and `flow` (Portal). `plan_started` can add `reactivated` (true when every earlier plan of the account had ended); `plan_ended` adds `end_reason` (`unpaid` after a failed payment, else `canceled`). `payment_succeeded` adds the `first_touch_*` properties when the account has a first touch at that time. The refund and dispute actions add `amount_usd`, `fx_rate` and `fx_date` (the rate of the refund or dispute date) when the amount is at least 1 USD cent. `refund_failed` comes only for a refund that was sent as `payment_refunded`. From account service generation 11, `product` is `server` or `license`. A server sends `plan`; a license sends `users` (1 to 10,000) and `interval: month`. `plan_changed` adds `direction` (`up` or `down`): a license by its users, a server by its monthly amount, or by the plan order when an amount is missing. `checkout_started` can add `entry_point` with the values of `hosted_server_plans_action`; a reopened Checkout that waits for payment sends `checkout_resume`. A license lifecycle event comes once for each stored change of the license, from a webhook or from the app's request, whichever stores it first. License payments and refunds come from Stripe invoices, as for servers |
 | `revenue` | How much did accounts pay for servers and licenses? | Verified paid invoices only. From account service generation 11, `product` is `server` or `license`, and a license adds `users`. `__revenue` and `amount_usd` in USD cents; `original_amount`, `original_currency`, `fx_rate`, `fx_date`, `plan`, `interval`, `payment_kind`, and optional `recovery` and `first_touch_*` properties. Zero-amount invoices do not emit revenue. |
 | `billing_snapshot` | What is recurring revenue at the sample time? | Daily aggregate without a profile. `snapshot_date`, `as_of`, `reported_at`, `currency`, `mrr`, `arr`, `overdue_mrr`, `paying_accounts`, `paid_servers`, `cancellations_scheduled`, `checkout_mature_accounts`, `checkout_converted_accounts`, `checkout_pending_accounts`, `skipped_subscriptions` (subscriptions left out because Stripe has no valid data for them). From account service generation 11, `mrr`, `arr`, `overdue_mrr` and `paying_accounts` count servers only; `license_mrr`, `license_accounts` and `licensed_users` count licenses; `total_mrr` and `total_arr` count both. `skipped_subscriptions` counts both. Money is USD cents. Never sum snapshots across days. |
-| `hosted_server_action` | Do paid hosted servers start, stay in use and come back? | `action`: `provisioned`, `setup_failed`, `idle_stopped`, `woken`, `resized`, `plan_stopped`, `renewed`, or `deleted`, when the account service changes the server. Optional `plan`, `size`, `reason` (`message`, `restart` or `schedule`) and `error` (an allowlisted hosted server error code) |
+| `hosted_server_action` | Do paid hosted servers start, stay in use and come back? | `action`: `provisioned`, `setup_failed`, `idle_stopped`, `woken`, `resized`, `plan_stopped`, `renewed`, or `deleted`, when the account service changes the server. Optional `plan`, `size`, `reason` (`message`, `restart`, `schedule` or `retention`) and `error` (an allowlisted hosted server error code) |
 
 ## Privacy and runtime validation
 
@@ -214,7 +215,7 @@ and only a loopback `http:` origin is accepted.
    following `landing_download_clicked`, which shows how often the detected platform is corrected.
 5. Reliability: failed outcomes, safe failure codes, P90/P99 durations, and update/provider health.
 6. Token usage: the sum of `total_tokens` and of each count on `system_token_usage`
-   (`surface = desktop_host`, generation 9), by provider, model, `agent_source`, `agent_listing`,
+   (`surface = desktop_host`, generation 9 and later), by provider, model, `agent_source`, `agent_listing`,
    `origin`, and day. Use `system_turn_completed` for totals per turn, and show the count of
    `token_usage = unknown` turns as its own value, not as 0. Claude counts from `app_version`
    0.47.1 and earlier are too high: the first turn after a Claude process resumed a session counted

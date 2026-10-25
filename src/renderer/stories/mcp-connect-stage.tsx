@@ -11,10 +11,10 @@
  */
 
 import type { McpServerConfig, McpTestResult } from "@openbot/contracts/ipc";
+import type { McpKeyFlow } from "@openbot/contracts/mcp-connect-flows";
 import { Button, Text } from "@openbot/ui";
 import type { McpConnectSubject } from "@openbot/ui/features/settings/McpConnectShell";
 import type { MarketplacePluginApp } from "@openbot/ui/features/settings/marketplace-plugins";
-import type { McpKeyFlow } from "@openbot/ui/features/settings/mcp-connect-auth";
 import type { JSX } from "@solidjs/web";
 import { createSignal, Show } from "solid-js";
 import { createPluginAppConfig } from "../src/features/settings/marketplace-plugin-catalog";

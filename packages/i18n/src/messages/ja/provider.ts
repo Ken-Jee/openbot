@@ -67,8 +67,11 @@ export const messages = {
   "provider.aria.codeFallback": "コードで {name} にログイン",
   "provider.aria.moreActions": "{name} のその他の操作",
   "provider.aria.use": "OpenBot で {name} を使用",
+  "provider.use.inUseOne":
+    "{agent} が {name} を使用しています。このエージェントのモデルを変更してから、{name} をオフにしてください。",
   "provider.use.inUse": {
-    other: "{agents} が {name} を使用しています。エージェントのモデルを変更してから、{name} をオフにしてください。",
+    other:
+      "{count} 個のエージェントが {name} を使用しています。これらのエージェントのモデルを変更してから、{name} をオフにしてください。",
   },
 
   "provider.codeLogin.title": "コードで {name} にログイン",
@@ -171,4 +174,23 @@ export const messages = {
   "provider.account.finishSignIn": "ブラウザーでサインインを完了してください。",
   "provider.account.remove": "アカウントを削除",
   "provider.account.actionFailed": "{name} のアカウントを変更できませんでした。",
+  "provider.account.resetUsage": "使用量をリセット",
+  "provider.account.resetUsageTitle": "{name} の使用量をリセットしますか？",
+  "provider.account.resetUsageDescription": {
+    other:
+      "使用量リセットのクレジット {count} 件のうち 1 件を使います。このアカウントの上限に達した使用量は今すぐリセットされます。この操作は元に戻せません。",
+  },
+  "provider.account.resetUsagePending": "リセット中…",
+  "provider.account.resetUsageDone": "{name} の使用量の上限がリセットされました。",
+  "provider.account.resetUsageNothing": "{name} に上限に達した使用量はありません。クレジットは使われていません。",
+  "provider.account.resetUsageNoCredit": "{name} には使用量リセットのクレジットが残っていません。",
+  "provider.account.resetUsageAlreadyRedeemed": "{name} のこのリセットのクレジットはすでに使われています。",
+  "provider.account.resetUsageFailed": "{name} の使用量をリセットできませんでした。",
+  "provider.settings.cache": "キャッシュ",
+  "provider.settings.promptCache": "プロンプトキャッシュ",
+  "provider.settings.promptCacheDescription":
+    "ターンの間に Claude がエージェントのコンテキストをキャッシュに保持する時間。",
+  "provider.settings.promptCacheHour": "1 時間",
+  "provider.settings.promptCacheMinutes": "5 分",
+  "provider.settings.promptCacheLoadFailed": "このサーバーのプロンプトキャッシュ時間を読み込めませんでした。",
 } as const satisfies PartialTranslation<typeof source>;

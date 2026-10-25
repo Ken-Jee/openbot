@@ -433,4 +433,18 @@ export const messages = {
   "connector.bitwarden.connected": "Bağlandı",
   "connector.bitwarden.disconnected": "Bağlı değil",
   "connector.bitwarden.actionFailed": "OpenBot Bitwarden bağlantısını değiştiremedi.",
+  "connector.bitwarden.descriptionHost":
+    "{host} üzerindeki tarayıcı girişlerini Bitwarden veya Vaultwarden'dan doldurun.",
+  "connector.bitwarden.setupHost":
+    "{host} kendi Bitwarden CLI'si ile oturum açar. Kasanızda Shared with OpenBot adlı bir klasör oluşturun ve içine yalnızca ajanların kullanabileceği girişleri koyun. Web kasasında Ayarlar › Güvenlik › Anahtarlar'ı açın ve API anahtarınızı görüntüleyin. Aşağıya sunucu adresini, client_id, client_secret ve ana parolanızı girin.",
+  "connector.bitwarden.scopeHost":
+    "{host} üzerindeki tüm ajanlar Shared with OpenBot içindeki eşleşen girişleri kullanabilir. OpenBot tam HTTPS kaynaklarını kullanır. Ana parola isteyen öğeleri veya özel URI eşleşme kuralı olan öğeleri kullanmaz.",
+  "connector.bitwarden.sessionHost":
+    "{host}, yeniden başlatmadan sonra kilidi tekrar açabilmek için API anahtarını ve ana parolayı şifreli olarak saklar. Bu bilgisayar bunları saklamaz. Bağlantıyı kesmek bunları {host} üzerinden kaldırır. {host} sunucu adresine HTTPS ile ulaşabilmelidir.",
+  "connector.bitwarden.serverUrl": "Sunucu adresi",
+  "connector.bitwarden.clientId": "API anahtarı client_id",
+  "connector.bitwarden.clientSecret": "API anahtarı client_secret",
+  "connector.bitwarden.masterPassword": "Ana parola",
+  "connector.bitwarden.connecting": "Bağlanıyor",
+  "connector.bitwarden.connectedServer": "{server} sunucusuna bağlı.",
 } as const satisfies PartialTranslation<typeof source>;

@@ -2,7 +2,16 @@ import { chatPreviewKind } from "@openbot/contracts/chat-preview";
 import type { AttachmentSummary, InstalledSkill, MessageReaction } from "@openbot/contracts/ipc";
 import { canPreviewAttachment, MESSAGE_REACTIONS, MORE_MESSAGE_REACTIONS } from "@openbot/contracts/ipc";
 import { parseSelectionInstruction } from "@openbot/contracts/selection-instruction";
-import { AudioLines, type BubbleVariant, Button, DropdownMenu, Info, LoaderCircle } from "@openbot/ui";
+import {
+  AudioLines,
+  type BubbleVariant,
+  Button,
+  ChevronRight,
+  ContextMenu,
+  DropdownMenu,
+  Info,
+  LoaderCircle,
+} from "@openbot/ui";
 import { prefersReducedMotion } from "@openbot/ui/utils";
 import {
   createEffect,
@@ -743,5 +752,90 @@ export function MessageActions(props: {
         </Button>
       </Show>
     </div>
+  );
+}
+
+/**
+ * The right-click menu of a message, for `ChatMessageRow`'s `menu` slot. It holds the actions of
+ * `MessageActions` with text labels; React opens a submenu with every reaction.
+ */
+export function MessageMenu(props: {
+  message: AgentMessage;
+  /** Names the menu for a screen reader. A channel has more authors than "Agent". */
+  authorName?: string | undefined;
+  /** Whether React stands in the menu. A channel message has no owner to hold a reaction yet. */
+  reactions?: boolean;
+  onReact: (emoji: MessageReaction | null) => void;
+  onReply?: (() => void) | undefined;
+  onCopy: () => void;
+  readAloud?: { reading: boolean; onToggle: () => void } | undefined;
+}) {
+  const { t } = useText();
+  const authorName = () => props.authorName ?? t("chat.message.agentFallback");
+  const react = (emoji: MessageReaction) => props.onReact(props.message.reaction === emoji ? null : emoji);
+  return (
+    <ContextMenu.Content
+      aria-label={
+        props.message.author === "you" ? t("chat.actions.userLabel") : t("chat.actions.label", { name: authorName() })
+      }
+    >
+      <Show when={props.onReply}>
+        {(onReply) => (
+          <ContextMenu.Item onSelectAfterClose={onReply()}>
+            <ReplyIcon />
+            <span>{t("chat.menu.reply")}</span>
+          </ContextMenu.Item>
+        )}
+      </Show>
+      <ContextMenu.Item onSelect={props.onCopy}>
+        <CopyIcon />
+        <span>{t("chat.menu.copy")}</span>
+      </ContextMenu.Item>
+      <Show when={props.reactions !== false}>
+        <ContextMenu.Sub>
+          <ContextMenu.SubTrigger>
+            <ReactionIcon />
+            <span>{t("chat.menu.react")}</span>
+            <ChevronRight class="ui-menu-trailing" aria-hidden="true" />
+          </ContextMenu.SubTrigger>
+          <ContextMenu.Portal>
+            <ContextMenu.SubContent
+              class="ui-action-menu reaction-picker"
+              data-menu-layout="grid"
+              aria-label={t("chat.actions.chooseReaction")}
+            >
+              <For each={[MESSAGE_REACTIONS, MORE_MESSAGE_REACTIONS]}>
+                {(row, index) => (
+                  <div class={["reaction-picker-row", { "reaction-picker-more": index() > 0 }]}>
+                    <ContextMenu.RadioGroup class="reaction-picker-options" value={props.message.reaction ?? ""}>
+                      <For each={row}>
+                        {(emoji) => (
+                          <ContextMenu.RadioItem
+                            value={emoji}
+                            closeOnSelect
+                            aria-label={t("chat.actions.react", { emoji })}
+                            onSelect={() => react(emoji)}
+                          >
+                            {emoji}
+                          </ContextMenu.RadioItem>
+                        )}
+                      </For>
+                    </ContextMenu.RadioGroup>
+                  </div>
+                )}
+              </For>
+            </ContextMenu.SubContent>
+          </ContextMenu.Portal>
+        </ContextMenu.Sub>
+      </Show>
+      <Show when={props.readAloud}>
+        {(readAloud) => (
+          <ContextMenu.Item onSelect={() => readAloud().onToggle()}>
+            {readAloud().reading ? <StopIcon /> : <AudioLines aria-hidden="true" />}
+            <span>{readAloud().reading ? t("chat.actions.stopReading") : t("chat.actions.readAloud")}</span>
+          </ContextMenu.Item>
+        )}
+      </Show>
+    </ContextMenu.Content>
   );
 }

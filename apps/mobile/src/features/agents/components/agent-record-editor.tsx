@@ -24,7 +24,7 @@ import {
   switchDraftKind,
 } from "@openbot/team-client/routine-schedule-draft";
 import { type QueryKey, useQueryClient } from "@tanstack/react-query";
-import { router, useNavigation } from "expo-router";
+import { router } from "expo-router";
 import { usePreventRemove } from "expo-router/react-navigation";
 import { Typography } from "heroui-native";
 import Check from "lucide-react-native/icons/check";
@@ -64,16 +64,20 @@ function isWebhookRoutine(routine: RoutineRecord | null | undefined): routine is
 }
 
 function useRecordDraftGuard(dirty: boolean, pending: boolean) {
-  const navigation = useNavigation();
   const { t } = useText();
-  usePreventRemove(dirty || pending, ({ data }) => {
+  // Discard turns prevention off before it repeats the action, so the hook does not warn.
+  const [discarding, setDiscarding] = useState(false);
+  usePreventRemove(!discarding && (dirty || pending), ({ repeat }) => {
     if (pending) return;
     Alert.alert(t("mobile.agent.discard.title"), t("mobile.agent.discard.body"), [
       { text: t("mobile.agent.discard.keepEditing"), style: "cancel" },
       {
         text: t("mobile.agent.discard.discard"),
         style: "destructive",
-        onPress: () => navigation.dispatch(data.action),
+        onPress: () => {
+          setDiscarding(true);
+          repeat();
+        },
       },
     ]);
   });

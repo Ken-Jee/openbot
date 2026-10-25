@@ -63,6 +63,8 @@ export const messages = {
   "error.agent.duplicateIds": "Stan agentów zawiera zduplikowane identyfikatory agentów; odmowa nadpisania.",
   "error.agent.copyNameFailed": "OpenBot nie mógł utworzyć unikalnej nazwy kopii agenta.",
   "error.agent.endpointRemoved": "Endpoint używany przez tego agenta został usunięty. Wybierz dla niego inny model.",
+  "error.agent.turnStalled":
+    "{provider} przestał odpowiadać, więc OpenBot zakończył tę turę. Wyślij wiadomość ponownie albo wybierz inny model.",
   "error.agent.selectedGone": "Wybrany agent już nie istnieje.",
   "error.agent.profileEndpointsChanged": "Własne endpointy zmieniły się w trakcie generowania. Spróbuj ponownie.",
   "error.agent.profileInvalid": "Dostawca zwrócił nieprawidłowy profil. Spróbuj zmienić prompt.",

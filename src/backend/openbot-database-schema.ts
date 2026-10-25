@@ -7,6 +7,7 @@ import { createOpenBotLogger, toLogValue } from "@openbot/logging";
 import { AGENT_MEMORY_SELECTION_SCHEMA_SQL, migrateAgentMemorySelection } from "./agent-memory-selection";
 import { AGENT_TASK_SCHEMA_SQL } from "./agent-tasks/agent-task-schema";
 import { AGENT_WAIT_SCHEMA_SQL } from "./agent-waits/agent-wait-schema";
+import { BROWSER_PROFILE_SCHEMA_SQL } from "./browser-profiles/browser-profile-schema";
 import { CHANNEL_SCHEMA_SQL, CHANNEL_SETTINGS_SCHEMA_SQL } from "./channel-schema";
 import { PROVIDER_HISTORY_SCHEMA_SQL } from "./database/provider-history-schema";
 import { MCP_SERVERS_SCHEMA_SQL } from "./mcp-schema";
@@ -598,7 +599,8 @@ const LATEST_SCHEMA_SQL =
   V41_ATTACHMENT_OWNER_INDEX_SQL +
   V42_ROUTINE_FLOW_SWEEP_INDEX_SQL +
   V43_THREAD_EVENT_TYPE_INDEX_SQL +
-  MESSAGING_ALLOWED_ROLES_SCHEMA_SQL;
+  MESSAGING_ALLOWED_ROLES_SCHEMA_SQL +
+  BROWSER_PROFILE_SCHEMA_SQL;
 
 /** The end of the thread message table with the migration 40 columns before its PRIMARY KEY constraint. */
 function withThreadMessageOrderColumns(tableEnd: string): string {
@@ -848,6 +850,12 @@ const MIGRATIONS: readonly OpenBotMigration[] = [
     // Only creates a table, so no foreign-key pause and no vacuum. No connection has a role list yet, so
     // everyone can still mention OpenBot, which is what they could before.
     up: (db) => db.exec(MESSAGING_ALLOWED_ROLES_SCHEMA_SQL),
+  },
+  {
+    version: 45,
+    // Only creates a table, so no foreign-key pause and no vacuum. No agent names a profile yet, so
+    // every tab keeps the session it had.
+    up: (db) => db.exec(BROWSER_PROFILE_SCHEMA_SQL),
   },
 ];
 

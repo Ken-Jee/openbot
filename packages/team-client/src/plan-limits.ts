@@ -78,7 +78,7 @@ export function usageTone(remainingPercent: number | null): PlanLimitTone {
 }
 
 /** The windows of a reading, the shortest first. A window with no duration comes last. */
-export function reportedUsageWindows(limit: AccountUsageLimit): AccountUsageWindow[] {
+export function reportedUsageWindows(limit: Pick<AccountUsageLimit, "primary" | "secondary">): AccountUsageWindow[] {
   return [limit.primary, limit.secondary]
     .filter((window): window is AccountUsageWindow => window !== null)
     .sort(

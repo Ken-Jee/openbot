@@ -4,7 +4,7 @@ import type { LucideIcon } from "lucide-react-native";
 import ChevronDown from "lucide-react-native/icons/chevron-down";
 import ScanLine from "lucide-react-native/icons/scan-line";
 import { type ReactNode, type Ref, useEffect } from "react";
-import { Pressable, type TextInput, View } from "react-native";
+import { Pressable, type TextInputInstance, View } from "react-native";
 import Animated, {
   FadeIn,
   FadeOut,
@@ -340,7 +340,7 @@ export function EmailPane({
 }: {
   signIn: EmailSignIn;
   motion: PaneMotion;
-  emailInput: Ref<TextInput>;
+  emailInput: Ref<TextInputInstance>;
   onScanInstead: () => void;
   onLayout: (height: number) => void;
   reduced: boolean;

@@ -48,6 +48,9 @@ export const messages = {
     "Esta pestaña del navegador espera un secreto. Responde primero a la solicitud del secreto.",
   "error.backend.browserUserControlUnsupported":
     "Este host remoto no admite tomar el control de una pestaña del navegador.",
+  "error.backend.browserSignInUnsupported": "Este host remoto no puede recibir un inicio de sesión de este equipo.",
+  "error.backend.browserSignInOpenFailed": "OpenBot no pudo abrir la ventana de inicio de sesión.",
+  "error.backend.browserSignInReadFailed": "OpenBot no pudo leer el inicio de sesión de la ventana.",
   "error.backend.browserStopUnsupported": "Este host remoto no puede detener la carga de una página.",
   "error.backend.sharedDataLocalOnly": "Los datos compartidos se gestionan en el equipo que ejecuta estos agentes.",
   "error.backend.browserUrlProtocol": "Solo se permiten URL HTTP(S) en el navegador.",
@@ -69,6 +72,11 @@ export const messages = {
   "error.backend.channelRoutingTooLong":
     "Esta solicitud supera el límite de contexto de asignación. Selecciona un miembro o envía una solicitud más corta.",
   "error.backend.channelTaskMemberRequired": "Elige un miembro para esta tarea.",
+  "error.backend.channelRoutingFailed": "La asignación falló. Elige un miembro o inténtalo de nuevo.",
+  "error.backend.channelLeadTimedOut":
+    "El coordinador del canal no respondió a tiempo. Elige un miembro o inténtalo de nuevo.",
+  "error.backend.channelLeadFailed":
+    "El coordinador del canal no pudo asignar este mensaje. Elige un miembro o inténtalo de nuevo.",
   "error.backend.channelRequestMemberRequired": "Elige un miembro para esta solicitud.",
   "error.backend.channelDeliveryNotCreated": "No se creó la entrega del canal.",
   "error.backend.channelAssignmentStopped": "Esta asignación del canal se detuvo o se reemplazó.",
@@ -267,11 +275,21 @@ export const messages = {
   "error.backend.approvalInactive": "Esta aprobación ya no está activa.",
   "error.backend.takeoverInactive": "Esta toma de control del navegador ya no está activa.",
   "error.backend.authSubmitting": "Ya se están enviando los datos de autenticación.",
+  "error.backend.apiKeySaveFailed": "OpenBot no pudo guardar la clave de API. Inténtalo de nuevo.",
+  "error.backend.apiKeyNotAllowed":
+    "Solo el propietario del servidor o un administrador puede introducir una clave de API.",
+  "error.backend.apiKeySaving": "La clave de API ya se está guardando.",
   "error.backend.authRequestInactive": "Esta solicitud de autenticación segura ya no está activa.",
   "error.backend.secureAuthUnavailable": "La autenticación segura no está disponible.",
   "error.backend.browserUrlRequired": "Se requiere una URL para el navegador.",
   "error.backend.browserUrlTooLong": "La URL del navegador es demasiado larga.",
   "error.backend.browserTabLimit": "El navegador puede tener hasta {limit} pestañas abiertas.",
+  "error.backend.browserProfileMissing":
+    "El perfil de navegador de este agente ya no existe. Elige otro perfil en los ajustes del agente.",
+  "error.backend.browserProfileNotFound": "Este perfil de navegador ya no existe.",
+  "error.backend.browserProfileNameTaken": "Ya existe un perfil de navegador con este nombre.",
+  "error.backend.browserSessionInUse": "Una pestaña todavía usa esta sesión del navegador. Inténtalo de nuevo.",
+  "error.backend.browserProfileLimit": "Puedes tener hasta {limit} perfiles de navegador.",
   "error.backend.browserLowMemory":
     "Este servidor tiene poca memoria disponible, por lo que el navegador no puede abrir otra pestaña. Cierra una pestaña o espera a que terminen otros agentes.",
   "error.backend.browserOpenFailed": "No se pudo abrir {url}: {reason}",

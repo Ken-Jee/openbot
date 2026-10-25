@@ -304,6 +304,16 @@ export const messages = {
   "server.settings.notReachable": "Online nicht erreichbar. Bestehende Mitglieder und Einladungen bleiben erhalten.",
   "server.settings.notPublished": "Online nicht erreichbar.",
   "server.settings.generatedName": "Server von {name}",
+  "server.settings.hostKeyTitle": "Serverschlüssel",
+  "server.settings.hostKeyRotate": "Serverschlüssel ändern",
+  "server.settings.hostKeyDescription":
+    "Erstellt einen neuen Identitätsschlüssel für diesen Server. Gekoppelte Computer und Telefone sowie Webhook-Routen bleiben verbunden.",
+  "server.settings.hostKeyRotateAction": "Ändern",
+  "server.settings.hostKeyConfirmTitle": "Serverschlüssel ändern?",
+  "server.settings.hostKeyConfirmDescription":
+    "Der aktuelle und der neue Schlüssel signieren beide eine Übergabe. Die Apps der Mitglieder wechseln beim nächsten Verbinden zum neuen Schlüssel. Tu das, wenn die Schlüsseldatei kopiert oder offengelegt wurde.",
+  "server.settings.hostKeyRotated": "Serverschlüssel geändert",
+  "server.settings.hostKeyLocalOnly": "Hier kann nur der Server auf diesem Computer seinen Schlüssel ändern.",
   "server.settings.removeTitle": "Server entfernen",
   "server.settings.removeDescription":
     "Entferne diesen Server für alle Mitglieder aus dem Kontodienst. Nutze dies, wenn sein Computer nicht mehr verfügbar ist.",
@@ -399,6 +409,8 @@ export const messages = {
   "server.invite.pendingTitle": "Ausstehende Einladungen",
   "server.invite.pendingCount": "{total} ausstehend",
   "server.invite.noPending": "Keine ausstehenden Einladungen.",
+  "server.invite.emptyTitle": "Sende die erste {word}.",
+  "server.invite.emptyWord": "Einladung",
   "server.invite.neverExpires": {
     one: "Läuft nie ab · {count} Beitritt",
     other: "Läuft nie ab · {count} Beitritte",

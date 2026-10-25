@@ -304,6 +304,16 @@ export const messages = {
   "server.settings.notReachable": "Çevrim içi erişilemez. Mevcut üyeler ve davetler kalır.",
   "server.settings.notPublished": "Çevrim içi erişilemez.",
   "server.settings.generatedName": "{name} sunucusu",
+  "server.settings.hostKeyTitle": "Sunucu anahtarı",
+  "server.settings.hostKeyRotate": "Sunucu anahtarını değiştir",
+  "server.settings.hostKeyDescription":
+    "Bu sunucu için yeni bir kimlik anahtarı oluşturur. Eşlenmiş bilgisayarlar, telefonlar ve webhook yolları bağlı kalır.",
+  "server.settings.hostKeyRotateAction": "Değiştir",
+  "server.settings.hostKeyConfirmTitle": "Sunucu anahtarı değiştirilsin mi?",
+  "server.settings.hostKeyConfirmDescription":
+    "Mevcut anahtar ve yeni anahtar bir devri birlikte imzalar. Üyelerin uygulamaları yeniden bağlandığında yeni anahtara geçer. Anahtar dosyası kopyalandıysa veya açığa çıktıysa bunu yapın.",
+  "server.settings.hostKeyRotated": "Sunucu anahtarı değiştirildi",
+  "server.settings.hostKeyLocalOnly": "Burada yalnızca bu bilgisayardaki sunucu anahtarını değiştirebilir.",
   "server.settings.removeTitle": "Sunucuyu kaldır",
   "server.settings.removeDescription":
     "Bu sunucuyu tüm üyeler için hesap hizmetinden kaldırın. Bilgisayarı artık kullanılamadığında bunu kullanın.",
@@ -399,6 +409,8 @@ export const messages = {
   "server.invite.pendingTitle": "Bekleyen davetler",
   "server.invite.pendingCount": "{total} bekliyor",
   "server.invite.noPending": "Bekleyen davet yok.",
+  "server.invite.emptyTitle": "İlk {word} gönderin.",
+  "server.invite.emptyWord": "daveti",
   "server.invite.neverExpires": {
     one: "Süresi asla dolmaz · {count} katılım",
     other: "Süresi asla dolmaz · {count} katılım",

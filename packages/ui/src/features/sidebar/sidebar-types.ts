@@ -57,6 +57,11 @@ export interface SidebarProps {
   onOpenServerSettings?: ((trigger: HTMLElement) => void) | undefined;
   /** The desktop server menu. Without it, the server name opens the server settings. */
   serverMenu?: Omit<ServerMenuProps, "serverName" | "compact"> | undefined;
+  /**
+   * Back and Forward between the chats this window opened. The top bar shows the two arrows only when
+   * it is set. `back` and `forward` name the chat that each arrow opens, or are null when there is none.
+   */
+  chatHistory?: SidebarChatHistory | undefined;
   /** A new OpenBot version of the server. The header shows a button that opens its update. */
   serverUpdate?: { version: string; running: boolean; onOpen: () => void } | undefined;
   agents: AgentProfile[];
@@ -72,6 +77,10 @@ export interface SidebarProps {
   layoutMutable?: boolean | undefined;
   collapsedSectionIds: string[];
   onMutateLayout: (action: SidebarLayoutAction) => Promise<void>;
+  /** Whether this server can copy a section with its agents. Without it, the section menu has no duplicate item. */
+  sectionDuplicateSupported?: boolean | undefined;
+  duplicatingSectionIds?: ReadonlySet<string> | undefined;
+  onDuplicateSection?: ((sectionId: string) => Promise<void>) | undefined;
   onToggleSection: (sectionId: string) => void;
   pinnedItems: SidebarPinnedItem[];
   peopleOrder: string[];
@@ -100,6 +109,10 @@ export interface SidebarProps {
   onHideAgent?: ((agentId: string) => void) | undefined;
   /** Puts a hidden agent back in its section. Without it, a hidden agent's menu shows no restore item. */
   onRestoreAgent?: ((agentId: string) => void) | undefined;
+  /** Opens the agent's chat in a window of its own. Without it, the agent menu shows no window item. */
+  onOpenAgentWindow?: ((agentId: string) => void) | undefined;
+  /** The agents whose chat is open in a window of its own. Their rows show a window mark. */
+  windowAgentIds?: ReadonlySet<string> | undefined;
   compact: boolean;
   /** A card under the chat list, such as an announcement. The compact sidebar has no room for it. */
   footer?: JSX.Element;
@@ -117,6 +130,15 @@ export interface SidebarProps {
         onSelect: () => void;
       }
     | undefined;
+}
+
+export interface SidebarChatHistory {
+  back: { name: string } | null;
+  forward: { name: string } | null;
+  /** The keys of each arrow, as the tooltip shows them, such as "⌘[". */
+  keys: { back: string; forward: string };
+  onBack: () => void;
+  onForward: () => void;
 }
 
 export type SidebarRoutinePhase = "running" | "queued" | "failed";

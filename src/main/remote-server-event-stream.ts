@@ -121,6 +121,7 @@ export class RemoteEventStream {
   readonly #scope = Scope.makeUnsafe();
   readonly #appVersion: string | null;
   readonly #servers: RemoteServerDirectory;
+  #chatWindowServerIds: ReadonlySet<string> = new Set();
   readonly #client: RemoteEventCompatibilitySource;
   readonly #connections: RemoteEventConnectionSink;
   readonly #agents: RemoteEventAgentState;
@@ -224,6 +225,15 @@ export class RemoteEventStream {
 
   syncScopes(): void {
     for (const [serverId, socket] of this.#sockets) this.#sendEventScope(serverId, socket);
+  }
+
+  /**
+   * A chat window stays on its server while the main window selects another (#2964), so the host
+   * of each such server also sends chat events.
+   */
+  setChatWindowServers(serverIds: ReadonlySet<string>): void {
+    this.#chatWindowServerIds = serverIds;
+    this.syncScopes();
   }
 
   // The transport reconnected on its own, so the backoff it earned no longer applies.
@@ -653,7 +663,7 @@ export class RemoteEventStream {
     socket.send(
       encodeTeamProtocolV1CurrentClientEvent({
         type: "agent-event-scope",
-        includeConversations: this.#servers.activeServerId === serverId,
+        includeConversations: this.#servers.activeServerId === serverId || this.#chatWindowServerIds.has(serverId),
         ...(this.#appVersion
           ? {
               capabilities: teamCapabilitiesForProtocol(

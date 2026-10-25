@@ -1,8 +1,11 @@
+import { isRunningInExpoGo } from "expo";
 import { isAndroid } from "@/shared/lib/platform";
 
-/** Expo Go on Android. The constants load only on Android, so iOS and tests do not load them here. */
+/**
+ * Expo Go on Android. `isRunningInExpoGo` looks for the native Expo Go module. The execution
+ * environment cannot tell Expo Go from a development build: both are `storeClient`. With SDK 58 that
+ * check also let `expo-notifications` load in Expo Go on Android, where it throws.
+ */
 export function expoGoOnAndroid(): boolean {
-  if (!isAndroid) return false;
-  const constants: typeof import("expo-constants") = require("expo-constants");
-  return constants.default.executionEnvironment === constants.ExecutionEnvironment.StoreClient;
+  return isAndroid && isRunningInExpoGo();
 }

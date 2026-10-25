@@ -22,6 +22,7 @@ import type {
   TeamSessionSummary,
   UpdateTeamMemberInput,
 } from "@openbot/contracts/ipc";
+import { sourceText } from "@openbot/i18n/source";
 import {
   STORY_DIRECT_SNAPSHOTS,
   STORY_DIRECT_THREADS,
@@ -358,6 +359,11 @@ export function createMockTeam(
         ...hostStatus,
         ...(input.serverName === undefined ? {} : { serverName: input.serverName }),
       };
+      emitHostStatus(hostStatus);
+      return clone(hostStatus);
+    },
+    rotateIdentityKey: async () => {
+      hostStatus = { ...hostStatus, message: sourceText("status.host.keyRotated") };
       emitHostStatus(hostStatus);
       return clone(hostStatus);
     },

@@ -1,0 +1,731 @@
+/**
+ * The plugins the mobile Marketplace offers.
+ *
+ * Generated from marketplace/plugin-catalog/ by scripts/build-plugin-catalog.ts.
+ * Do not edit by hand: run bun run marketplace:build:plugins, or
+ * bun run marketplace:build:plugins -- --check to verify.
+ */
+
+import type { SkillCategory } from "@openbot/contracts/ipc";
+
+/** One credential the user types. It goes into a `header` (http) or an `env` value (stdio). */
+export interface MobilePluginAuthField {
+  id: string;
+  label: string;
+  /** The value replaces the listing's address. It must stay on the listing's host or a subdomain. */
+  url?: boolean;
+  header?: string;
+  env?: string;
+  /** Written in front of the typed value, such as `"Bearer "`. */
+  prefix?: string;
+  placeholder?: string;
+  hint?: string;
+  optional?: boolean;
+}
+
+export type MobilePluginAuthFlow =
+  | { id: string; kind: "link"; label: string }
+  | {
+      id: string;
+      kind: "key";
+      label: string;
+      fields: MobilePluginAuthField[];
+      docsUrl?: string | null;
+      docsLabel?: string;
+    }
+  | {
+      id: string;
+      kind: "local";
+      label: string;
+      steps: string[];
+      note?: string;
+      docsUrl?: string | null;
+      docsLabel?: string;
+    };
+
+type MobilePluginServer =
+  | { name: string; transport: "http"; url: string; auth?: MobilePluginAuthFlow[] }
+  | { name: string; transport: "stdio"; command: string; args: string[]; auth?: MobilePluginAuthFlow[] };
+
+export interface MobilePluginApp {
+  id: string;
+  name: string;
+  description: string;
+  server: MobilePluginServer;
+}
+
+export interface MobilePlugin {
+  slug: string;
+  name: string;
+  tagline: string;
+  description: string;
+  category: SkillCategory;
+  creatorName: string;
+  version: string;
+  prompts: Array<{ id: string; text: string }>;
+  apps: MobilePluginApp[];
+  websiteUrl: string | null;
+  privacyPolicyUrl: string | null;
+  termsUrl: string | null;
+  featured: boolean;
+}
+
+export const MOBILE_PLUGINS: readonly MobilePlugin[] = [
+  {
+    slug: "aave",
+    name: "Aave",
+    tagline: "Aave data and transactions",
+    description:
+      "Aave helps users explore live Aave V3 and V4 markets, review wallet positions and DAO governance, simulate lending actions, and prepare non-custodial transactions. Every transaction is returned unsigned: the plugin reads the markets and writes the call, and the wallet stays with the user.",
+    category: "data-analytics",
+    creatorName: "avara.xyz",
+    version: "1.0.0",
+    prompts: [
+      { id: "prompt-stablecoin-yield", text: "Where can I earn the most on stablecoins across Aave right now?" },
+      { id: "prompt-usdc-rates", text: "Which pays more for USDC right now, Aave V3 or V4 on Ethereum?" },
+      {
+        id: "prompt-health-factor",
+        text: "What's the health factor of 0x0a42b2f3a0d54157dbd7cc346335a4f1909fc02c, and how far from liquidation?",
+      },
+    ],
+    websiteUrl: "https://aave.com",
+    privacyPolicyUrl: "https://aave.com/privacy",
+    termsUrl: "https://aave.com/terms",
+    featured: true,
+    apps: [
+      {
+        id: "app-aave-mcp",
+        name: "Aave",
+        description:
+          "Live V3 and V4 markets, wallet positions, DAO governance, and prepared transactions, over one MCP server.",
+        server: { name: "aave", transport: "http", url: "https://mcp.aave.com/mcp" },
+      },
+    ],
+  },
+  {
+    slug: "canva",
+    name: "Canva",
+    tagline: "Designs, assets and exports",
+    description:
+      "Canva lets users create and edit designs in words, search their own design library, upload and organize assets, export in the format a channel needs, and leave comments where the work is. Each user signs in to their own Canva account, and the agent can do what that account can do.",
+    category: "design",
+    creatorName: "canva.com",
+    version: "1.0.0",
+    prompts: [
+      { id: "prompt-recent-design", text: "Show me my most recently edited Canva design." },
+      { id: "prompt-social-resize", text: "Resize my launch poster for Instagram and export both as PNG." },
+      { id: "prompt-deck-from-notes", text: "Turn these release notes into a six-slide Canva presentation." },
+    ],
+    websiteUrl: "https://www.canva.com",
+    privacyPolicyUrl: "https://www.canva.com/policies/privacy-policy/",
+    termsUrl: "https://www.canva.com/policies/terms-of-use/",
+    featured: true,
+    apps: [
+      {
+        id: "app-canva-mcp",
+        name: "Canva",
+        description:
+          "Design creation and editing, library search, asset and brand management, exports, and comments, over one MCP server.",
+        server: {
+          name: "canva",
+          transport: "http",
+          url: "https://mcp.canva.com/mcp",
+          auth: [{ id: "canva-oauth", kind: "link", label: "Sign in" }],
+        },
+      },
+    ],
+  },
+  {
+    slug: "linear",
+    name: "Linear",
+    tagline: "Issues and project triage",
+    description:
+      "Linear lets agents list assigned issues, triage the backlog, update statuses, and draft new issues in the workspace the signed-in account belongs to. Each user signs in to their own Linear account through the browser.",
+    category: "coding",
+    creatorName: "linear.app",
+    version: "1.0.0",
+    prompts: [
+      { id: "prompt-my-week", text: "What is assigned to me this week?" },
+      { id: "prompt-backlog", text: "Triage the backlog: what is stale, blocked, or missing an owner?" },
+      { id: "prompt-new-issue", text: "File an issue for the crash in the sync queue with reproduction steps." },
+    ],
+    websiteUrl: "https://linear.app",
+    privacyPolicyUrl: "https://linear.app/privacy",
+    termsUrl: "https://linear.app/terms",
+    featured: false,
+    apps: [
+      {
+        id: "app-linear-mcp",
+        name: "Linear",
+        description:
+          "Issue search, triage, status updates, and issue creation, over Linear's MCP server with browser sign-in.",
+        server: {
+          name: "linear",
+          transport: "http",
+          url: "https://mcp.linear.app/mcp",
+          auth: [{ id: "linear-oauth", kind: "link", label: "Sign in" }],
+        },
+      },
+    ],
+  },
+  {
+    slug: "notion",
+    name: "Notion",
+    tagline: "Docs and knowledge base",
+    description:
+      "Notion lets agents read and write pages, search the workspace, and keep meeting notes and specs where the team already works. Each user signs in to their own Notion account through the browser.",
+    category: "productivity",
+    creatorName: "notion.so",
+    version: "1.0.0",
+    prompts: [
+      { id: "prompt-find-spec", text: "Find the current launch spec and summarize the open questions." },
+      { id: "prompt-meeting-notes", text: "Turn these bullets into a structured meeting note in my team space." },
+      { id: "prompt-update-doc", text: "Update the onboarding doc with the new release checklist." },
+    ],
+    websiteUrl: "https://www.notion.so",
+    privacyPolicyUrl: "https://www.notion.so/privacy",
+    termsUrl: "https://www.notion.so/terms",
+    featured: true,
+    apps: [
+      {
+        id: "app-notion-mcp",
+        name: "Notion",
+        description:
+          "Page search, reading, writing, and workspace navigation, over Notion's MCP server with browser sign-in.",
+        server: {
+          name: "notion",
+          transport: "http",
+          url: "https://mcp.notion.com/mcp",
+          auth: [{ id: "notion-oauth", kind: "link", label: "Sign in" }],
+        },
+      },
+    ],
+  },
+  {
+    slug: "cobrain",
+    name: "Cobrain",
+    tagline: "Shared memory for your AI agents",
+    description:
+      "Cobrain is a Markdown memory that every AI you connect can read and write. Agents load the context of a client or project before working, search past notes and decisions, and save what they learn so the next thread starts where the last one ended. Each user signs in to their own Cobrain account.",
+    category: "productivity",
+    creatorName: "cobrain.space",
+    version: "1.0.0",
+    prompts: [
+      { id: "prompt-start-session", text: "Load my Cobrain context for this project before we start." },
+      { id: "prompt-search-decision", text: "Search my Cobrain notes for what we decided about pricing." },
+      { id: "prompt-save-note", text: "Save a note in Cobrain with what we did today and what is left." },
+    ],
+    websiteUrl: "https://cobrain.space",
+    privacyPolicyUrl: "https://cobrain.space/privacy",
+    termsUrl: "https://cobrain.space/terms",
+    featured: false,
+    apps: [
+      {
+        id: "app-cobrain-mcp",
+        name: "Cobrain",
+        description: "Read, search and write notes in your Cobrain brain over one MCP server.",
+        server: {
+          name: "cobrain",
+          transport: "http",
+          url: "https://cobrain.space/mcp",
+          auth: [{ id: "cobrain-oauth", kind: "link", label: "Sign in" }],
+        },
+      },
+    ],
+  },
+  {
+    slug: "figma",
+    name: "Figma",
+    tagline: "Designs and prototypes",
+    description:
+      "Figma lets agents read design files, inspect components, styles and variables, and hand production specs to engineers. It connects to the MCP server in the Figma desktop app, on this computer. The server can read designs only; write support is in progress.",
+    category: "design",
+    creatorName: "figma.com",
+    version: "1.1.0",
+    prompts: [
+      { id: "prompt-handoff", text: "Hand off the checkout file: list screens, components, and styles." },
+      { id: "prompt-audit", text: "Audit this file for inconsistent spacing and color use." },
+      { id: "prompt-assets", text: "Extract the marketing icons at 2x for the app bundle." },
+    ],
+    websiteUrl: "https://www.figma.com",
+    privacyPolicyUrl: "https://www.figma.com/privacy/",
+    termsUrl: "https://www.figma.com/tos/",
+    featured: true,
+    apps: [
+      {
+        id: "app-figma-mcp",
+        name: "Figma",
+        description:
+          "Design context, metadata, variables and screenshots, over the MCP server in the Figma desktop app. Read-only for now.",
+        server: {
+          name: "figma-desktop",
+          transport: "http",
+          url: "http://127.0.0.1:3845/mcp",
+          auth: [
+            {
+              id: "figma-desktop",
+              label: "Figma desktop app",
+              kind: "local",
+              steps: [
+                "Open the Figma desktop app and sign in. The server needs a Dev or Full seat on a paid plan.",
+                "Open a design file from a team project, not from Drafts.",
+                'Press ⌘K (Ctrl+K on Windows), search for "MCP", and turn on "Enable desktop MCP server".',
+                "Keep Figma open while agents use it.",
+              ],
+              note: "The local server can only read designs: layout, code context, variables and screenshots. It cannot draw or edit yet. We are working on write support.",
+              docsUrl: "https://developers.figma.com/docs/figma-mcp-server/local-server-installation/",
+            },
+          ],
+        },
+      },
+    ],
+  },
+  {
+    slug: "paper",
+    name: "Paper",
+    tagline: "Design canvas built on HTML and CSS",
+    description:
+      "Paper lets agents read and write the design file that is open in Paper Desktop: inspect artboards, selections, computed styles, JSX and tokens, and create or change frames, text and styles. Install Paper Desktop, open it once, and open a file before you start. OpenBot starts the Paper CLI that Paper Desktop installs. Paper needs no key. Write tools change the open file, so review each write before you approve it.",
+    category: "design",
+    creatorName: "paper.design",
+    version: "1.0.0",
+    prompts: [
+      {
+        id: "prompt-implement",
+        text: "Implement the selected Paper frame in this codebase, with our code conventions.",
+      },
+      { id: "prompt-code-to-design", text: "Use the styles in this repository and design a settings page in Paper." },
+      { id: "prompt-tokens", text: "List the design tokens in the open Paper file and compare them with our theme." },
+    ],
+    websiteUrl: "https://paper.design",
+    privacyPolicyUrl: "https://paper.design/legal/privacy",
+    termsUrl: "https://paper.design/legal/tos",
+    featured: false,
+    apps: [
+      {
+        id: "app-paper-mcp",
+        name: "Paper",
+        description:
+          "Reads and writes the open Paper Desktop file, over the local MCP server that the Paper CLI relays. Needs Paper Desktop with a file open.",
+        server: { name: "paper", transport: "stdio", command: "~/.paper/bin/paper", args: ["mcp"] },
+      },
+    ],
+  },
+  {
+    slug: "sentry",
+    name: "Sentry",
+    tagline: "Errors and crash triage",
+    description:
+      "Sentry lets agents search recent errors, inspect stack traces and affected releases, and summarize what broke after a deploy. Each user signs in to their own Sentry account through the browser.",
+    category: "coding",
+    creatorName: "sentry.io",
+    version: "1.0.0",
+    prompts: [
+      { id: "prompt-new-errors", text: "What new errors appeared since yesterday's deploy?" },
+      { id: "prompt-top-crash", text: "Explain the top crash in the mobile project and its likely cause." },
+      { id: "prompt-release-health", text: "How healthy is the current release compared to the last one?" },
+    ],
+    websiteUrl: "https://sentry.io",
+    privacyPolicyUrl: "https://sentry.io/privacy/",
+    termsUrl: "https://sentry.io/terms/",
+    featured: false,
+    apps: [
+      {
+        id: "app-sentry-mcp",
+        name: "Sentry",
+        description:
+          "Error search, issue inspection, and release health, over Sentry's MCP server with browser sign-in.",
+        server: {
+          name: "sentry",
+          transport: "http",
+          url: "https://mcp.sentry.dev/mcp",
+          auth: [{ id: "sentry-oauth", kind: "link", label: "Sign in" }],
+        },
+      },
+    ],
+  },
+  {
+    slug: "vercel",
+    name: "Vercel",
+    tagline: "Deployments, build logs and projects",
+    description:
+      "Vercel lets agents list projects and recent deployments, read build and runtime logs, and find why a build failed. Each user signs in to their own Vercel account through the browser and chooses the teams that agents can use. In those teams, agents get the same rights as the user's account. They can also change environment variables, domains, DNS records and deployments, and buy domains.",
+    category: "coding",
+    creatorName: "vercel.com",
+    version: "1.0.0",
+    prompts: [
+      { id: "prompt-failed-build", text: "Why did the last production deployment fail?" },
+      { id: "prompt-recent-deployments", text: "List the deployments from today and their status." },
+      { id: "prompt-runtime-errors", text: "Which routes had runtime errors in the last hour?" },
+    ],
+    websiteUrl: "https://vercel.com",
+    privacyPolicyUrl: "https://vercel.com/legal/privacy-notice",
+    termsUrl: "https://vercel.com/legal/terms",
+    featured: false,
+    apps: [
+      {
+        id: "app-vercel-mcp",
+        name: "Vercel",
+        description:
+          "Projects, deployments, build logs, and runtime logs, over Vercel's MCP server with browser sign-in.",
+        server: {
+          name: "vercel",
+          transport: "http",
+          url: "https://mcp.vercel.com",
+          auth: [{ id: "vercel-oauth", kind: "link", label: "Sign in" }],
+        },
+      },
+    ],
+  },
+  {
+    slug: "context7",
+    name: "Context7",
+    tagline: "Current library documentation",
+    description:
+      "Context7 fetches current documentation and API references for libraries and frameworks, so answers use the version the project actually runs. It needs no account and no key.",
+    category: "research",
+    creatorName: "context7.com",
+    version: "1.0.0",
+    prompts: [
+      { id: "prompt-api-check", text: "What is the current API for virtualized lists in this framework?" },
+      { id: "prompt-migrate", text: "What changed between v2 and v3 of this router?" },
+      { id: "prompt-example", text: "Show a current example for authenticated file uploads." },
+    ],
+    websiteUrl: "https://context7.com",
+    privacyPolicyUrl: "https://context7.com/privacy",
+    termsUrl: "https://context7.com/terms",
+    featured: false,
+    apps: [
+      {
+        id: "app-context7-mcp",
+        name: "Context7",
+        description: "Current library documentation lookup, over the Context7 MCP server with no sign-in.",
+        server: { name: "context7", transport: "http", url: "https://mcp.context7.com/mcp" },
+      },
+    ],
+  },
+  {
+    slug: "stripe",
+    name: "Stripe",
+    tagline: "Payments and billing review",
+    description:
+      "Stripe lets agents look up payments, customers, and invoices, and draft payment links, in the account the signed-in user can reach. Each user signs in to their own Stripe account through the browser.",
+    category: "other",
+    creatorName: "stripe.com",
+    version: "1.0.0",
+    prompts: [
+      { id: "prompt-payment", text: "Look up this payment and explain why it failed." },
+      { id: "prompt-customer", text: "Summarize this customer's invoices and outstanding balance." },
+      { id: "prompt-link", text: "Draft a payment link for the Pro plan at 49 per month." },
+    ],
+    websiteUrl: "https://stripe.com",
+    privacyPolicyUrl: "https://stripe.com/privacy",
+    termsUrl: "https://stripe.com/ssa",
+    featured: false,
+    apps: [
+      {
+        id: "app-stripe-mcp",
+        name: "Stripe",
+        description: "Payment, customer, and invoice lookup, over Stripe's MCP server with browser sign-in.",
+        server: {
+          name: "stripe",
+          transport: "http",
+          url: "https://mcp.stripe.com",
+          auth: [{ id: "stripe-oauth", kind: "link", label: "Sign in" }],
+        },
+      },
+    ],
+  },
+  {
+    slug: "posthog",
+    name: "PostHog",
+    tagline: "Product analytics and flags",
+    description:
+      "PostHog lets agents query events and funnels, inspect feature flags, and summarize what changed after a release. A personal API key from the project settings goes into one Authorization header.",
+    category: "data-analytics",
+    creatorName: "posthog.com",
+    version: "1.0.0",
+    prompts: [
+      { id: "prompt-funnel", text: "How does the signup funnel look for the last 14 days?" },
+      { id: "prompt-flag", text: "Which feature flags are enabled for this user?" },
+      { id: "prompt-release", text: "Did activation change after last week's release?" },
+    ],
+    websiteUrl: "https://posthog.com",
+    privacyPolicyUrl: "https://posthog.com/privacy",
+    termsUrl: "https://posthog.com/terms",
+    featured: false,
+    apps: [
+      {
+        id: "app-posthog-mcp",
+        name: "PostHog",
+        description: "Event, funnel, and feature-flag access, over PostHog's MCP server with a personal API key.",
+        server: {
+          name: "posthog",
+          transport: "http",
+          url: "https://mcp.posthog.com/mcp",
+          auth: [
+            {
+              id: "posthog-key",
+              kind: "key",
+              label: "Personal API key",
+              fields: [
+                {
+                  id: "token",
+                  label: "Personal API key",
+                  header: "Authorization",
+                  prefix: "Bearer ",
+                  placeholder: "phx_…",
+                  hint: "PostHog Project settings → Personal API keys",
+                },
+              ],
+              docsUrl: "https://posthog.com/docs/api",
+              docsLabel: "Create a key",
+            },
+          ],
+        },
+      },
+    ],
+  },
+  {
+    slug: "airtable",
+    name: "Airtable",
+    tagline: "Bases and records",
+    description:
+      "Airtable lets agents list bases, read and update records, and summarize table contents. An API key from the account page is passed to the local server as one environment variable.",
+    category: "data-analytics",
+    creatorName: "airtable.com",
+    version: "1.0.0",
+    prompts: [
+      { id: "prompt-bases", text: "What bases do I have access to?" },
+      { id: "prompt-records", text: "Summarize the launch tracker table." },
+      { id: "prompt-update", text: "Mark the shipped features as done in the roadmap base." },
+    ],
+    websiteUrl: "https://www.airtable.com",
+    privacyPolicyUrl: "https://www.airtable.com/privacy",
+    termsUrl: "https://www.airtable.com/tos",
+    featured: false,
+    apps: [
+      {
+        id: "app-airtable-mcp",
+        name: "Airtable",
+        description: "Base listing and record access, over a local MCP server with an Airtable API key.",
+        server: {
+          name: "airtable",
+          transport: "stdio",
+          command: "npx",
+          args: ["-y", "airtable-mcp-server"],
+          auth: [
+            {
+              id: "airtable-key",
+              kind: "key",
+              label: "API key",
+              fields: [{ id: "token", label: "API key", env: "AIRTABLE_API_KEY", hint: "Airtable account page → API" }],
+              docsUrl: "https://airtable.com/developers/web/api/introduction",
+              docsLabel: "Get a key",
+            },
+          ],
+        },
+      },
+    ],
+  },
+  {
+    slug: "firecrawl",
+    name: "Firecrawl",
+    tagline: "Web extraction and search",
+    description:
+      "Firecrawl lets agents scrape pages, extract structured data, and search the web through one API. An API key from the Firecrawl dashboard is passed to the local server as one environment variable.",
+    category: "research",
+    creatorName: "firecrawl.dev",
+    version: "1.0.0",
+    prompts: [
+      { id: "prompt-scrape", text: "Extract the pricing table from this page as structured data." },
+      { id: "prompt-research", text: "Research competitor pricing and cite each source page." },
+      { id: "prompt-monitor", text: "What changed on our changelog page this month?" },
+    ],
+    websiteUrl: "https://www.firecrawl.dev",
+    privacyPolicyUrl: "https://www.firecrawl.dev/privacy",
+    termsUrl: "https://www.firecrawl.dev/terms",
+    featured: false,
+    apps: [
+      {
+        id: "app-firecrawl-mcp",
+        name: "Firecrawl",
+        description: "Page scraping, extraction, and web search, over a local MCP server with a Firecrawl API key.",
+        server: {
+          name: "firecrawl",
+          transport: "stdio",
+          command: "npx",
+          args: ["-y", "firecrawl-mcp"],
+          auth: [
+            {
+              id: "firecrawl-key",
+              kind: "key",
+              label: "API key",
+              fields: [
+                {
+                  id: "token",
+                  label: "API key",
+                  env: "FIRECRAWL_API_KEY",
+                  prefix: "",
+                  hint: "Firecrawl dashboard → API keys",
+                },
+              ],
+              docsUrl: "https://docs.firecrawl.dev",
+              docsLabel: "Get a key",
+            },
+          ],
+        },
+      },
+    ],
+  },
+  {
+    slug: "brave-search",
+    name: "Brave Search",
+    tagline: "Private web search",
+    description:
+      "Brave Search lets agents search the web and local results without tracking. An API key from the Brave Search API dashboard is passed to the local server as one environment variable.",
+    category: "research",
+    creatorName: "brave.com",
+    version: "1.0.0",
+    prompts: [
+      { id: "prompt-search", text: "What are reviewers saying about this framework version?" },
+      { id: "prompt-news", text: "Find today's announcements for this product area." },
+      { id: "prompt-compare", text: "Compare these two vendors with cited sources." },
+    ],
+    websiteUrl: "https://brave.com",
+    privacyPolicyUrl: "https://brave.com/privacy/",
+    termsUrl: "https://brave.com/terms-of-use/",
+    featured: false,
+    apps: [
+      {
+        id: "app-brave-search-mcp",
+        name: "Brave Search",
+        description: "Web and local search, over a local MCP server with a Brave API key.",
+        server: {
+          name: "brave-search",
+          transport: "stdio",
+          command: "npx",
+          args: ["-y", "@brave/brave-search-mcp-server"],
+          auth: [
+            {
+              id: "brave-key",
+              kind: "key",
+              label: "API key",
+              fields: [
+                { id: "token", label: "API key", env: "BRAVE_API_KEY", hint: "Brave Search API dashboard → API keys" },
+              ],
+              docsUrl: "https://brave.com/search/api/",
+              docsLabel: "Get a key",
+            },
+          ],
+        },
+      },
+    ],
+  },
+  {
+    slug: "resend",
+    name: "Resend",
+    tagline: "Transactional email",
+    description:
+      "Resend lets agents send transactional email and check delivery through one API. An API key from the Resend dashboard is passed to the local server as one environment variable.",
+    category: "automation",
+    creatorName: "resend.com",
+    version: "1.0.0",
+    prompts: [
+      { id: "prompt-send", text: "Send the launch announcement draft to the beta list." },
+      { id: "prompt-status", text: "Did the invoice email reach the customer?" },
+      { id: "prompt-template", text: "Draft a password-reset email for the new flow." },
+    ],
+    websiteUrl: "https://resend.com",
+    privacyPolicyUrl: "https://resend.com/legal/privacy-policy",
+    termsUrl: "https://resend.com/legal/terms",
+    featured: false,
+    apps: [
+      {
+        id: "app-resend-mcp",
+        name: "Resend",
+        description: "Email sending and delivery checks, over a local MCP server with a Resend API key.",
+        server: {
+          name: "resend",
+          transport: "stdio",
+          command: "npx",
+          args: ["-y", "resend-mcp"],
+          auth: [
+            {
+              id: "resend-key",
+              kind: "key",
+              label: "API key",
+              fields: [
+                {
+                  id: "token",
+                  label: "API key",
+                  env: "RESEND_API_KEY",
+                  prefix: "",
+                  hint: "Resend dashboard → API keys",
+                },
+              ],
+              docsUrl: "https://resend.com/docs/dashboard/api-keys/introduction",
+              docsLabel: "Get a key",
+            },
+          ],
+        },
+      },
+    ],
+  },
+  {
+    slug: "composio",
+    name: "Composio",
+    tagline: "Many apps through your own Composio link",
+    description:
+      "Composio connects agents to Gmail, Slack, GitHub, and hundreds of other apps through one MCP server. Connect the apps you want in your Composio account, then paste its MCP URL and API key here.",
+    category: "automation",
+    creatorName: "composio.dev",
+    version: "1.1.0",
+    prompts: [
+      { id: "prompt-inbox", text: "Summarize my unread email and draft replies to the urgent ones." },
+      { id: "prompt-handoff", text: "Post a summary of this pull request to our team channel." },
+      { id: "prompt-apps", text: "Which apps and actions can you use through Composio?" },
+    ],
+    websiteUrl: "https://composio.dev",
+    privacyPolicyUrl: "https://composio.dev/privacy-policy",
+    termsUrl: "https://composio.dev/terms-of-service",
+    featured: false,
+    apps: [
+      {
+        id: "app-composio-mcp",
+        name: "Composio",
+        description: "The apps you add to your Composio MCP server, over the link from your Composio account.",
+        server: {
+          name: "composio",
+          transport: "http",
+          url: "https://composio.dev/",
+          auth: [
+            {
+              id: "composio-link",
+              kind: "key",
+              label: "MCP link",
+              fields: [
+                {
+                  id: "url",
+                  label: "MCP URL",
+                  url: true,
+                  placeholder: "https://connect.composio.dev/mcp",
+                  hint: "The URL of an MCP server in your Composio account",
+                },
+                {
+                  id: "api-key",
+                  label: "API key",
+                  header: "x-consumer-api-key",
+                  placeholder: "ck_…",
+                  hint: "Find it in your Composio account, in Settings > Sessions & API Key.",
+                },
+              ],
+              docsUrl: "https://docs.composio.dev/kb/guide/consumer-project-boundaries-and-auth-selection",
+              docsLabel: "Get a key",
+            },
+          ],
+        },
+      },
+    ],
+  },
+];

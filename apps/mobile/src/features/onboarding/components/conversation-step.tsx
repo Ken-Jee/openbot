@@ -1,7 +1,7 @@
 import { Separator, Typography } from "heroui-native";
 import { useThemeColor } from "heroui-native/hooks";
 import { type ReactNode, useEffect, useRef } from "react";
-import { Keyboard, Platform, ScrollView, TextInput, View } from "react-native";
+import { Keyboard, Platform, ScrollView, type ScrollViewInstance, TextInput, View } from "react-native";
 import Animated from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -71,7 +71,7 @@ export function ConversationStep({
   const insets = useSafeAreaInsets();
   // With the keyboard open, the ideas belong right above the field. While the field is in use, the
   // conversation keeps its end in view as the keyboard shrinks it, so the field never cuts them.
-  const scroller = useRef<ScrollView>(null);
+  const scroller = useRef<ScrollViewInstance>(null);
   const composing = useRef(false);
   const [foreground, muted] = useThemeColor(["foreground", "muted"]);
   useEffect(() => {

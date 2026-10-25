@@ -56,7 +56,6 @@ export const messages = {
   "billing.lifecycle.automatic": "Automatische Verlängerung wird fortgesetzt",
   "billing.lifecycle.noRefund": "Keine Erstattung für ungenutzte Zeit",
   "billing.lifecycle.noRenewal": "Keine weiteren Verlängerungen",
-  "billing.lifecycle.open": "Designvorschau öffnen",
   "billing.lifecycle.dateUtc": "{date} UTC",
   "billing.lifecycle.renews": "Die automatische Verlängerung ist an.",
   "billing.lifecycle.schedule": "Am Ende des Zeitraums löschen",

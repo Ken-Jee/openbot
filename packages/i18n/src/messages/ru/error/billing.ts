@@ -6,6 +6,7 @@ export const messages = {
   "error.billing.confirmMismatch": "Введите название сервера, чтобы удалить его.",
   "error.billing.restartBusy": "Сейчас сервер нельзя перезапустить. Повторите попытку через минуту.",
   "error.billing.planRequired": "Тариф этого сервера закончился. Продлите его, чтобы запустить сервер.",
+  "error.billing.planSoldOut": "Этот тариф распродан. Выберите другой тариф.",
   "error.billing.licenseExists": "У этого аккаунта уже есть лицензия. Вместо этого измените число пользователей.",
   "error.billing.licenseCurrency": "Лицензия должна использовать валюту ваших других планов.",
   "error.billing.licenseUsersInUse":

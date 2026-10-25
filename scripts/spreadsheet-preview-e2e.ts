@@ -13,7 +13,7 @@ import { type DevInstanceRecord, readDevInstanceRecords } from "./dev-automation
 
 const ROOT = resolve(import.meta.dirname, "..");
 const OUT = resolve(ROOT, ".openbot-build/spreadsheet-preview-e2e");
-const SOURCE = resolve(ROOT, "packages/ui/src/features/conversation/SpreadsheetFilePreview.tsx");
+const SOURCE = resolve(ROOT, "packages/contracts/src/spreadsheet-workbook.ts");
 const phase = process.argv.find((arg) => arg.startsWith("--phase="))?.slice("--phase=".length);
 if (phase !== "before" && phase !== "after") throw new Error("Pass --phase=before or --phase=after.");
 const phaseOut = resolve(OUT, phase);
@@ -100,7 +100,7 @@ interface Report {
 
 const report: Report = {
   phase,
-  source: "packages/ui/src/features/conversation/SpreadsheetFilePreview.tsx",
+  source: "packages/contracts/src/spreadsheet-workbook.ts",
   sourceSha256: sourceHash(),
   sourceSha256After: "",
   instance: null,

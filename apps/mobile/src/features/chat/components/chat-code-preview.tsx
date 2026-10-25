@@ -10,7 +10,7 @@ import { memo, useState } from "react";
 import { Pressable, useWindowDimensions, View } from "react-native";
 import Animated, { cubicBezier } from "react-native-reanimated";
 import { useUniwind } from "uniwind";
-import { storeCodePreview } from "@/features/chat/model/code-preview-store";
+import { type CodePreviewEntry, storeCodePreview } from "@/features/chat/model/code-preview-store";
 import { useMermaidDiagram } from "@/features/chat/model/mermaid-diagrams";
 import { expoGoDomOptions } from "@/shared/lib/expo-go-dom";
 import { haptics } from "@/shared/lib/haptics";
@@ -30,20 +30,23 @@ const DIAGRAM_MIN_HEIGHT = 72;
 const CARD_SIDE_SPACE = 80;
 
 /**
- * A ```html or ```mermaid block in a reply: a card with a header and a small picture of the page
- * or the diagram, so the block does not fill the conversation. A tap opens it on a screen of its
- * own. While the block streams, the card shows its first lines of code instead.
+ * A ```html or ```mermaid block in a reply, or the page of a visual reply: a card with a header and
+ * a small picture of the page or the diagram, so the block does not fill the conversation. A tap
+ * opens it on a screen of its own. While the block streams, the card shows its first lines of code
+ * instead. A visual reply passes its `file`, so the screen can share it.
  */
 export const ChatCodePreview = memo(function ChatCodePreview({
   kind,
   text,
   language,
   streaming = false,
+  file,
 }: {
   kind: ChatPreviewKind;
   text: string;
   language?: string;
   streaming?: boolean;
+  file?: CodePreviewEntry["file"];
 }) {
   const { t } = useText();
   const reducedMotion = useReducedMotion();
@@ -69,7 +72,7 @@ export const ChatCodePreview = memo(function ChatCodePreview({
       onLayout={(event) => setWidth(Math.round(event.nativeEvent.layout.width) - 2)}
       onPress={() => {
         void haptics.impact("soft");
-        const previewId = storeCodePreview({ kind, source: text, language });
+        const previewId = storeCodePreview({ kind, source: text, language, ...(file ? { file } : {}) });
         router.push({ pathname: "/code-preview/[previewId]", params: { previewId } });
       }}
     >

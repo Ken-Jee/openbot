@@ -83,12 +83,19 @@ try {
   await chmod(executable, 0o755);
   const store = new CustomAgentStore({ path: join(root, "custom-agents.json"), cipher: xorCipher });
   await runCauseEffect(store.load());
-  await runCauseEffect(store.save({ id: "alpha", name: "Alpha", command: executable, args: [], env: [] }));
+  await runCauseEffect(
+    store.save({ id: "alpha", name: "Alpha", command: executable, args: [], env: [], usagePrompt: null }),
+  );
 
   // Check agent, before the user saves an agent. Only the store's environment check is used.
   const unused = () => Effect.die(new Error("Check agent changes no agent."));
   const changes = createCustomAgentChanges({
-    service: { saveCustomAgent: unused, removeCustomAgent: unused, reloadCustomAgents: unused },
+    service: {
+      saveCustomAgent: unused,
+      removeCustomAgent: unused,
+      reloadCustomAgents: unused,
+      customAgentUsage: unused,
+    },
     customAgents: store,
   });
   const check = await runCauseEffect(changes.check({ command: executable, args: [], env: [] }));

@@ -77,6 +77,7 @@ export const messages = {
   "mobile.server.hosted.yourServers": "Vos serveurs",
   "mobile.server.hosted.plans": "Offres",
   "mobile.server.hosted.currentPlan": "Votre offre",
+  "mobile.server.hosted.soldOut": "Épuisé",
   "mobile.server.hosted.serverPlan": "{plan} · {interval}",
   "mobile.server.hosted.serverPlanEnds": "{plan} · {interval} · Se termine le {date}",
   "mobile.server.hosted.state.payment": "Paiement en attente",

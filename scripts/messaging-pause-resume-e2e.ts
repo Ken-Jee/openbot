@@ -82,6 +82,7 @@ const browser: AgentBrowserHost = {
   clearControls: () => {},
   endControl: () => {},
   close: () => Effect.void,
+  clearAgentSession: () => Effect.void,
 };
 
 /** The relay as Signal drives it: the service sets one handler, and each event goes through it. */

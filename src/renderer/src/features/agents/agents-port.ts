@@ -15,6 +15,8 @@ export interface AgentsPort {
     | "updateAgentHostSettings"
     | "getAgentBackupModels"
     | "updateAgentBackupModels"
+    | "getAgentTaskLimit"
+    | "updateAgentTaskLimit"
     | "listConversationReads"
     | "listModels"
     | "onEvent"

@@ -31,6 +31,7 @@ import type { ConversationRuntime } from "../conversation/conversation-runtime";
 import { webEventRoutinesApi } from "../conversation/routine-webhooks-api";
 import { createWebAttachmentMedia } from "./web-attachment-media";
 import { createWebAttachmentFiles, openWebLink } from "./web-attachments";
+import { webBrowserProfileCalls } from "./web-browser-profiles";
 import { webMessageLinks } from "./web-message-link-relay";
 import type { WebWorkspaceRuntime } from "./web-runtime";
 
@@ -44,11 +45,13 @@ function webHostAdmin(
   eventsEnabled?: () => boolean,
   sessionSettingsEnabled?: () => boolean,
   routineRecoveryEnabled?: () => boolean,
+  webhookTestsEnabled?: () => boolean,
 ): NonNullable<ConversationRuntime["admin"]> {
   // `request()` names the connected host at call time, so a host switch reaches the new host.
   const eventRoutines = webEventRoutinesApi(
     (...args) => request()(...args),
     () => routineRecoveryEnabled?.() === true,
+    () => webhookTestsEnabled?.() === true,
   );
   return {
     get sessionSettings() {
@@ -117,6 +120,8 @@ export function createWebConversationRuntime(
   signInRelayEnabled?: () => boolean,
   routineRecoveryEnabled?: () => boolean,
   sideQuestionEnabled?: () => boolean,
+  webhookTestsEnabled?: () => boolean,
+  browserProfilesEnabled?: () => boolean,
 ): ConversationRuntime {
   const listeners = new Set<(event: AttachmentImportEvent) => void>();
   const files = createWebAttachmentFiles(remote, hostId);
@@ -143,6 +148,7 @@ export function createWebConversationRuntime(
   });
   // The host's relay routes are admin only, so only an admin relays a sign-in link.
   const messageLinks = adminRequest ? webMessageLinks(adminRequest, () => signInRelayEnabled?.() === true) : {};
+  const browserProfiles = adminRequest ? webBrowserProfileCalls(adminRequest) : undefined;
   return {
     agent: {
       ...messageLinks,
@@ -220,6 +226,10 @@ export function createWebConversationRuntime(
           earlier: input.earlier.map(({ question, answer }) => ({ question, answer })),
         });
     },
+    // Any member reads the tab labels; the panels offer the other calls to an owner or admin only.
+    get browserProfiles() {
+      return browserProfilesEnabled?.() === true ? browserProfiles : undefined;
+    },
     previewAttachment: files.preview,
     attachmentMedia,
     visualPage: files.visualPage,
@@ -264,7 +274,14 @@ export function createWebConversationRuntime(
     },
     cancelImportFiles,
     admin: adminRequest
-      ? webHostAdmin(adminRequest, onHostEvent, eventsEnabled, sessionSettingsEnabled, routineRecoveryEnabled)
+      ? webHostAdmin(
+          adminRequest,
+          onHostEvent,
+          eventsEnabled,
+          sessionSettingsEnabled,
+          routineRecoveryEnabled,
+          webhookTestsEnabled,
+        )
       : undefined,
   };
 }

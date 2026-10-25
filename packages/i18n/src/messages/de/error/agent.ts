@@ -73,6 +73,8 @@ export const messages = {
   "error.agent.copyNameFailed": "OpenBot konnte keinen eindeutigen Namen für die Agentenkopie erstellen.",
   "error.agent.endpointRemoved":
     "Der von diesem Agenten verwendete Endpunkt wurde entfernt. Wähle ein anderes Modell für ihn.",
+  "error.agent.turnStalled":
+    "{provider} reagiert nicht mehr, daher hat OpenBot diesen Durchlauf beendet. Sende die Nachricht erneut oder wähle ein anderes Modell.",
   "error.agent.selectedGone": "Der gewählte Agent existiert nicht mehr.",
   "error.agent.profileEndpointsChanged":
     "Die benutzerdefinierten Endpunkte wurden während der Erstellung geändert. Versuche es erneut.",

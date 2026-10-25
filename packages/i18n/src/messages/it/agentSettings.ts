@@ -23,7 +23,7 @@ export const messages = {
   "agentSettings.backupModels.intro":
     "Quando {model} raggiunge il limite di utilizzo prima che {name} inizi a scrivere, {name} ti chiede quale modello usare.",
   "agentSettings.backupModels.introAutomatic":
-    "Quando {model} raggiunge il limite di utilizzo prima che {name} inizi a scrivere, {name} passa al primo modello disponibile nell'ordine.",
+    "Quando {model} raggiunge il limite di utilizzo o fallisce per un errore del provider prima che {name} inizi a scrivere, {name} passa al primo modello disponibile nell'ordine.",
   "agentSettings.backupModels.ask": "Chiedi prima di cambiare",
   "agentSettings.backupModels.order": "Ordine",
   "agentSettings.backupModels.listLabel": "Modelli di riserva, in ordine",
@@ -36,7 +36,7 @@ export const messages = {
   "agentSettings.backupModels.unavailable": "Non disponibile ora · saltato",
   "agentSettings.backupModels.withAccount": "{model} · {account}",
   "agentSettings.backupModels.note":
-    "{name} non cambia mai dopo aver iniziato a scrivere. Torna a {model} quando il limite termina.",
+    "{name} non cambia mai dopo aver iniziato a scrivere. Torna a {model} quando il limite termina, o 10 minuti dopo un errore del provider.",
   "agentSettings.groups.brain": "Cervello",
   "agentSettings.groups.knows": "Cosa sa",
   "agentSettings.groups.does": "Cosa fa",
@@ -155,6 +155,15 @@ export const messages = {
   "agentSettings.quickAcknowledgement.title": "Mostra il piano prima delle attività lunghe",
   "agentSettings.quickAcknowledgement.description":
     "Prima di un'attività lunga, l'agente mostra il suo piano. Inizia dopo 10 s o quando premi Avvia.",
+  "agentSettings.browserProfile.label": "Profilo del browser",
+  "agentSettings.browserProfile.shared": "Condiviso",
+  "agentSettings.browserProfile.agent": "Solo questo agente",
+  "agentSettings.browserProfile.missing": "Profilo eliminato",
+  "agentSettings.browserProfile.new": "Nuovo profilo",
+  "agentSettings.browserProfile.manageTitle": "Profili del browser",
+  "agentSettings.browserProfile.manageDescription":
+    "Ogni profilo mantiene accessi e cookie propri. Una modifica chiude le schede aperte dell'agente.",
+  "agentSettings.browserProfile.manage": "Gestisci",
   "agentSettings.runtime.workspaceEnforcedProcess":
     "L'intero processo di {provider} gira in una sandbox, quindi una scrittura all'esterno non riesce. Disponibile solo su macOS.",
 } as const satisfies PartialTranslation<typeof source>;

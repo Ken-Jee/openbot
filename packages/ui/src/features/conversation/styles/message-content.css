@@ -202,7 +202,7 @@
 /* The passage that a quote points to, after a click on the quote. */
 ::highlight(openbot-quote-target) {
   background: var(--openbot-warning);
-  color: var(--openbot-text-on-light);
+  color: var(--openbot-paper-text);
 }
 
 .selection-highlight-layer {

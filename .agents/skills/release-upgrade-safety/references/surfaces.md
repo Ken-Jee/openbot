@@ -59,7 +59,7 @@ use the key-inventory diff there instead. Derive the set rather than reading it 
 | `openbot:settings-panel-width` | `src/renderer/src/features/settings/settings-context.tsx` |
 | `openbot:completion-sound-enabled` | `src/renderer/src/completion-sound.ts` |
 | `openbot:analytics-app-version` | `src/renderer/src/App.tsx` |
-| `openbot:landing-preview-ready`, `openbot:landing-preview-start` | `src/renderer/src/preview/landing-demo-messages.ts` |
+| `openbot:landing-preview-ready`, `openbot:landing-preview-start` | `packages/contracts/src/landing-preview-messages.ts` |
 
 The three `:v1` suffixes are the renderer's own version handling: bumping one to `:v2` abandons the
 old entry rather than migrating it, so it resets that state for every installed user.

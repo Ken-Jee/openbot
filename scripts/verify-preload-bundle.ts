@@ -122,7 +122,8 @@ function runPreload(fileName: string): PreloadRun {
     },
     webUtils: { getPathForFile: () => "" },
   };
-  const window = { addEventListener: () => undefined, postMessage: () => undefined };
+  // The main window's URL: the preload reads it for the server of a chat window.
+  const window = { addEventListener: () => undefined, postMessage: () => undefined, location: { search: "" } };
   const module = { exports: {} };
   const context = {
     require: (name: string) => {
@@ -135,6 +136,7 @@ function runPreload(fileName: string): PreloadRun {
     window,
     console,
     URL,
+    URLSearchParams,
     crypto,
     structuredClone,
   };

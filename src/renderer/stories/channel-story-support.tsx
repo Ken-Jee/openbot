@@ -114,6 +114,7 @@ export function StoryChannelConversation(props: ChannelStoryProps) {
       return { kind: "agent", name: agent?.name ?? "Former member", agent, avatarSeed: message.senderAgentId };
     },
     workers: () => props.workers ?? [],
+    workingTurns: () => [],
     interactionAgentName: () => undefined,
     awaitingReplies: () => props.awaiting ?? [],
     HeaderTitle: () => (

@@ -80,6 +80,7 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.hosted.yourServers": "Your servers",
   "mobile.server.hosted.plans": "Plans",
   "mobile.server.hosted.currentPlan": "Your plan",
+  "mobile.server.hosted.soldOut": "Sold out",
   // The plan and the billing period of one server of the account, such as "Standard · Yearly". {date} is a date.
   "mobile.server.hosted.serverPlan": "{plan} · {interval}",
   "mobile.server.hosted.serverPlanEnds": "{plan} · {interval} · Ends on {date}",

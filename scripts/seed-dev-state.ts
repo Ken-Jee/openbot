@@ -7,6 +7,7 @@ import { pathToFileURL } from "node:url";
 import { serializeAttachmentReference } from "@openbot/contracts/attachment-references";
 import { serializeChatTagReference } from "@openbot/contracts/chat-tag-references";
 import { sortConversationMessages } from "@openbot/contracts/conversation-order";
+import { DEVELOPMENT_CLAUDE_DEFAULT, DEVELOPMENT_FREE_DEFAULT } from "@openbot/contracts/development-defaults";
 import type {
   AgentModelId,
   AgentProviderId,
@@ -23,23 +24,13 @@ import { createOpenBotLogger, toLogValue } from "@openbot/logging";
 import { strToU8, zipSync } from "fflate";
 import { z } from "zod";
 import { agentNamesById, displayMessageReferences } from "../src/backend/agent/delivery-content";
-import {
-  DEVELOPMENT_DEFAULT_MODEL,
-  DEVELOPMENT_DEFAULT_PROVIDER,
-  DEVELOPMENT_DEFAULT_REASONING_EFFORT,
-} from "../src/backend/agent/development-defaults";
 import { AgentMemoryStore } from "../src/backend/agent-memory-store";
 import { AgentRoutineStore } from "../src/backend/agent-routine-store";
-import {
-  AgentStore,
-  DEFAULT_AGENT_MODEL,
-  DEFAULT_AGENT_PROVIDER,
-  DEFAULT_REASONING_EFFORT,
-} from "../src/backend/agent-store";
+import { AgentStore, DEFAULT_AGENT_PROVIDER } from "../src/backend/agent-store";
 import { ChannelMemoryStore } from "../src/backend/channel-memory-store";
 import { ChannelRoutineStore } from "../src/backend/channel-routine-store";
 import { ChannelStore } from "../src/backend/channel-store";
-import { resolveOpencodeCli } from "../src/backend/cli";
+import { resolveClaudeCli } from "../src/backend/cli";
 import { runCauseEffect } from "../src/backend/effect-boundary";
 import { isMissingFileError } from "../src/backend/file-errors";
 import { MailboxStore } from "../src/backend/mailbox-store";
@@ -79,65 +70,51 @@ export interface SeededAgentModel {
 }
 
 /**
- * What the seeded agents run on when the development default is out of reach. The same pair the app
- * falls back to, which is the built-in default of a new agent record.
- */
-export const SEED_FALLBACK_AGENT: SeededAgentModel = {
-  provider: DEFAULT_AGENT_PROVIDER,
-  model: DEFAULT_AGENT_MODEL,
-  reasoningEffort: DEFAULT_REASONING_EFFORT,
-};
-
-/**
- * What the seeded agents run on: the development default while this computer's OpenCode CLI lists
- * it, and the built-in default otherwise.
+ * What the seeded agents run on: Claude Haiku while Claude Code is signed in, and OpenCode's free
+ * DeepSeek otherwise, never Codex.
  *
- * The app asks the CLI it spawns, over ACP. A seed has no provider runtime, so it asks the same
- * binary with that CLI's own `models` command, and reads anything that fails -- nothing downloaded
- * yet, no OpenCode Go key and no sign-in, a command that moved -- as "not listed". Four seeded
- * agents whose first turn answers "Invalid API key." are a worse start than four on the default the
- * app itself falls back to.
+ * The app asks the CLI it spawns. A seed has no provider runtime, so it asks the same binary
+ * directly, and reads anything that fails -- nothing downloaded yet, no sign-in, a command that
+ * moved -- as "signed out". The free model needs no sign-in, so it is not checked: the app
+ * downloads its OpenCode when the first agent starts.
  */
 async function seededAgentModel(appDataRoot: string): Promise<SeededAgentModel> {
+  return (await claudeSignedIn(appDataRoot)) ? DEVELOPMENT_CLAUDE_DEFAULT : DEVELOPMENT_FREE_DEFAULT;
+}
+
+/**
+ * Whether Claude Code is signed in on the default account, the one a new dev profile uses.
+ * `claude auth status` exits 1 when signed out, which `execFileSync` throws.
+ */
+async function claudeSignedIn(appDataRoot: string): Promise<boolean> {
   try {
-    const cli = await runCauseEffect(resolveOpencodeCli({ bundledExecutable: managedOpencodeExecutable(appDataRoot) }));
-    // OpenCode 2 answers `models` through a background service that stays running and holds the
-    // shared `opencode.db`; `--standalone` uses a private server that ends with the command.
-    // OpenCode 1 has no background service and refuses the flag.
-    const standalone = Number.parseInt(cli.version, 10) >= 2 ? ["--standalone"] : [];
-    const catalog = execFileSync(cli.executable, ["models", ...standalone], {
+    const cli = await runCauseEffect(resolveClaudeCli({ bundledExecutable: managedClaudeExecutable(appDataRoot) }));
+    const status = execFileSync(cli.executable, ["auth", "status", "--json"], {
       encoding: "utf8",
-      timeout: 60_000,
+      timeout: 15_000,
       // The flag the app spawns a managed CLI with. A managed binary that updates itself while a
       // profile is seeded stops being the exact version the app verifies, and the app downloads it
       // again on the next start.
-      env: { ...process.env, ...(cli.source === "managed" ? { OPENCODE_DISABLE_AUTOUPDATE: "1" } : {}) },
+      env: { ...process.env, ...(cli.source === "managed" ? { DISABLE_AUTOUPDATER: "1" } : {}) },
     });
-    if (!catalog.split("\n").some((line) => line.trim() === DEVELOPMENT_DEFAULT_MODEL)) return SEED_FALLBACK_AGENT;
-    return {
-      provider: DEVELOPMENT_DEFAULT_PROVIDER,
-      model: DEVELOPMENT_DEFAULT_MODEL,
-      reasoningEffort: DEVELOPMENT_DEFAULT_REASONING_EFFORT,
-    };
+    return z.object({ loggedIn: z.literal(true) }).safeParse(JSON.parse(status)).success;
   } catch {
-    return SEED_FALLBACK_AGENT;
+    return false;
   }
 }
 
 /**
- * Where the app's own OpenCode is: the runtime store this computer shares, which is where a CLI the
- * user downloaded in OpenBot is the only copy there is. A seed that looked at the repository's
- * `build/` tree and the user's own installs instead would find nothing on such a computer, and would
- * put four agents on a provider the app does not start a new agent on.
+ * Where the app's own Claude Code is: the runtime store this computer shares, which is where a CLI
+ * the user downloaded in OpenBot is the only copy there is.
  *
  * The store, not the status: the manager is read for the path it computes, and nothing here creates
  * a directory, downloads, or collects an old version.
  */
-function managedOpencodeExecutable(appDataRoot: string): string | null {
+function managedClaudeExecutable(appDataRoot: string): string | null {
   const runtimes = new ProviderRuntimeManager({
     root: providerRuntimeRoot({ appData: appDataRoot, userDataOverride: "" }),
   });
-  return runtimes.executablePath("opencode");
+  return runtimes.executablePath("claude");
 }
 
 const GENERATED_DIRECTORY_PATTERN =

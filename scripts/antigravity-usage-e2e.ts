@@ -1,14 +1,18 @@
 // Reads the Gemini plan usage end to end on the real Antigravity driver and ACP client, with a fake
 // server that answers `/usage` the way Antigravity 1.4.1 does: one Markdown answer in its own
 // session, and no model turn. Checks that a Google sign-in gives the Gemini weekly window and not
-// the Claude and GPT one, that an API key sign-in and a 1.3.0 server give no reading, that 1.3.0
-// is never sent `/usage`, that the answer reaches no thread, and that later reads reuse the first
-// session: each new Antigravity session leaves a conversation database on disk.
+// the Claude and GPT one, that a model with a quota group of its own gets that group's window
+// (#3055), that the reading names every group for the usage popover and the composer notice, that an
+// API key sign-in and a 1.3.0 server give no reading, that 1.3.0 is never sent
+// `/usage`, that the answer reaches no thread, and that later reads reuse the first session: each
+// new Antigravity session leaves a conversation database on disk.
 // `bun scripts/antigravity-usage-e2e.ts`. Writes .openbot-build/antigravity-usage-e2e/report.json.
 import assert from "node:assert/strict";
 import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { type AccountUsage, isAccountUsage, usageGroupForModel, usageQuotaForModel } from "@openbot/contracts/ipc";
+import { normalizeAccountUsage } from "../src/backend/agent/account-usage";
 import type { AgentClient } from "../src/backend/agent-client";
 import type { AgentCliInfo } from "../src/backend/cli";
 import { runCauseEffect } from "../src/backend/effect-boundary";
@@ -28,6 +32,21 @@ const GOOGLE_ANSWER = [
   "- **Claude and GPT models**",
   "  *(Models within this group: Claude Opus, Claude Sonnet, GPT-OSS)*",
   "  - **Weekly Limit Remaining:** 12% remaining (resets Oct 30, 2026, 08:00 UTC)",
+].join("\n");
+/** The same answer for a plan that gives Gemini 4 Argon a group of its own, here spent (#3055). */
+const ARGON_ANSWER = [
+  "### Session Usage",
+  "- No token usage recorded yet.",
+  "### Quota Limits",
+  "- **Gemini Models**",
+  "  *(Models within this group: Gemini Flash, Gemini Pro)*",
+  "  - **Weekly Limit Remaining:** 100% remaining (resets Oct 31, 2026, 08:19 UTC)",
+  "- **Gemini 4 Argon**",
+  "  *(Models within this group: Gemini 4 Argon)*",
+  "  - **Weekly Limit Remaining:** 0% remaining (resets Oct 30, 2026, 10:00 UTC)",
+  "- **Claude and GPT models**",
+  "  *(Models within this group: Claude Opus, Claude Sonnet, GPT-OSS)*",
+  "  - **Weekly Limit Remaining:** 100% remaining (resets Nov 01, 2026, 11:15 UTC)",
 ].join("\n");
 const API_KEY_ANSWER = [
   "### Session Usage",
@@ -92,6 +111,7 @@ interface LogEntry {
 
 interface UsageCase {
   version: string;
+  model: string | undefined;
   readings: AccountRateLimitsReadResult[];
   prompts: string[];
   usageSessions: string[];
@@ -101,6 +121,8 @@ interface UsageCase {
 interface Report {
   passed: boolean;
   googleSignIn?: UsageCase;
+  perModel?: UsageCase[];
+  groups?: AccountUsage;
   apiKeySignIn?: UsageCase;
   olderRuntime?: UsageCase;
 }
@@ -128,7 +150,7 @@ async function install(version: string): Promise<AgentCliInfo> {
 }
 
 /** `reads` usage reads at once on one process, as a dock poll and a refresh after a limit can. */
-async function readUsage(version: string, answer: string, reads: number): Promise<UsageCase> {
+async function readUsage(version: string, answer: string, reads: number, model?: string): Promise<UsageCase> {
   await rm(log, { force: true });
   process.env.FAKE_AGY_ANSWER = answer;
   const client = requireProviderDriver("antigravity").createClient(
@@ -142,14 +164,13 @@ async function readUsage(version: string, answer: string, reads: number): Promis
   client.start();
   const readings = await Promise.all(
     Array.from({ length: reads }, () =>
-      runCauseEffect(
-        client.request("account/rateLimits/read", { model: "gemini-fake" }, decodeAccountRateLimitsReadResult),
-      ),
+      runCauseEffect(client.request("account/rateLimits/read", { model }, decodeAccountRateLimitsReadResult)),
     ),
   );
   const prompts = (await readLog()).filter((entry) => entry.method === "session/prompt");
   return {
     version,
+    model,
     readings,
     prompts: prompts.map((entry) => entry.text ?? ""),
     usageSessions: [...new Set(prompts.flatMap((entry) => (entry.sessionId ? [entry.sessionId] : [])))],
@@ -159,7 +180,7 @@ async function readUsage(version: string, answer: string, reads: number): Promis
 
 try {
   // 1. A Google sign-in on 1.4.1: the Gemini group's weekly window, both reads in one session.
-  const google = await readUsage("1.4.1", GOOGLE_ANSWER, 2);
+  const google = await readUsage("1.4.1", GOOGLE_ANSWER, 2, "gemini-3.8-flash-high");
   report.googleSignIn = google;
   assert.deepEqual(google.prompts, ["/usage", "/usage"], "1.4.1 is sent `/usage` for each read");
   assert.equal(google.usageSessions.length, 1, "the second read reuses the first read's session");
@@ -174,13 +195,66 @@ try {
     `the answer reaches no thread: ${google.notifications.join(", ")}`,
   );
 
-  // 2. An API key sign-in has no plan quota.
+  // 2. Gemini 4 Argon has a group of its own. Its spent window is not Flash's, and Flash's room is
+  // not Argon's. The dock's reading, with no model, is the "Gemini Models" group.
+  const weekly = (usedPercent: number, resetsAt: number) => ({
+    limitId: "antigravity",
+    primary: null,
+    secondary: { usedPercent, windowDurationMins: 10_080, resetsAt: resetsAt / 1_000 },
+  });
+  const flashRoom = weekly(0, Date.UTC(2026, 9, 31, 8, 19));
+  const argonSpent = weekly(100, Date.UTC(2026, 9, 30, 10, 0));
+  const perModel: UsageCase[] = [];
+  report.perModel = perModel;
+  for (const [model, expected] of [
+    ["gemini-3.8-flash-high", flashRoom],
+    ["gemini-3.1-pro", flashRoom],
+    ["gemini-4-argon-high", argonSpent],
+    ["gemini-4-argon", argonSpent],
+    [undefined, flashRoom],
+    ["gemini-codename-x", null],
+  ] as const) {
+    const reading = await readUsage("1.4.3", ARGON_ANSWER, 1, model);
+    perModel.push(reading);
+    assert.deepEqual(reading.readings[0]?.rateLimits ?? null, expected, `the reading of ${model ?? "the dock"}`);
+  }
+
+  // 3. The dock's reading names every group, so the popover shows one line each and the composer
+  // finds the group of the agent's model. It passes the contract's decoder.
+  const usage = normalizeAccountUsage(perModel.find((reading) => reading.model === undefined)?.readings[0] ?? null);
+  report.groups = usage;
+  assert.ok(isAccountUsage(usage), "the reading with groups passes the IPC decoder");
+  const groups = usage.limits[0]?.groups ?? [];
+  assert.deepEqual(
+    groups.map((group) => [group.name, group.models, group.secondary?.usedPercent]),
+    [
+      ["Gemini Models", ["Gemini Flash", "Gemini Pro"], 0],
+      ["Gemini 4 Argon", ["Gemini 4 Argon"], 100],
+      ["Claude and GPT models", ["Claude Opus", "Claude Sonnet", "GPT-OSS"], 0],
+    ],
+  );
+  for (const [model, name] of [
+    ["gemini-3.8-flash-high", "Gemini Models"],
+    ["gemini-4-argon-high", "Gemini 4 Argon"],
+    ["claude-opus-4-6-thinking", "Claude and GPT models"],
+    ["gemini-codename-x", undefined],
+  ] as const)
+    assert.equal(usageGroupForModel(groups, model)?.name, name, `the group of ${model}`);
+  // A kept account reading has no model: the usage limit check takes the model's group from it, and
+  // with no model it keeps the reading's own windows.
+  const dock = usage.limits[0];
+  assert.ok(dock, "the dock reading has a limit");
+  assert.equal(usageQuotaForModel(dock, "gemini-4-argon-high")?.secondary?.usedPercent, 100, "Argon's own quota");
+  assert.equal(usageQuotaForModel(dock, ""), dock, "no model keeps the reading");
+  assert.equal(usageQuotaForModel(dock, "gemini-codename-x"), undefined, "an unlisted model has no quota");
+
+  // 4. An API key sign-in has no plan quota.
   const apiKey = await readUsage("1.4.1", API_KEY_ANSWER, 1);
   report.apiKeySignIn = apiKey;
   assert.deepEqual(apiKey.prompts, ["/usage"]);
   assert.equal(apiKey.readings[0]?.rateLimits ?? null, null, "an API key sign-in gives no reading");
 
-  // 3. 1.3.0 sends `/usage` to the model, so it is never sent.
+  // 5. 1.3.0 sends `/usage` to the model, so it is never sent.
   const older = await readUsage("1.3.0", GOOGLE_ANSWER, 1);
   report.olderRuntime = older;
   assert.deepEqual(older.prompts, [], "1.3.0 is not sent `/usage`");

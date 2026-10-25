@@ -151,6 +151,8 @@ Do these steps on each computer that hosts or connects.
    & "$env:LOCALAPPDATA\Programs\OpenBot\OpenBot.exe"
    ```
 
+   This is the default install folder. If you chose a different folder in the installer, use it.
+
 3. Sign in with an email address. The code comes from your SMTP account.
 4. To connect an iPhone, scan the connection QR code from the desktop app. The phone then uses the
    service of that desktop. Email sign-in on the phone always uses `openbot.run`, so it cannot

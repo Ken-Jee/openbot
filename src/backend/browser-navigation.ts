@@ -128,15 +128,22 @@ const watchNavigation = Effect.fn("Browser.watchNavigation")(
           complete();
         } else if (initiation !== true) {
           initiationPending = true;
+          // Electron rejects `loadURL` inside its `did-start-navigation` event when the page starts
+          // another navigation. Code that runs from there and calls `contents.stop()` cancels a
+          // navigation while Chromium starts it, and Chromium then stops the whole process. Settle
+          // in a new task.
           void initiation.then(
-            () => {
-              initiationPending = false;
-              if (!contents.isLoading()) complete();
-            },
-            (error) => {
-              initiationPending = false;
-              finish(timedOut ? new Error(NAVIGATION_TIMED_OUT) : error);
-            },
+            () =>
+              setImmediate(() => {
+                initiationPending = false;
+                // A closed tab settled the wait already, and its contents cannot be read.
+                if (!settled && !contents.isLoading()) complete();
+              }),
+            (error) =>
+              setImmediate(() => {
+                initiationPending = false;
+                finish(timedOut ? new Error(NAVIGATION_TIMED_OUT) : error);
+              }),
           );
         }
       } catch (error) {

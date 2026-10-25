@@ -97,6 +97,15 @@ const SESSION_LIST_PAGES = 50;
 /** Maximum replay work waiting for the storage consumer before the import fails safely. */
 const ACP_HISTORY_REPLAY_QUEUE_LIMIT = 256;
 
+/**
+ * How long a turn may send nothing, with no tool call open and no question to the user, before
+ * OpenBot ends it. An OpenCode prompt can stay open for an hour with no update (#2858).
+ */
+const ACP_TURN_STALL_MS = 5 * 60_000;
+
+/** How long a stopped turn may take to end before OpenBot ends it itself. */
+const ACP_STOP_GRACE_MS = 10_000;
+
 interface ClientEvents {
   notification: [notification: AppServerNotification];
   request: [request: AppServerRequest];
@@ -139,6 +148,12 @@ interface AcpTurn {
   stopped: boolean;
   completing: boolean;
   task: Fiber.Fiber<void, ProviderClientOperationError> | null;
+  /** When the agent last sent an update for this turn, or the user last answered it. */
+  lastActivityAt: number;
+  /** Questions and approvals that wait for the user. The turn is not stalled while one is open. */
+  waitingOnUser: number;
+  /** OpenBot ended the turn because the agent did not. Its open tool calls get no more updates. */
+  abandoned: boolean;
 }
 
 interface AcpThread {
@@ -306,6 +321,8 @@ export interface AcpProviderOptions {
    * so a configuration can never displace the tools the agent depends on.
    */
   mcpServers?: McpServerSource | undefined;
+  /** How long a turn may send nothing before it fails (`ACP_TURN_STALL_MS` when absent). */
+  turnStallMs?: number;
   /** What this provider could not be given. Reported once per spawn, by `AgentService`. */
   reportMcpDrops?: McpDropReporter | undefined;
   mcpToolRuntimes?: McpToolRuntimeSource | undefined;
@@ -335,11 +352,22 @@ export interface AcpProviderOptions {
   /**
    * Reads the account's plan usage. `privatePrompt` sends one prompt in a session that no thread
    * owns and returns the answer text, for an agent that reports usage through a slash command.
+   * `model` is the model whose limit the caller checks, or null for the account's own reading.
    */
   readRateLimits?(
     connection: ClientSideConnection,
     privatePrompt: (text: string) => Effect.Effect<string, ProviderClientOperationError>,
+    model: string | null,
   ): Effect.Effect<AccountRateLimitsReadResult, ProviderClientOperationError>;
+  /**
+   * Gives the running turn a message that the agent reads at its next step. ACP has no steer
+   * request, so only an agent with an extension of its own has this; without it the message waits
+   * in the queue.
+   */
+  steer?(
+    connection: ClientSideConnection,
+    message: { sessionId: string; messageId: string | null; blocks: ContentBlock[] },
+  ): Effect.Effect<void, ProviderClientOperationError>;
 }
 
 export class AcpAgentClient extends EventEmitter<ClientEvents> {
@@ -706,13 +734,40 @@ export class AcpAgentClient extends EventEmitter<ClientEvents> {
     );
   });
 
+  /**
+   * The answer to a usage prompt that the user saved on a custom agent, such as `/usage`, read in the
+   * private session, so no thread or transcript sees it. Null while the agent is not signed in or
+   * gives no text. The values the agent was started with, and known secret shapes, are redacted.
+   */
+  readonly readUsageText = Effect.fn("AcpAgentClient.readUsageText")(function* (
+    this: AcpAgentClient,
+    _model: string,
+    prompt: string,
+  ): Effect.fn.Return<string | null, ProviderClientOperationError> {
+    if (!this.running) return yield* providerFailure(new Error("ACP client is not running."));
+    yield* this.#ensureInitializedEffect();
+    if (!this.#signedIn) return null;
+    // The time limit starts when the lock is held, so a prompt that waits for another one keeps its time.
+    const answer = yield* this.#privatePromptLock.withPermit(
+      this.#privatePromptOnce(prompt).pipe(
+        Effect.timeoutOrElse({
+          duration: this.#requestTimeoutMs,
+          orElse: () =>
+            Effect.fail(providerFailure(new TimeoutError(`${this.#label} request timed out: usage prompt`))),
+        }),
+      ),
+    );
+    return this.#redact(answer).trim() || null;
+  });
+
   #privatePrompt(text: string): Effect.Effect<string, ProviderClientOperationError> {
     return this.#privatePromptLock.withPermit(this.#privatePromptOnce(text));
   }
 
   /**
-   * A prompt that times out drops the session, because the agent may still be answering it. An error
-   * answer keeps it: a new session would leave one more conversation database on disk.
+   * A prompt that times out is cancelled and drops the session, because the agent may still be
+   * answering it. An error answer keeps it: a new session would leave one more conversation database
+   * on disk.
    */
   readonly #privatePromptOnce = Effect.fn("AcpAgentClient.privatePrompt")(function* (
     this: AcpAgentClient,
@@ -731,9 +786,12 @@ export class AcpAgentClient extends EventEmitter<ClientEvents> {
     return yield* providerCall(() => connection.prompt({ sessionId, prompt: [{ type: "text", text }] })).pipe(
       Effect.map(() => answer.join("")),
       Effect.onExit((exit) =>
-        Effect.sync(() => {
+        Effect.gen({ self: this }, function* () {
           this.#privateAnswer = null;
-          if (Exit.hasInterrupts(exit)) this.#privateSession = null;
+          if (!Exit.hasInterrupts(exit)) return;
+          this.#privateSession = null;
+          // `session/cancel` is a notification, so this does not wait for the agent.
+          yield* providerCall(() => connection.cancel({ sessionId })).pipe(Effect.ignore);
         }),
       ),
     );
@@ -804,7 +862,11 @@ export class AcpAgentClient extends EventEmitter<ClientEvents> {
         {
           const readRateLimits = this.options.readRateLimits;
           const response = readRateLimits
-            ? yield* readRateLimits(this.#requireConnection(), (text) => this.#privatePrompt(text)).pipe(
+            ? yield* readRateLimits(
+                this.#requireConnection(),
+                (text) => this.#privatePrompt(text),
+                getString(params, "model"),
+              ).pipe(
                 Effect.timeoutOrElse({
                   duration: timeoutMs ?? this.#requestTimeoutMs,
                   orElse: () =>
@@ -902,9 +964,25 @@ export class AcpAgentClient extends EventEmitter<ClientEvents> {
         const response = yield* this.#startTurnEffect(params);
         return yield* providerSync(() => decoder(response));
       }
-      case "turn/steer":
+      case "turn/steer": {
         // A second ACP prompt can cancel the active turn. Keep deferred input in the mailbox.
-        return yield* providerFailure(new Error(sourceText("error.backend.steerUnsupported")));
+        const steer = this.options.steer;
+        if (!steer) return yield* providerFailure(new Error(sourceText("error.backend.steerUnsupported")));
+        const threadId = yield* providerSync(() => requiredString(params, "threadId"));
+        const turn = this.#threads.get(threadId)?.activeTurn;
+        // A stopped turn drops the message, and an agent that has ended its turn starts the message
+        // as a turn of its own, which OpenBot did not start. The message then waits in the queue.
+        if (!turn || turn.id !== getString(params, "expectedTurnId") || turn.stopped || turn.completing)
+          return yield* providerFailure(new Error(sourceText("error.backend.steerTurnChanged")));
+        const blocks = yield* promptBlocksEffect(params);
+        yield* steer(this.#requireConnection(), {
+          sessionId: threadId,
+          messageId: getString(params, "clientUserMessageId"),
+          blocks,
+        });
+        turn.lastActivityAt = Date.now();
+        return yield* providerSync(() => decoder({ turnId: turn.id }));
+      }
       case "turn/interrupt": {
         const threadId = yield* providerSync(() => requiredString(params, "threadId"));
         // A closed idle session has no turn to stop.
@@ -917,16 +995,15 @@ export class AcpAgentClient extends EventEmitter<ClientEvents> {
         turn.stopped = true;
         const cancel = providerCall(() => this.#requireConnection().cancel({ sessionId: thread.id }));
         if (this.#flavor.cancelLocallyThenResume) {
-          thread.needsResume = true;
-          yield* cancel.pipe(
-            Effect.ensuring(
-              Effect.gen({ self: this }, function* () {
-                if (turn.task) yield* Fiber.interrupt(turn.task);
-                yield* this.#completeTurn(thread, turn, "interrupted", null);
-              }),
-            ),
+          yield* cancel.pipe(Effect.ensuring(this.#abandonTurn(thread, turn, "interrupted", null)));
+        } else {
+          yield* cancel;
+          // An agent can ignore the cancel (OpenCode, #2858). The turn then ends here after a grace.
+          yield* Effect.forkIn(
+            Effect.sleep(ACP_STOP_GRACE_MS).pipe(Effect.andThen(this.#abandonTurn(thread, turn, "interrupted", null))),
+            this.#scope,
           );
-        } else yield* cancel;
+        }
         return yield* providerSync(() => decoder({}));
       }
       case "thread/compact/start":
@@ -1011,7 +1088,7 @@ export class AcpAgentClient extends EventEmitter<ClientEvents> {
       connection.initialize({
         protocolVersion: 1,
         clientCapabilities: OPENBOT_ACP_CLIENT_CAPABILITIES,
-        clientInfo: OPENBOT_ACP_CLIENT_INFO,
+        clientInfo: this.#flavor.clientInfo ?? OPENBOT_ACP_CLIENT_INFO,
       }),
     ).pipe(
       Effect.timeoutOrElse({
@@ -1674,6 +1751,9 @@ export class AcpAgentClient extends EventEmitter<ClientEvents> {
       stopped: false,
       completing: false,
       task: null,
+      lastActivityAt: Date.now(),
+      waitingOnUser: 0,
+      abandoned: false,
     };
     thread.activeTurn = turn;
     this.#threads.holdForTurn(thread);
@@ -1684,6 +1764,7 @@ export class AcpAgentClient extends EventEmitter<ClientEvents> {
     turn.task = yield* Effect.forkIn(this.#consumePrompt(thread, turn, blocks), this.#scope, {
       startImmediately: true,
     });
+    if (!this.#flavor.promptOpenForBackgroundTasks) yield* Effect.forkIn(this.#watchStall(thread, turn), this.#scope);
     return { turn: { id: turn.id, status: "inProgress" } };
   });
 
@@ -1707,10 +1788,11 @@ export class AcpAgentClient extends EventEmitter<ClientEvents> {
         yield* Effect.result(providerCall(() => this.#requireConnection().prompt({ sessionId: thread.id, prompt }))),
       );
       if (thread.activeTurn !== turn || turn.completing) return;
+      // `promptId` names this result: a delivery that runs again keeps its turn ID.
       if (response.usage)
         this.emit("notification", {
           method: "openbot/usage",
-          params: { threadId: thread.id, turnId: turn.id, usage: response.usage },
+          params: { threadId: thread.id, turnId: turn.id, promptId: randomUUID(), usage: response.usage },
         });
       // A flavor can fail a turn that ended with no answer (OpenCode). A turn told not to answer ends
       // empty on purpose, and an error there costs no answer the user waits for.
@@ -1763,6 +1845,7 @@ export class AcpAgentClient extends EventEmitter<ClientEvents> {
     }
     const thread = this.#threads.get(notification.sessionId);
     if (!thread) return;
+    if (thread.activeTurn) thread.activeTurn.lastActivityAt = Date.now();
     const update = notification.update;
     if (update.sessionUpdate === "config_option_update") {
       thread.configOptions = update.configOptions;
@@ -1943,6 +2026,66 @@ export class AcpAgentClient extends EventEmitter<ClientEvents> {
     turn.thoughtItemId = `${turn.id}:thought:${turn.messages.length}`;
   }
 
+  /**
+   * Ends a turn that the agent did not end. The prompt may still run in the agent, so the next
+   * prompt opens the session again first, and a tool that the old prompt asks for is refused. An
+   * agent that cannot give a session back keeps it, because opening it again would replace it.
+   */
+  readonly #abandonTurn = Effect.fn("AcpAgentClient.abandonTurn")(function* (
+    this: AcpAgentClient,
+    thread: AcpThread,
+    turn: AcpTurn,
+    status: "interrupted" | "failed",
+    error: string | null,
+  ) {
+    if (thread.activeTurn !== turn || turn.completing) return;
+    if (this.#supportsSessionResume || this.#loadsSessions) thread.needsResume = true;
+    turn.abandoned = true;
+    if (turn.task) yield* Fiber.interrupt(turn.task);
+    yield* this.#completeTurn(thread, turn, status, error);
+  });
+
+  /** Fails a turn that sends nothing while no tool call runs and no question waits for the user. */
+  readonly #watchStall = Effect.fn("AcpAgentClient.watchStall")(function* (
+    this: AcpAgentClient,
+    thread: AcpThread,
+    turn: AcpTurn,
+  ) {
+    const limit = this.options.turnStallMs ?? ACP_TURN_STALL_MS;
+    // A stopped turn ends by its stop, as interrupted, and not as a stall.
+    while (thread.activeTurn === turn && !turn.completing && !turn.stopped) {
+      const silentFor = Date.now() - turn.lastActivityAt;
+      if (silentFor < limit || turn.toolItems.size > 0 || turn.waitingOnUser > 0) {
+        yield* Effect.sleep(silentFor < limit ? limit - silentFor : limit);
+        continue;
+      }
+      this.emit("diagnostic", `${this.#label} sent nothing for ${silentFor} ms; ending turn ${turn.id}.`);
+      yield* providerCall(() => this.#requireConnection().cancel({ sessionId: thread.id })).pipe(Effect.ignore);
+      yield* this.#abandonTurn(
+        thread,
+        turn,
+        "failed",
+        sourceText("error.agent.turnStalled", { provider: this.#label }),
+      );
+    }
+  });
+
+  /** Runs a request that waits for the user. The turn does not count as stalled meanwhile. */
+  #waitForUser<A, E>(turn: AcpTurn | null | undefined, request: Effect.Effect<A, E>): Effect.Effect<A, E> {
+    if (!turn) return request;
+    return Effect.suspend(() => {
+      turn.waitingOnUser += 1;
+      return request;
+    }).pipe(
+      Effect.ensuring(
+        Effect.sync(() => {
+          turn.waitingOnUser -= 1;
+          turn.lastActivityAt = Date.now();
+        }),
+      ),
+    );
+  }
+
   readonly #completeTurn = Effect.fn("AcpAgentClient.completeTurn")(function* (
     this: AcpAgentClient,
     thread: AcpThread,
@@ -1963,7 +2106,7 @@ export class AcpAgentClient extends EventEmitter<ClientEvents> {
     for (const item of turn.toolItems.values()) {
       // A stopped stream cannot provide another tool result. Preserve its last output without
       // reporting successful execution. A normal completion can leave background tasks active.
-      const interrupted = this.#flavor.interruptToolsOnStop === true && status !== "completed";
+      const interrupted = (this.#flavor.interruptToolsOnStop === true || turn.abandoned) && status !== "completed";
       const settled = interrupted ? { ...item, status: status === "failed" ? "failed" : "interrupted" } : item;
       turn.messages.push(settled);
       if (interrupted)
@@ -2039,8 +2182,9 @@ export class AcpAgentClient extends EventEmitter<ClientEvents> {
           ? "file-change"
           : "permissions";
     const requestedPermissions = kind === "permissions" ? { [params.toolCall.kind ?? "file-system"]: true } : null;
-    const result = yield* this.#serverRequests
-      .call(
+    const result = yield* this.#waitForUser(
+      thread?.activeTurn,
+      this.#serverRequests.call(
         `item/${kind === "command" ? "commandExecution" : kind === "file-change" ? "fileChange" : "permissions"}/requestApproval`,
         {
           threadId: params.sessionId,
@@ -2049,8 +2193,8 @@ export class AcpAgentClient extends EventEmitter<ClientEvents> {
           reason: params.toolCall.title ?? null,
           permissions: requestedPermissions,
         },
-      )
-      .pipe(toProviderClientOperationError);
+      ),
+    ).pipe(toProviderClientOperationError);
     const accepted =
       isRecord(result) &&
       (result.decision === "accept" ||
@@ -2070,14 +2214,15 @@ export class AcpAgentClient extends EventEmitter<ClientEvents> {
     const sessionId = getString(params, "sessionId") ?? [...this.#threads.ids()][0];
     if (sessionId && this.#historyReplays.has(sessionId)) return {};
     const thread = sessionId ? this.#threads.get(sessionId) : undefined;
-    const result = yield* this.#serverRequests
-      .call("item/tool/requestUserInput", {
+    const result = yield* this.#waitForUser(
+      thread?.activeTurn,
+      this.#serverRequests.call("item/tool/requestUserInput", {
         ...params,
         threadId: sessionId,
         turnId: thread?.activeTurn?.id ?? randomUUID(),
         sourceMethod: method,
-      })
-      .pipe(toProviderClientOperationError);
+      }),
+    ).pipe(toProviderClientOperationError);
     return yield* providerSync(() => (isRecord(result) ? result : {}));
   });
 
@@ -2247,10 +2392,12 @@ function isSessionNotFound(error: unknown, sessionId: string, flavor: AcpFlavor)
  * The agent's explanation of a protocol error, which `String(error)` leaves out. When a handler in
  * an ACP agent throws, the SDK puts the thrown message in `data.details` (#1193). Grok sends a string
  * `data`, such as "session/resume does not support additionalDirectories" (#1729), or `data.detail`.
+ * Grok 1.0.67 moves that string to `data.message` when it adds the turn's usage or an HTTP status (#2980).
  */
 function failureDetail(error: RequestError): string | null {
   const data = error.data;
-  const detail = typeof data === "string" ? data : isRecord(data) ? (data.details ?? data.detail) : undefined;
+  const detail =
+    typeof data === "string" ? data : isRecord(data) ? (data.details ?? data.detail ?? data.message) : undefined;
   return typeof detail === "string" && detail ? detail : null;
 }
 

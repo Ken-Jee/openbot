@@ -55,6 +55,12 @@ export interface AgentClient {
     configId: string,
     value: AgentSessionSettingValue,
   ): Effect.Effect<AgentSessionSettingsSnapshot, ProviderClientOperationError>;
+  /**
+   * Sends `prompt` in a session that no thread owns and returns the answer text, or null when the
+   * agent gives none. Only the custom agents have it: the user saves the prompt, such as `/usage`.
+   * `model` names the agent for the router of the provider `acp`.
+   */
+  readUsageText?(model: string, prompt: string): Effect.Effect<string | null, ProviderClientOperationError>;
   request<T>(
     method: string,
     params: unknown,

@@ -13,10 +13,13 @@ import {
   isProviderAccountId,
   isProviderAccountStatus,
   MAX_PROVIDER_ACCOUNTS,
+  PROVIDER_USAGE_RESET_OUTCOMES,
   type ProviderApiKeyStatus,
   type ProviderCodeLoginStart,
   type ProviderHostSignInStatus,
   type ProviderRelaySignInStatus,
+  type ProviderUsageResetOutcome,
+  type ProviderUsageResets,
 } from "./ipc-agent-status";
 import type { ProviderRuntimeSnapshot, ProviderRuntimeStatus } from "./ipc-app-auth";
 import { isBoundedString, isIdentifier, isNullableBoundedString } from "./ipc-bounded-values";
@@ -87,6 +90,34 @@ export function decodeHostProviderAccounts(value: unknown): HostProviderAccounts
 export function decodeHostProviderAccountUsage(value: unknown): AccountUsage {
   if (!isAccountUsage(value) || value.limits.some((limit) => limit.accountId === undefined))
     throw new Error("Invalid provider account usage.");
+  return value;
+}
+
+/**
+ * The `accounts` of a `provider-usage-reset-v1` list, and the IPC answer. A provider this client
+ * does not know is left out, as the host's status leaves it out.
+ */
+export function decodeProviderUsageResets(value: unknown): ProviderUsageResets[] {
+  const invalid = () => new Error("Invalid provider usage resets.");
+  if (!Array.isArray(value)) throw invalid();
+  return value.flatMap((row: unknown) => {
+    if (
+      !isDynamicRecord(row) ||
+      !isProviderAccountId(row.accountId) ||
+      !isNumber(row.available) ||
+      !Number.isInteger(row.available) ||
+      row.available < 0
+    )
+      throw invalid();
+    return isAgentProvider(row.provider)
+      ? [{ provider: row.provider, accountId: row.accountId, available: row.available }]
+      : [];
+  });
+}
+
+/** The `outcome` of a `provider-usage-reset-v1` consume, and the IPC answer. */
+export function decodeProviderUsageResetOutcome(value: unknown): ProviderUsageResetOutcome {
+  if (!isOneOf(PROVIDER_USAGE_RESET_OUTCOMES, value)) throw new Error("Invalid provider usage reset.");
   return value;
 }
 

@@ -55,7 +55,6 @@ export const messages = {
   "billing.lifecycle.automatic": "自動更新が再開されます",
   "billing.lifecycle.noRefund": "未使用期間の返金はありません",
   "billing.lifecycle.noRenewal": "今後の更新はありません",
-  "billing.lifecycle.open": "デザインプレビューを開く",
   "billing.lifecycle.dateUtc": "{date} UTC",
   "billing.lifecycle.renews": "自動更新はオンです。",
   "billing.lifecycle.schedule": "期間の終了時に削除",

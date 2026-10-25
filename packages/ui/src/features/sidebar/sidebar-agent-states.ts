@@ -69,10 +69,7 @@ export function isAgentWorking(
 export function computeSidebarAgentStates(input: SidebarAgentStatesInput): Record<string, SidebarAgentState> {
   const states: Record<string, SidebarAgentState> = {};
   for (const agentId of input.agentIds) {
-    const marked =
-      waitingState(input.pendingPrompts[agentId], input.pendingApprovals[agentId]) ??
-      limitedState(input.usageLimits, agentId) ??
-      routineBadge(agentId, input);
+    const marked = sidebarAgentWait(agentId, input) ?? routineBadge(agentId, input);
     if (marked) states[agentId] = marked;
     else if (isAgentWorking(agentId, input.activeTurns, input.queues)) states[agentId] = { kind: "working" };
     else if ((input.unreadReplies[agentId] ?? 0) > 0) {
@@ -80,6 +77,32 @@ export function computeSidebarAgentStates(input: SidebarAgentStatesInput): Recor
     } else if (input.recentReplies[agentId]) states[agentId] = { kind: "responded" };
   }
   return states;
+}
+
+/** A state that stops an agent until the user acts or its plan resets. */
+export type SidebarAgentWait = Extract<SidebarAgentState, { kind: "waiting" | "limited" }>;
+
+/** What stops the agent now, or undefined when nothing does. A wait for the user comes first. */
+export function sidebarAgentWait(
+  agentId: string,
+  input: Pick<SidebarAgentStatesInput, "pendingPrompts" | "pendingApprovals" | "usageLimits">,
+): SidebarAgentWait | undefined {
+  return (
+    waitingState(input.pendingPrompts[agentId], input.pendingApprovals[agentId]) ??
+    limitedState(input.usageLimits, agentId)
+  );
+}
+
+/** The wait of each agent that has one. The waiting block of a chat reads it for the agents it asked. */
+export function sidebarAgentWaits(
+  input: Pick<SidebarAgentStatesInput, "agentIds" | "pendingPrompts" | "pendingApprovals" | "usageLimits">,
+): Record<string, SidebarAgentWait> {
+  const waits: Record<string, SidebarAgentWait> = {};
+  for (const agentId of input.agentIds) {
+    const wait = sidebarAgentWait(agentId, input);
+    if (wait) waits[agentId] = wait;
+  }
+  return waits;
 }
 
 function routineBadge(agentId: string, input: SidebarAgentStatesInput): SidebarAgentState | undefined {
@@ -102,7 +125,7 @@ function routineBadge(agentId: string, input: SidebarAgentStatesInput): SidebarA
 function limitedState(
   usageLimits: SidebarAgentStatesInput["usageLimits"],
   agentId: string,
-): SidebarAgentState | undefined {
+): SidebarAgentWait | undefined {
   const resetsAt = usageLimits?.[agentId];
   return resetsAt === undefined ? undefined : { kind: "limited", resetsAt };
 }
@@ -115,7 +138,7 @@ function routineState(phase: SidebarRoutinePhase, count: number): SidebarAgentSt
 function waitingState(
   prompt: SidebarAttention | undefined,
   approval: SidebarApproval | undefined,
-): SidebarAgentState | undefined {
+): SidebarAgentWait | undefined {
   if (prompt?.type === "prompt") {
     return { kind: "waiting", reason: "question", detail: prompt.questions?.[0]?.question.trim() || null };
   }

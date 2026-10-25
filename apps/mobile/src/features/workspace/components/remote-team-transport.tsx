@@ -27,6 +27,11 @@ import type {
 import { supportLog, supportLogUrl } from "@/features/support/model/support-log";
 import { InactiveRequestError } from "@/features/workspace/model/pending-approvals";
 import { referencedError } from "@/features/workspace/model/referenced-error";
+import {
+  BACKGROUND_READS_IN_FLIGHT,
+  createRequestLimiter,
+  isBackgroundRead,
+} from "@/features/workspace/model/request-lanes";
 import { expoGoDomOptions } from "@/shared/lib/expo-go-dom";
 import { currentText } from "@/shared/lib/text";
 
@@ -80,6 +85,9 @@ export const RemoteTeamTransport = forwardRef<RemoteTeamTransportRef, RemoteTeam
     // The server of this transport, for support log lines. Requests do not name it.
     const hostIdRef = useRef<string | null>(null);
     useEffect(() => () => mailbox.dispose(), [mailbox]);
+    const backgroundReads = useRef<ReturnType<typeof createRequestLimiter> | null>(null);
+    backgroundReads.current ??= createRequestLimiter(BACKGROUND_READS_IN_FLIGHT);
+    const backgroundLane = backgroundReads.current;
 
     const bridge = useRef<RemoteTeamBridgeHandle>(null);
     const viewListeners = useRef(new Map<string, (event: BrowserViewBridgeEvent) => void>());
@@ -141,7 +149,8 @@ export const RemoteTeamTransport = forwardRef<RemoteTeamTransportRef, RemoteTeam
           onUploadProgress?: (fraction: number) => void,
         ): Promise<T> => {
           const started = Date.now();
-          const result = await enqueue({ type: "request", method, path, body, upload }, onUploadProgress);
+          const send = () => enqueue({ type: "request", method, path, body, upload }, onUploadProgress);
+          const result = await (isBackgroundRead(method, path) ? backgroundLane(send) : send());
           // Method, path, status and time only. Never the body or the upload.
           const request = `${hostIdRef.current ?? "unknown server"} ${method} ${supportLogUrl(path)}`;
           const time = `(${Date.now() - started} ms)`;
@@ -185,7 +194,7 @@ export const RemoteTeamTransport = forwardRef<RemoteTeamTransportRef, RemoteTeam
           };
         },
       }),
-      [enqueue, sendViewCommand],
+      [enqueue, sendViewCommand, backgroundLane],
     );
 
     const handleCommandResult = useCallback(

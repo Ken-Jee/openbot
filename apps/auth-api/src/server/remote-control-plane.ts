@@ -1,4 +1,9 @@
 import { memberLimitForPlan } from "@openbot/contracts/billing";
+import {
+  HOST_KEY_HANDOVER_LIMIT,
+  type HostKeyHandover,
+  hostKeyHandoverStatement,
+} from "@openbot/contracts/host-key-handover";
 import type { MobileConnectHostBinding } from "@openbot/contracts/mobile-connect";
 import { type DynamicRecord, isDynamicRecord, isString } from "@openbot/contracts/runtime-values";
 import type { RemoteAuthEvent } from "@openbot/contracts/signal-protocol/auth-events";
@@ -43,7 +48,7 @@ import {
 import { sourceText } from "@openbot/i18n/source";
 import { Context, Effect, Layer, Result, Schema } from "effect";
 import { importJWK, type JWK, type JWTPayload, SignJWT } from "jose";
-import { getServerEntitlement } from "./billing-entitlement";
+import { getServerEntitlement, SERVER_MEMBER_LIMIT_SQL } from "./billing-entitlement";
 import { OPEN_STATUSES_SQL } from "./billing-errors";
 import { decodeBase64Url, hmacSha256, importHmacSha256Key, randomToken, sha256 } from "./crypto";
 import { PERSISTENT_SESSION_EXPIRES_AT } from "./session-policy";
@@ -161,6 +166,15 @@ interface RemoteHostRow {
   auth_epoch: number;
   machine_token_hash: string | null;
   device_public_key: string | null;
+}
+
+interface RemoteHostKeyHandoverRow {
+  host_id: string;
+  issued_at: number;
+  previous_public_key: string;
+  public_key: string;
+  previous_signature: string;
+  signature: string;
 }
 
 interface RemoteMembershipRow {
@@ -533,16 +547,7 @@ export class RemoteControlPlane {
       if (existing && existing.owner_user_id !== user.id) {
         return yield* new RemoteControlPlaneError(403, "host_owner_mismatch", "This host belongs to another account.");
       }
-      // The account server creates hosted server IDs, so only the account it created one for can publish it.
-      const reservation = yield* remoteCall(() =>
-        dependencies.database
-          .prepare("SELECT owner_user_id, desired_state FROM hosted_servers WHERE server_id = ? LIMIT 1")
-          .bind(hostId)
-          .first<{ owner_user_id: string; desired_state: string }>(),
-      );
-      if (reservation && (reservation.owner_user_id !== user.id || reservation.desired_state === "deleted")) {
-        return yield* new RemoteControlPlaneError(403, "host_owner_mismatch", "This host belongs to another account.");
-      }
+      yield* this.#requireHostReservation(hostId, user.id);
       const now = dependencies.now();
       const devicePublicKey = input.devicePublicKey ?? null;
       const providedMachineToken = input.machineToken;
@@ -602,8 +607,18 @@ export class RemoteControlPlane {
         Effect.mapError((error) => (error instanceof RemoteControlPlaneError ? error : new RemoteOperationError({}))),
       );
       const membershipId = ownerMembershipId;
-      const registration = yield* remoteCall(() =>
+      const [, ...registration] = yield* remoteCall(() =>
         dependencies.database.batch([
+          // A registration with another key is a new pairing. The stored handovers lead to a key that
+          // the host no longer has, and a client that follows them could not reach the next step.
+          dependencies.database
+            .prepare(
+              `DELETE FROM remote_host_key_handovers WHERE host_id = ? AND EXISTS(
+             SELECT 1 FROM remote_hosts
+             WHERE host_id = ? AND owner_user_id = ? AND device_public_key IS NOT ?
+           )`,
+            )
+            .bind(hostId, hostId, user.id, devicePublicKey),
           dependencies.database
             .prepare(
               `INSERT INTO remote_hosts(
@@ -662,6 +677,116 @@ export class RemoteControlPlane {
     (operation) => operation.pipe(Effect.provide(this.#layer)),
   ).bind(this);
 
+  /**
+   * The host moves its identity to a new key. The previous key and the new key both signed the step,
+   * so a client that trusts the previous key can follow it to the new key. The account service only
+   * keeps and sends the steps: each client checks the signatures itself.
+   *
+   * The machine token and the auth epoch do not change, so paired devices stay signed in. Mobile
+   * Connect links pin the previous key, so they stop. A step that does not start at the stored key
+   * fails with `host_key_handover_conflict`, and the host then drops its new key.
+   */
+  readonly handOverHostKey = Effect.fn("RemoteControlPlane.handOverHostKey")(
+    function* (
+      this: RemoteControlPlane,
+      user: AuthUser,
+      input: { hostId: string; machineToken: string; handover: HostKeyHandover },
+    ): Effect.fn.Return<{ keyHandovers: HostKeyHandover[] }, RemoteFailure, RemoteDependencies> {
+      const dependencies = yield* RemoteDependencies;
+      const hostId = yield* remoteValidate(() => requiredIdentifier(input.hostId, "host ID"));
+      const { handover } = input;
+      if (handover.hostId !== hostId || handover.publicKey === handover.previousPublicKey) {
+        return yield* invalid("host key handover");
+      }
+      const host = yield* this.authenticateHost(hostId, input.machineToken);
+      if (host.owner_user_id !== user.id) {
+        return yield* new RemoteControlPlaneError(403, "host_owner_mismatch", "This host belongs to another account.");
+      }
+      yield* this.#requireHostReservation(hostId, user.id);
+      const statement = new TextEncoder().encode(hostKeyHandoverStatement(handover));
+      const signed = yield* Effect.all([
+        verifyEd25519(handover.previousPublicKey, handover.previousSignature, statement),
+        verifyEd25519(handover.publicKey, handover.signature, statement),
+      ]);
+      if (!signed.every(Boolean)) return yield* invalid("host key handover");
+
+      if (host.device_public_key === handover.publicKey) {
+        // The same request again, for example after a lost answer.
+        if (yield* this.#handoverStored(handover)) return { keyHandovers: yield* this.#keyHandovers(hostId) };
+        return yield* handoverConflict();
+      }
+      if (host.device_public_key !== handover.previousPublicKey) return yield* handoverConflict();
+
+      const now = dependencies.now();
+      const handoverId = crypto.randomUUID();
+      // The step is stored only while the host still has the previous key and this machine token, and
+      // only when it is later than every stored step, so the stored order is the order of the chain.
+      // The other statements change data only when this request stored its step.
+      const stored = `EXISTS(SELECT 1 FROM remote_host_key_handovers WHERE handover_id = ?)`;
+      const [inserted, updated] = yield* remoteCall(() =>
+        dependencies.database.batch([
+          dependencies.database
+            .prepare(
+              `INSERT INTO remote_host_key_handovers(
+             handover_id, host_id, issued_at, previous_public_key, public_key, previous_signature, signature, created_at
+           )
+           SELECT ?, host_id, ?, ?, ?, ?, ?, ?
+           FROM remote_hosts
+           WHERE host_id = ? AND owner_user_id = ? AND machine_token_hash = ? AND device_public_key = ?
+             AND NOT EXISTS(SELECT 1 FROM remote_host_key_handovers WHERE host_id = ? AND issued_at >= ?)
+           ON CONFLICT DO NOTHING`,
+            )
+            .bind(
+              handoverId,
+              handover.issuedAt,
+              handover.previousPublicKey,
+              handover.publicKey,
+              handover.previousSignature,
+              handover.signature,
+              now,
+              hostId,
+              user.id,
+              host.machine_token_hash,
+              handover.previousPublicKey,
+              hostId,
+              handover.issuedAt,
+            ),
+          dependencies.database
+            .prepare(
+              `UPDATE remote_hosts SET device_public_key = ?, updated_at = ?
+             WHERE host_id = ? AND device_public_key = ? AND ${stored}`,
+            )
+            .bind(handover.publicKey, now, hostId, handover.previousPublicKey, handoverId),
+          // A Mobile Connect QR code names the previous key, so a phone could not use it after this step.
+          dependencies.database
+            .prepare(
+              `UPDATE mobile_connect_links SET revoked_at = ? WHERE host_id = ? AND revoked_at IS NULL AND ${stored}`,
+            )
+            .bind(now, hostId, handoverId),
+          dependencies.database
+            .prepare(
+              `DELETE FROM remote_host_key_handovers
+             WHERE host_id = ? AND handover_id NOT IN (
+               SELECT handover_id FROM remote_host_key_handovers WHERE host_id = ?
+               ORDER BY issued_at DESC LIMIT ?
+             )`,
+            )
+            .bind(hostId, hostId, HOST_KEY_HANDOVER_LIMIT),
+        ]),
+      );
+      if (inserted?.meta.changes !== 1 || updated?.meta.changes !== 1) {
+        // A concurrent request can store the same step first.
+        const current = yield* this.#host(hostId);
+        if (current?.device_public_key === handover.publicKey && (yield* this.#handoverStored(handover))) {
+          return { keyHandovers: yield* this.#keyHandovers(hostId) };
+        }
+        return yield* handoverConflict();
+      }
+      return { keyHandovers: yield* this.#keyHandovers(hostId) };
+    },
+    (operation) => operation.pipe(Effect.provide(this.#layer)),
+  ).bind(this);
+
   readonly listHosts = Effect.fn("RemoteControlPlane.listHosts")(
     function* (this: RemoteControlPlane, userId: string) {
       const dependencies = yield* RemoteDependencies;
@@ -688,6 +813,10 @@ export class RemoteControlPlane {
             hosted: number;
           }>(),
       );
+      const keyHandovers = yield* this.#keyHandoversByHost({
+        sql: "host_id IN (SELECT host_id FROM remote_memberships WHERE user_id = ? AND status = 'active')",
+        binds: [userId],
+      });
       return yield* Effect.forEach(
         result.results ?? [],
         (row) =>
@@ -697,6 +826,7 @@ export class RemoteControlPlane {
               name: row.name,
               logoKey: row.logo_key,
               devicePublicKey: row.device_public_key,
+              keyHandovers: keyHandovers.get(row.host_id) ?? [],
               authEpoch: row.auth_epoch,
               membershipId: row.membership_id,
               role: row.role,
@@ -981,6 +1111,8 @@ export class RemoteControlPlane {
         emailBound: Boolean(invite.email),
         permanent: invite.max_uses === null,
         devicePublicKey: invite.device_public_key,
+        // The invitation names the key that the host had when it made the invitation.
+        keyHandovers: yield* this.#keyHandovers(invite.host_id),
       };
     },
     (operation) => operation.pipe(Effect.provide(this.#layer)),
@@ -1793,6 +1925,8 @@ export class RemoteControlPlane {
                 dependencies.database.prepare("DELETE FROM discord_guild_routes WHERE host_id = ?").bind(hostId),
                 dependencies.database.prepare("DELETE FROM telegram_chat_routes WHERE host_id = ?").bind(hostId),
                 dependencies.database.prepare("DELETE FROM telegram_link_codes WHERE host_id = ?").bind(hostId),
+                // The next registration can come with another key, so the old chain stops here.
+                dependencies.database.prepare("DELETE FROM remote_host_key_handovers WHERE host_id = ?").bind(hostId),
               ]
             : [
                 dependencies.database
@@ -2703,14 +2837,18 @@ export class RemoteControlPlane {
   });
 
   /**
-   * The active members that the host's plan allows, or the default for a host with no plan. A lower
-   * limit after a plan change removes no one: members who are active keep their seats.
+   * The active members that the host's custom limit allows, else its plan, else the default for a
+   * host with no plan. A lower limit removes no one: members who are active keep their seats.
    */
   readonly #memberLimit = Effect.fn("RemoteControlPlane.memberLimit")(function* (
     this: RemoteControlPlane,
     hostId: string,
   ): Effect.fn.Return<number, RemoteFailure, RemoteDependencies> {
     const dependencies = yield* RemoteDependencies;
+    const custom = yield* remoteCall(() =>
+      dependencies.database.prepare(SERVER_MEMBER_LIMIT_SQL).bind(hostId).first<{ member_limit: number }>(),
+    );
+    if (custom) return custom.member_limit;
     return memberLimitForPlan(
       (yield* getServerEntitlement(dependencies.database, hostId, dependencies.now()).pipe(
         Effect.mapError((error) => (error instanceof RemoteControlPlaneError ? error : new RemoteOperationError({}))),
@@ -2743,6 +2881,95 @@ export class RemoteControlPlane {
         .bind(hostId)
         .first<RemoteHostRow>(),
     );
+  });
+
+  /** The account server creates hosted server IDs, so only the account it created one for can publish it. */
+  readonly #requireHostReservation = Effect.fn("RemoteControlPlane.requireHostReservation")(function* (
+    this: RemoteControlPlane,
+    hostId: string,
+    userId: string,
+  ): Effect.fn.Return<void, RemoteFailure, RemoteDependencies> {
+    const dependencies = yield* RemoteDependencies;
+    const reservation = yield* remoteCall(() =>
+      dependencies.database
+        .prepare("SELECT owner_user_id, desired_state FROM hosted_servers WHERE server_id = ? LIMIT 1")
+        .bind(hostId)
+        .first<{ owner_user_id: string; desired_state: string }>(),
+    );
+    if (reservation && (reservation.owner_user_id !== userId || reservation.desired_state === "deleted")) {
+      return yield* new RemoteControlPlaneError(403, "host_owner_mismatch", "This host belongs to another account.");
+    }
+  });
+
+  /** The latest key handovers of each host that `condition` selects, the earliest step first. */
+  readonly #keyHandoversByHost = Effect.fn("RemoteControlPlane.keyHandoversByHost")(function* (
+    this: RemoteControlPlane,
+    condition: SqlCondition,
+  ): Effect.fn.Return<Map<string, HostKeyHandover[]>, RemoteFailure, RemoteDependencies> {
+    const dependencies = yield* RemoteDependencies;
+    const result = yield* remoteCall(() =>
+      dependencies.database
+        .prepare(
+          `SELECT host_id, issued_at, previous_public_key, public_key, previous_signature, signature
+         FROM (
+           SELECT host_id, issued_at, previous_public_key, public_key, previous_signature, signature,
+                  ROW_NUMBER() OVER (PARTITION BY host_id ORDER BY issued_at DESC) AS position
+           FROM remote_host_key_handovers WHERE ${condition.sql}
+         )
+         WHERE position <= ?
+         ORDER BY host_id, issued_at`,
+        )
+        .bind(...condition.binds, HOST_KEY_HANDOVER_LIMIT)
+        .all<RemoteHostKeyHandoverRow>(),
+    );
+    const handovers = new Map<string, HostKeyHandover[]>();
+    for (const row of result.results ?? []) {
+      const list = handovers.get(row.host_id) ?? [];
+      list.push({
+        hostId: row.host_id,
+        issuedAt: row.issued_at,
+        previousPublicKey: row.previous_public_key,
+        publicKey: row.public_key,
+        previousSignature: row.previous_signature,
+        signature: row.signature,
+      });
+      handovers.set(row.host_id, list);
+    }
+    return handovers;
+  });
+
+  readonly #keyHandovers = Effect.fn("RemoteControlPlane.keyHandovers")(function* (
+    this: RemoteControlPlane,
+    hostId: string,
+  ): Effect.fn.Return<HostKeyHandover[], RemoteFailure, RemoteDependencies> {
+    return (yield* this.#keyHandoversByHost({ sql: "host_id = ?", binds: [hostId] })).get(hostId) ?? [];
+  });
+
+  /** Whether this exact handover is stored. */
+  readonly #handoverStored = Effect.fn("RemoteControlPlane.handoverStored")(function* (
+    this: RemoteControlPlane,
+    handover: HostKeyHandover,
+  ): Effect.fn.Return<boolean, RemoteFailure, RemoteDependencies> {
+    const dependencies = yield* RemoteDependencies;
+    const row = yield* remoteCall(() =>
+      dependencies.database
+        .prepare(
+          `SELECT 1 AS stored FROM remote_host_key_handovers
+         WHERE host_id = ? AND signature = ? AND issued_at = ? AND previous_public_key = ? AND public_key = ?
+           AND previous_signature = ?
+         LIMIT 1`,
+        )
+        .bind(
+          handover.hostId,
+          handover.signature,
+          handover.issuedAt,
+          handover.previousPublicKey,
+          handover.publicKey,
+          handover.previousSignature,
+        )
+        .first<{ stored: number }>(),
+    );
+    return row !== null;
   });
 
   #authEventStatement(event: RemoteAuthEvent, now: number, condition?: SqlCondition): D1PreparedStatement {
@@ -2820,6 +3047,14 @@ function telegramLinkInvalid(): RemoteControlPlaneError {
 
 function memberLimitReached(limit: number): RemoteControlPlaneError {
   return new RemoteControlPlaneError(409, "member_limit_reached", `A host can have up to ${limit} members.`);
+}
+
+function handoverConflict(): RemoteControlPlaneError {
+  return new RemoteControlPlaneError(
+    409,
+    "host_key_handover_conflict",
+    "The host key handover does not start at the current host key.",
+  );
 }
 
 function licenseUsersFull(): RemoteControlPlaneError {
@@ -2910,6 +3145,35 @@ const deliverRemoteAuthEvents = Effect.fn("RemoteControlPlane.deliverAuthEvents"
     { concurrency: AUTH_EVENT_SEND_CONCURRENCY, discard: true },
   );
 });
+
+const PUBLIC_KEY_HEADER = "-----BEGIN PUBLIC KEY-----";
+const PUBLIC_KEY_FOOTER = "-----END PUBLIC KEY-----";
+
+/** Whether `signature` (base64url) is a valid Ed25519 signature of `message` by the SPKI PEM key. */
+const verifyEd25519 = Effect.fn("RemoteControlPlane.verifyEd25519")(function* (
+  publicKeyPem: string,
+  signature: string,
+  message: Uint8Array<ArrayBuffer>,
+) {
+  const verified = yield* Effect.result(
+    Effect.tryPromise(async () => {
+      const key = await crypto.subtle.importKey("spki", spkiFromPem(publicKeyPem), { name: "Ed25519" }, false, [
+        "verify",
+      ]);
+      return crypto.subtle.verify({ name: "Ed25519" }, key, decodeBase64Url(signature), message);
+    }),
+  );
+  return Result.isSuccess(verified) && verified.success;
+});
+
+/** The DER bytes of a PEM public key. Throws when the text is not one PEM public key. */
+function spkiFromPem(pem: string): Uint8Array<ArrayBuffer> {
+  const trimmed = pem.trim();
+  if (!trimmed.startsWith(PUBLIC_KEY_HEADER) || !trimmed.endsWith(PUBLIC_KEY_FOOTER)) throw invalid("host public key");
+  const encoded = trimmed.slice(PUBLIC_KEY_HEADER.length, -PUBLIC_KEY_FOOTER.length).replace(/\s/gu, "");
+  if (!encoded || !/^[A-Za-z0-9+/]+={0,2}$/u.test(encoded)) throw invalid("host public key");
+  return Uint8Array.from(atob(encoded), (character) => character.charCodeAt(0));
+}
 
 function requiredIdentifier(value: string, name: string): string {
   if (!/^[A-Za-z0-9:_-]{1,128}$/u.test(value)) throw invalid(name);

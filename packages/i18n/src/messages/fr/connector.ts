@@ -399,4 +399,18 @@ export const messages = {
   "connector.bitwarden.connected": "Connecté",
   "connector.bitwarden.disconnected": "Non connecté",
   "connector.bitwarden.actionFailed": "OpenBot n’a pas pu modifier la connexion Bitwarden.",
+  "connector.bitwarden.descriptionHost":
+    "Remplir les identifiants du navigateur sur {host} depuis Bitwarden ou Vaultwarden.",
+  "connector.bitwarden.setupHost":
+    "{host} se connecte avec sa propre CLI Bitwarden. Dans votre coffre, créez un dossier nommé « Shared with OpenBot » et placez-y uniquement les identifiants que les agents peuvent utiliser. Dans le coffre web, ouvrez Paramètres › Sécurité › Clés et affichez votre clé d’API. Saisissez ci-dessous l’adresse du serveur, client_id, client_secret et votre mot de passe principal.",
+  "connector.bitwarden.scopeHost":
+    "Tous les agents de {host} peuvent utiliser les identifiants correspondants de « Shared with OpenBot ». OpenBot utilise des origines HTTPS exactes. Il n’utilise pas les éléments qui demandent le mot de passe principal ni ceux qui ont une règle de correspondance d’URI personnalisée.",
+  "connector.bitwarden.sessionHost":
+    "{host} conserve la clé d’API et le mot de passe principal chiffrés, pour pouvoir déverrouiller à nouveau après un redémarrage. Cet ordinateur ne les conserve pas. Déconnecter les supprime de {host}. {host} doit joindre l’adresse du serveur en HTTPS.",
+  "connector.bitwarden.serverUrl": "Adresse du serveur",
+  "connector.bitwarden.clientId": "client_id de la clé d’API",
+  "connector.bitwarden.clientSecret": "client_secret de la clé d’API",
+  "connector.bitwarden.masterPassword": "Mot de passe principal",
+  "connector.bitwarden.connecting": "Connexion",
+  "connector.bitwarden.connectedServer": "Connecté à {server}.",
 } as const satisfies PartialTranslation<typeof source>;

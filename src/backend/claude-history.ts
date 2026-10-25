@@ -5,7 +5,7 @@ import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { Effect } from "effect";
-import { isMemoryContextBlock } from "./agent/developer-instructions";
+import { isTurnContextBlock } from "./agent/developer-instructions";
 import { claudeBridgedToolName } from "./agent/tool-catalog";
 import {
   isClaudeCompactionSummary,
@@ -968,7 +968,7 @@ function messageText(message: unknown): string {
         block.type === "text" &&
         typeof block.text === "string" &&
         // OpenBot's memory block is not text that the user wrote.
-        !(message.role === "user" && isMemoryContextBlock(block.text)),
+        !(message.role === "user" && isTurnContextBlock(block.text)),
     )
     .map((block) => String(block.text))
     .join("\n");

@@ -103,6 +103,11 @@ export const SmallWindow: Story = {
   parameters: { viewport: { defaultViewport: "firstAgentSmall" } },
 };
 
+/** The model picker lists only the providers that can run, and its plus opens the provider settings. */
+export const ModelPicker: Story = {
+  args: { modelOptions: STORY_MODELS, agentStatus: STORY_AGENT_STATUS, onManageProviders: fn() },
+};
+
 export const LongPrompt: Story = {
   args: {
     value: {

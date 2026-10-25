@@ -76,9 +76,8 @@ interface ActiveStream {
 }
 
 /**
- * What the renderer is told when the build carries no speech recognition runtime at all. Linux
- * packages ship without one, so this is the whole of voice on that platform: a stated limit, not a
- * download of a model that nothing can read.
+ * What the renderer is told when the build carries no speech recognition runtime at all: a stated
+ * limit, not a download of a model that nothing can read.
  */
 const RUNTIME_UNAVAILABLE_MESSAGE = sourceText("error.voice.runtimeUnavailable");
 

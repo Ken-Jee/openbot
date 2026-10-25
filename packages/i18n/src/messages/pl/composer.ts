@@ -4,6 +4,9 @@ import type { messages as source } from "../en/composer";
 export const messages = {
   "composer.queueEdit.body": "Edytujesz wiadomość z kolejki. Zapisz lub anuluj edycję, aby mogła zostać wysłana.",
   "composer.queueEdit.cancel": "Anuluj edycję",
+  "composer.providerWait.offlineTitle": "Brak połączenia z internetem",
+  "composer.providerWait.offline": "{provider} nie może odpowiedzieć, dopóki ten komputer nie wróci do sieci.",
+  "composer.providerWait.silent": "Czas bez aktualizacji od {provider}: {duration}.",
   "composer.notice.dismiss": "Zamknij błąd",
   "composer.signIn.title": "Wymagane logowanie",
   "composer.signIn.body": "Zaloguj się do {provider}, aby wysyłać wiadomości.",
@@ -72,6 +75,9 @@ export const messages = {
   "composer.upload.cancel": "Anuluj przesyłanie",
   "composer.voice.progress": "Pobieranie modelu głosowego {progress}%",
   "composer.voice.recording": "Nagrywanie głosu",
+  "composer.voice.limitSoon": "Nagrywanie zatrzyma się za {seconds} sekund.",
+  "composer.voice.limitReached":
+    "Nagrywanie zatrzymało się po osiągnięciu limitu 2 minut. Nagrana treść jest w wiadomości.",
   "composer.send.saveQueued": "Zapisz wiadomość z kolejki",
   "composer.send.voice": "Wyślij wiadomość głosową",
   "composer.send.message": "Wyślij wiadomość",

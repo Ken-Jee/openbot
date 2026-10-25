@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
-import { appendFile, mkdir, readdir, rename, rm, stat } from "node:fs/promises";
-import { join } from "node:path";
+import { appendFile, mkdir, readdir, readFile, rename, rm, stat } from "node:fs/promises";
+import { basename, join } from "node:path";
 import type {
   IdleRestart,
   ScheduledUpdateRestart,
@@ -99,6 +99,8 @@ interface UpdateServiceOptions {
   platform?: NodeJS.Platform;
   logDirectory?: string;
   shipItDirectory?: string | undefined;
+  /** electron-updater's cache directory, named by `updaterCacheDirName` in `app-update.yml`. */
+  updaterCacheDirectory?: string | undefined;
   initialCheckDelayMs?: number;
   checkIntervalMs?: number;
   checkTimeoutMs?: number;
@@ -181,7 +183,12 @@ export class UpdateService extends EventEmitter<UpdateServiceEvents> {
   > &
     Pick<
       UpdateServiceOptions,
-      "beforeInstall" | "checkSiblingInstances" | "currentUid" | "logDirectory" | "shipItDirectory"
+      | "beforeInstall"
+      | "checkSiblingInstances"
+      | "currentUid"
+      | "logDirectory"
+      | "shipItDirectory"
+      | "updaterCacheDirectory"
     > & {
       phaseTimeoutsMs: Record<UpdateBusyPhase, number>;
     };
@@ -289,6 +296,9 @@ export class UpdateService extends EventEmitter<UpdateServiceEvents> {
     });
     if (this.#options.platform === "darwin" && this.#options.shipItDirectory) {
       this.#fork(pruneShipItLogs(this.#options.shipItDirectory));
+    }
+    if (this.#options.updaterCacheDirectory) {
+      this.#fork(pruneInstalledUpdate(this.#options.updaterCacheDirectory, this.#options.currentVersion));
     }
 
     if (scheduleChecks && this.#options.enabled) {
@@ -573,7 +583,10 @@ export class UpdateService extends EventEmitter<UpdateServiceEvents> {
           if (this.#checkRequest) yield* Deferred.await(this.#checkRequest).pipe(Effect.catch(() => Effect.void));
           if (this.#installGeneration !== generation) return;
           this.#installHandedOver = true;
-          yield* updateSync(() => this.#updater.quitAndInstall(false, true));
+          // Silent, so the assisted Windows installer shows no page and opens the app again: it ignores
+          // the force-run flag in a visible run. Other updaters only relaunch, now from `true` and not
+          // from `autoRunAppAfterInstall`, which is also `true`.
+          yield* updateSync(() => this.#updater.quitAndInstall(true, true));
           this.#armPhaseTimer();
         }),
       );
@@ -895,6 +908,31 @@ function pruneShipItLogs(directory: string): Effect.Effect<void, UpdateOperation
       concurrency: "unbounded",
       discard: true,
     });
+  }).pipe(Effect.catch(() => Effect.void));
+}
+
+const decodePendingUpdateInfo = Schema.decodeUnknownEffect(
+  Schema.fromJsonString(Schema.Struct({ fileName: Schema.String })),
+);
+
+/**
+ * electron-updater keeps the download in `pending` after the install, which leaves a full release
+ * artifact on disk until the next download (issue #2939). This removes it once the running version
+ * has caught up, and keeps a newer download that still waits for its restart. `update.zip` beside it
+ * stays: it is the base of the next differential download on macOS.
+ */
+function pruneInstalledUpdate(directory: string, currentVersion: string): Effect.Effect<void, never> {
+  return Effect.gen(function* () {
+    const pending = join(directory, "pending");
+    const text = yield* updateIO(() => readFile(join(pending, "update-info.json"), "utf8"));
+    const { fileName } = yield* decodePendingUpdateInfo(text);
+    // electron-builder.yml names each artifact `${productName}-${version}-${arch}.${ext}`.
+    const version = /-(\d+\.\d+\.\d+)-/u.exec(fileName)?.[1];
+    if (version === undefined || isNewerRelease(version, currentVersion)) return;
+    // The marker goes last: when Windows still locks the installer, the next start tries again.
+    // Only these two files go, so a download that this session has started keeps its temp file.
+    yield* updateIO(() => rm(join(pending, basename(fileName)), { force: true }));
+    yield* updateIO(() => rm(join(pending, "update-info.json"), { force: true }));
   }).pipe(Effect.catch(() => Effect.void));
 }
 

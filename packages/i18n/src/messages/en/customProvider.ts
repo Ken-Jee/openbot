@@ -164,6 +164,9 @@ export const messages = defineMessages("customProvider", {
   "customProvider.acp.commandHint": "The program to start. OpenBot looks for it on your PATH.",
   "customProvider.acp.args": "Arguments",
   "customProvider.acp.argsHint": "Separate arguments with spaces. Put quotes around an argument that has spaces.",
+  "customProvider.acp.usagePrompt": "Usage command",
+  "customProvider.acp.usagePromptHint":
+    "OpenBot sends it at most every 5 minutes and shows the last answer. Use a command that the agent answers itself, such as /usage.",
   "customProvider.acp.env": "Environment variables",
   "customProvider.acp.env.name": "Variable {number} name",
   "customProvider.acp.env.value": "Variable {number} value",
@@ -195,6 +198,7 @@ export const messages = defineMessages("customProvider", {
   "customProvider.acp.error.envDuplicate": "This agent already sets {name}.",
   "customProvider.acp.error.envValueRequired": "Enter a value for this variable.",
   "customProvider.acp.error.envValueLength": "Keep the value under {max} characters.",
+  "customProvider.acp.error.usagePromptInvalid": "Use one line of at most {max} characters.",
   "customProvider.acp.error.agentIdPattern":
     "Use lowercase letters, numbers or hyphens, starting with a letter or number. Use at most 40 characters.",
 

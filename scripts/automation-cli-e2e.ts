@@ -8,7 +8,13 @@ import { spawn } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import type { AgentModelOption, QueueDelivery, QueuedMessageReceipt, UpdateAgentInput } from "@openbot/contracts/ipc";
+import {
+  type AgentModelOption,
+  DEFAULT_AGENT_DEFAULTS,
+  type QueueDelivery,
+  type QueuedMessageReceipt,
+  type UpdateAgentInput,
+} from "@openbot/contracts/ipc";
 import { ContextResetBusyError } from "@openbot/contracts/team-protocol/context-reset-v1";
 import { Effect } from "effect";
 import { AgentSettingsRefused } from "../src/backend/agent/agent-settings-refused";
@@ -87,6 +93,7 @@ const root = mkdtempSync(join(tmpdir(), "openbot-cli-e2e-"));
 const options: ConstructorParameters<typeof AutomationServer>[0] = {
   root,
   listAgents: () => agents,
+  agentDefaults: () => DEFAULT_AGENT_DEFAULTS,
   listModels: () => models,
   listRoutines: () => [],
   runRoutine: () => Effect.die(new Error("No routine runs in this test.")),

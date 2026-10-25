@@ -66,6 +66,8 @@ export const messages = {
   "agent.error.mcpNotStarted": "Server MCP non avviato",
   "agent.error.codexConfigIgnored": "Avviso sulla configurazione di Codex",
   "agent.error.provider": "Errore del provider",
+  "agent.error.run": "{provider} · {model}",
+  "agent.error.providerNamed": "Errore di {provider}",
   // Avatar color names. They fill `{color}` and `{hue}` inside a sentence.
   "agent.color.red": "Rosso",
   "agent.color.orange": "Arancione",

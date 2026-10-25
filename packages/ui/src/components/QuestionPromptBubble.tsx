@@ -38,7 +38,7 @@ export interface QuestionPromptBubbleProps {
    * plain Enter does not submit and the single-line field adds no line. The renderer resolves
    * the platform and passes it.
    */
-  sendShortcut?: SendShortcut;
+  sendShortcut?: SendShortcut | undefined;
   onSubmit: (answers: Record<string, string[]>) => Promise<boolean>;
   onResolutionPresented?: () => void;
 }

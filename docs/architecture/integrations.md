@@ -26,7 +26,7 @@ computer of the user who signs in. A sign-in uses one of these kinds:
 | CLI-owned browser login | Claude (`auth login`), Codex, Gemini (`acp-authenticate`) | The provider's CLI opens the browser and takes its own callback. | The relay (`provider/start`): the host captures the page, and the client sends the callback query to the CLI's listener on the host. Grok, Cursor and Cline: a code kind. |
 | Deep link | Slack, Discord (`openbot://slack-workspace`, `openbot://discord-guild`), MCP fallback (`openbot://mcp-auth`) | A hosted page ends in an `openbot://` link, which reaches only the computer that opened it. | Slack and Discord: `connectors-v1`. The client sends the sealed grant on to the host that started the install. The browser client gets the grant from a return page of its own origin (`web-messaging-install.ts`). |
 | Terminal | Pi | OpenBot opens the CLI in a terminal on the host ([`provider-terminal-login.ts`](../../src/backend/provider-terminal-login.ts)). | Sign in on the host. |
-| Key or local session | API keys, 1Password, Bitwarden | The user types a key or gives a CLI session. | Keys go to the host over the encrypted channel. Vault approval stays on the host. |
+| Key or local session | API keys, 1Password, Bitwarden | The user types a key or gives a CLI session. | Keys go to the host over the encrypted channel. Vault approval stays on the host. A Bitwarden session key works only on the computer that made it; a joined server gets an API key and the master password. |
 
 The sign-in kinds of providers are in `ProviderSignIn` and `ProviderCodeSignIn` in
 [`provider-drivers.ts`](../../src/backend/provider-drivers.ts). The kinds of applications are the
@@ -107,13 +107,14 @@ the sign-in and keeps the grant.
 
 The optional Team API capability `sign-in-relay-v1` carries the relay. The frozen contract is
 [`sign-in-relay-v1.ts`](../../packages/contracts/src/team-protocol/sign-in-relay-v1.ts). It has
-three start routes. They share `status`, `complete` and `cancel`:
+three start routes, and `provider-account-relay-v1` adds a fourth. They share `status`, `complete` and `cancel`:
 
 | Start route | What it signs in | How the host delivers the callback |
 | --- | --- | --- |
 | `mcp/start` | A URL MCP server, from server settings or the Marketplace | It gives the code to `McpOAuth` (owned flow). |
 | `provider/start` | The CLI of a provider in `SIGN_IN_RELAY_PROVIDERS`: Codex, Claude, Gemini (`antigravity`) and Muse | It replays the query to the CLI's own loopback listener on the host. A Muse device page has no callback: the client only opens it. |
 | `link/start` | A sign-in page that an agent of the host printed in its conversation | It replays the query to the loopback address of that page. |
+| `provider-account/start` | An account after the first of Codex or Claude (`PROVIDER_ACCOUNT_RELAY_PROVIDERS`), new or signed out. The separate capability `provider-account-relay-v1` adds this route ([`provider-account-relay-v1.ts`](../../packages/contracts/src/team-protocol/provider-account-relay-v1.ts)) | It replays the query to the loopback listener of the account's CLI on the host, as for `provider/start`. |
 
 ### Sequence
 
@@ -309,8 +310,10 @@ is one folder per plugin in [`marketplace/plugin-catalog/`](../../marketplace/pl
    bun run marketplace:build:plugins -- --check
    ```
    The build writes `src/renderer/src/features/settings/marketplace-plugin-catalog.ts`,
-   `apps/auth-api/src/lib/plugin-catalog.generated.ts` and `resources/plugin-catalog/`. Do not edit
-   them by hand.
+   `apps/auth-api/src/lib/plugin-catalog.generated.ts`,
+   `apps/mobile/src/features/marketplace/model/plugin-catalog.generated.ts` and
+   `resources/plugin-catalog/`. Do not edit them by hand. The mobile copy states its own types and
+   leaves out the vendor icon addresses: the phone loads icons from `/plugins/icon/<slug>?app=<id>`.
 5. For an `http` server, run `bun run test:mcp-catalog`
    ([`mcp-catalog-smoke.ts`](../../scripts/mcp-catalog-smoke.ts)). It connects to the live servers
    with no account and writes `.openbot-build/mcp-catalog-smoke/report.json`. It needs the network,
@@ -372,7 +375,7 @@ state on each of them.
 | Discord | `src/backend/messaging/discord/` | The same, with `openbot://discord-guild` | `discord-guild-grant.ts`, `ipc-messaging.ts` |
 | Telegram | `src/backend/messaging/telegram/` | A one-use link code in a `t.me` link. No OAuth | `telegram-app.ts`, `ipc-messaging.ts` |
 | 1Password | [`onepassword-connector-service.ts`](../../src/main/onepassword-connector-service.ts) | The user's `op` session creates a read-only service account, or the user pastes a token | `ipc-onepassword-connector.ts`; joined server: `onepassword-connector-v1` (token only) |
-| Bitwarden | [`bitwarden-connector-service.ts`](../../src/main/bitwarden-connector-service.ts) | A `bw` session key, kept in memory only | `ipc-bitwarden-connector.ts` |
+| Bitwarden | [`bitwarden-connector-service.ts`](../../src/main/bitwarden-connector-service.ts) | A `bw` session key, kept in memory only; a joined server signs in with an API key and the master password | `ipc-bitwarden-connector.ts`; joined server: `bitwarden-connector-v1` |
 
 To add a connector:
 
@@ -444,6 +447,22 @@ service account token in Settings › Connectors. The token goes to the host onc
 host checks it with 1Password and keeps it in its own encrypted store. No answer carries it. Status
 and disconnect act on that host only. A host older than this capability hides 1Password.
 
+### Bitwarden on a joined server
+
+The optional capability `bitwarden-connector-v1`
+([`bitwarden-connector-v1.ts`](../../packages/contracts/src/team-protocol/bitwarden-connector-v1.ts),
+host route [`route-bitwarden-connector.ts`](../../src/main/team-api/route-bitwarden-connector.ts))
+carries Bitwarden and self-hosted Vaultwarden. A session key unlocks only the CLI data of the
+computer that made it, so the host signs in with its own `bw`. An owner or admin enters the server
+address, the personal API key and the master password in Settings › Connectors. They go to the host
+once, in `connect`; no answer carries them. `connect` answers `connecting` at once, because the
+first sign-in can download `bw` and sync the vault for longer than the 15-second request limit. The
+client reads `status` every 2 seconds until the state changes. The host stores the record only after
+it unlocks the vault and finds the folder `Shared with OpenBot`, and unlocks again from it after a
+restart. The host must reach the server address over HTTPS; the instance firewall of
+[several instances on one host](../docker.md#several-instances-on-one-host) blocks private
+addresses. A host older than this capability hides Bitwarden.
+
 ## Add a Team API capability
 
 A new remote feature is a new optional capability. Do not change a shipped capability: released
@@ -499,7 +518,7 @@ Use `bun run dev:automation` for snapshots and screenshots. Do not drive another
 | --- | --- |
 | A sign-in that returns to a public `https:` address of the provider | The provider finishes it by itself. The host only waits. Nothing comes back to a loopback port. |
 | A sign-in that opens an app on the host, such as Pi, which opens Terminal | The step happens on the host's screen. There is no page address to open somewhere else. |
-| A vault that approves in its desktop app, such as 1Password or Bitwarden | The approval is in the vault app on the host. A relay cannot approve for it. 1Password on a joined server uses a service account token (`onepassword-connector-v1`). |
+| A vault that approves in its desktop app, such as 1Password or Bitwarden | The approval is in the vault app on the host. A relay cannot approve for it. 1Password on a joined server uses a service account token (`onepassword-connector-v1`); Bitwarden uses an API key and the master password (`bitwarden-connector-v1`). |
 | The Slack development return address (`returnUrl`) | Development builds only. It returns to `http://127.0.0.1:<port>/...` on the host, and the relay does not carry it. Use the hosted install. |
 | An agent link for a member who is not an admin | The relay routes are admin only. The link opens as it is, and its callback cannot reach the host. |
 | An agent link in a command, tool output or commentary | The host relays only a link that the text of an agent message holds. |

@@ -30,7 +30,13 @@ import { sourceText } from "@openbot/i18n/source";
 import { Context, Effect, Layer, Result, Schema } from "effect";
 import { type AccountAnalytics, type AccountAnalyticsEvent, NO_ACCOUNT_ANALYTICS } from "./account-analytics";
 import { getServerEntitlement } from "./billing-entitlement";
-import { BillingError, type BillingReturnTarget, type BillingService, type SubscriptionSync } from "./billing-service";
+import {
+  BillingError,
+  type BillingReturnTarget,
+  type BillingService,
+  SOLD_OUT_PLANS,
+  type SubscriptionSync,
+} from "./billing-service";
 import {
   BoatApiError,
   BoatClient,
@@ -106,6 +112,18 @@ const HELD_RESUME_START_TIMEOUT_SECONDS = 10;
  * and the time that the server takes to start. A server does not stop for no use in this time.
  */
 const SCHEDULE_WAKE_BEFORE_MS = 10 * 60_000;
+/**
+ * boat deletes the disk of a sandbox 14 days after its stop, and each stop saves a new disk. The cron
+ * starts an idle server with no use for this long, and the idle stop saves its disk again.
+ */
+const RETENTION_WAKE_AFTER_MS = 10 * 24 * 60 * 60_000;
+const RETENTION_DISK_KEPT_MS = 14 * 24 * 60 * 60_000;
+/**
+ * The test and production Workers share one boat account: 200 starts each day and 100 active
+ * sandboxes. One start in each 10 minutes of cron time (at most 144 each day for each Worker, with a
+ * cron each 5 minutes or each minute) leaves them to clients.
+ */
+const RETENTION_WAKE_EVERY_MINUTES = 10;
 /** A server can report a routine run at most this far ahead. A later run is reported when it comes nearer. */
 const NEXT_RUN_MAX_AHEAD_MS = 400 * 24 * 60 * 60_000;
 /**
@@ -165,7 +183,8 @@ function hostedValidate<A>(operation: () => A): Effect.Effect<A, HostedFailure> 
  * (`stopped`). An idle server starts again on the next use; a stopped one only on renewal.
  */
 type DesiredState = "running" | "idle" | "stopped" | "deleted";
-type WakeReason = "create" | "message" | "restart" | "schedule";
+/** `last_wake_reason` stores `retention` as `schedule`: its D1 check has no other value. */
+type WakeReason = "create" | "message" | "restart" | "schedule" | "retention";
 
 interface HostedServerRow {
   server_id: string;
@@ -243,6 +262,7 @@ export interface HostedServerTickResult {
   resized: number;
   idle: number;
   scheduled: number;
+  retained: number;
   failed: number;
 }
 
@@ -395,6 +415,7 @@ export class HostedServerService {
           .first<HostedServerRow>(),
       );
       if (previous) return yield* this.#checkout(previous, user, billing, returnTo);
+      if (SOLD_OUT_PLANS.has(input.plan)) return yield* planSoldOut();
       const unpaid = yield* hostedCall(() =>
         dependencies.database
           .prepare(
@@ -1089,6 +1110,7 @@ export class HostedServerService {
         resized: 0,
         idle: 0,
         scheduled: 0,
+        retained: 0,
         failed: 0,
       };
       yield* hostedCall(() =>
@@ -1228,6 +1250,25 @@ export class HostedServerService {
           .all<HostedServerRow>(),
       );
       result.scheduled = yield* run(scheduled.results, (row) => this.#wakeForSchedule(row, now));
+      // An idle server starts before boat deletes its disk. The stop comes after the last use, so the
+      // disk is never older than the last use. A disk older than 14 days is gone: boat refuses its resume
+      // with a 409, which `#resume` reads as a start in progress. The oldest change goes first, so a
+      // start that failed goes after the others.
+      if (new Date(now).getUTCMinutes() % RETENTION_WAKE_EVERY_MINUTES === 0) {
+        const expiring = yield* hostedCall(() =>
+          dependencies.database
+            .prepare(
+              `SELECT ${ROW_COLUMNS} FROM hosted_servers
+           WHERE desired_state = 'idle' AND observed_state = 'stopped' AND provider_sandbox_id IS NOT NULL
+             AND last_active_at > ? AND last_active_at <= ?
+             AND (deletion_scheduled_at IS NULL OR deletion_scheduled_at > ?)
+           ORDER BY updated_at LIMIT 1`,
+            )
+            .bind(now - RETENTION_DISK_KEPT_MS, now - RETENTION_WAKE_AFTER_MS, now)
+            .all<HostedServerRow>(),
+        );
+        result.retained = yield* run(expiring.results, (row) => this.#wakeForRetention(row, now));
+      }
       // A server that must stop and still runs: the first stop did not happen.
       const unstopped = yield* hostedCall(() =>
         dependencies.database
@@ -1343,6 +1384,8 @@ export class HostedServerService {
     if (previous && (yield* billing.closeCheckout(previous).pipe(Effect.mapError(hostedFailure))) === "paid") {
       return { server: summary(yield* this.#requireRow(row.server_id)), checkoutUrl: null };
     }
+    // A server that has had no plan cannot buy a sold-out plan. A server whose plan ended can renew it.
+    if (awaiting && SOLD_OUT_PLANS.has(row.plan)) return yield* planSoldOut();
     const session = yield* billing
       .createCheckout({
         user: { id: user.id, email: user.email },
@@ -1912,6 +1955,43 @@ export class HostedServerService {
     yield* this.#wake(yield* this.#requireRow(row.server_id), "schedule");
   });
 
+  /** The start counts as use, so with no client the idle stop comes after 15 minutes and saves the disk. */
+  readonly #wakeForRetention = Effect.fn("HostedServerService.wakeForRetention")(function* (
+    this: HostedServerService,
+    row: HostedServerRow,
+    now: number,
+  ): Effect.fn.Return<void, HostedFailure, HostedServerDependencies> {
+    const dependencies = yield* HostedServerDependencies;
+    const started = yield* hostedCall(() =>
+      dependencies.database
+        .prepare(
+          `UPDATE hosted_servers SET desired_state = 'running', last_active_at = ?, updated_at = ?
+         WHERE server_id = ? AND desired_state = 'idle' AND observed_state = 'stopped' AND last_active_at = ?`,
+        )
+        .bind(now, now, row.server_id, row.last_active_at)
+        .run(),
+    );
+    if (started.meta.changes !== 1) return;
+    const woken = yield* Effect.result(this.#wake(yield* this.#requireRow(row.server_id), "retention"));
+    if (Result.isSuccess(woken)) return;
+    const error = woken.failure;
+    // No client comes to start it again. After a boat fault the server sleeps with its last use, so a
+    // later tick tries again before the disk is gone.
+    if (error instanceof BoatApiError && error.status >= 500) {
+      yield* hostedCall(() =>
+        dependencies.database
+          .prepare(
+            `UPDATE hosted_servers SET desired_state = 'idle', observed_state = 'stopped', observed_error = NULL,
+             last_active_at = ?, updated_at = ?
+           WHERE server_id = ? AND desired_state = 'running' AND observed_state = 'error'`,
+          )
+          .bind(row.last_active_at, dependencies.now(), row.server_id)
+          .run(),
+      );
+    }
+    return yield* error;
+  });
+
   /** Moves the boat stop time of a server in use, so boat does not stop it. */
   readonly #extendLease = Effect.fn("HostedServerService.extendLease")(function* (
     this: HostedServerService,
@@ -2082,7 +2162,7 @@ export class HostedServerService {
         .bind(
           rateLimited ? row.observed_error : null,
           rateLimited ? 1 : 0,
-          reason,
+          reason === "retention" ? "schedule" : reason,
           rateLimited ? row.provider_event_at : now,
           now,
           now + LEASE_TTL_SECONDS * 1000,
@@ -2563,6 +2643,10 @@ function notFound(): HostedServerServiceError {
 
 function invalidClaim(): HostedServerServiceError {
   return new HostedServerServiceError(401, "hosted_claim_invalid", "The server claim is invalid or used.");
+}
+
+function planSoldOut(): HostedServerServiceError {
+  return new HostedServerServiceError(409, "plan_sold_out", sourceText("error.billing.planSoldOut"));
 }
 
 function lifecycleFailure() {

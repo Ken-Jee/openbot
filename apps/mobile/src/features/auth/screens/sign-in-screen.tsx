@@ -4,7 +4,16 @@ import { useThemeColor } from "heroui-native/hooks";
 import type { LucideIcon } from "lucide-react-native";
 import X from "lucide-react-native/icons/x";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
-import { AppState, BackHandler, Keyboard, Pressable, ScrollView, StyleSheet, type TextInput, View } from "react-native";
+import {
+  AppState,
+  BackHandler,
+  Keyboard,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  type TextInputInstance,
+  View,
+} from "react-native";
 import { useReanimatedKeyboardAnimation } from "react-native-keyboard-controller";
 import Animated, {
   FadeIn,
@@ -158,7 +167,7 @@ export function SignInScreen({ notice }: { notice?: SignInNotice }) {
 
   const signIn = useEmailSignIn({ connect: setFinished, reduced });
   const { step } = signIn;
-  const emailInput = useRef<TextInput>(null);
+  const emailInput = useRef<TextInputInstance>(null);
   const codeInput = useRef<EmailCodeInputHandle>(null);
 
   // The scanner keeps its camera under the block until the block covers it again.
@@ -348,7 +357,6 @@ export function SignInScreen({ notice }: { notice?: SignInNotice }) {
       return Math.min(maxLift, Math.max(0, overlap));
     },
     (value) => lift.set(value),
-    [maxLift, viewportHeight],
   );
   useEffect(() => () => lift.set(0), [lift]);
   const liftStyle = useAnimatedStyle(() => ({ transform: [{ translateY: -lift.get() }] }));

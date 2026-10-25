@@ -1,4 +1,5 @@
 import type { ServerSummary } from "@openbot/contracts/ipc";
+import { BROWSER_PROFILES_CAPABILITY } from "@openbot/contracts/team-protocol/browser-profiles-v1";
 import { classifyFailure } from "@openbot/telemetry";
 import { SETTINGS_PANEL_DEFAULT, SETTINGS_PANEL_MAX } from "@openbot/ui/components/SettingsPanel";
 import type { AgentMessage } from "@openbot/ui/data";
@@ -14,15 +15,15 @@ import { actionToast } from "../../action-toast";
 import { toAgentMessages } from "../../app-message-projection";
 import { agentTemplatesPort } from "../agent-templates/agent-templates-port";
 import { createPublishAgent } from "../agent-templates/PublishAgent";
+import { desktopBrowserProfileCalls } from "../browser/browser-profiles-port";
 import type { AgentFilesOptions } from "../files/AgentFilesSettings";
 import { canManageStorage, serverHasStorage } from "../files/storage-usage";
-import { serverCanAdminister } from "../servers/server-capabilities";
+import { serverCanAdminister, serverSupportsCapability } from "../servers/server-capabilities";
 import { htmlAttachmentPageHtml, htmlAttachmentPageUrl } from "./chat-visual-url";
 import { useConversationController } from "./conversation-controller-context";
 import { conversationRuntime } from "./conversation-runtime";
 import { useConversationViewScope } from "./conversation-scope";
 import { agentSkillsMode } from "./installed-skills-source";
-import { filePreviewQuoteId } from "./quoted-text";
 import { desktopChatEventRoutinesApi } from "./routine-webhooks-api";
 
 const BROWSER_PANEL_DEFAULT_RATIO = 0.5;
@@ -86,9 +87,10 @@ export function ConversationPanels(panelProps: { onOpenUsage?: ((trigger: HTMLBu
     openSharedFile,
     previewAttachment,
     openSidebarFileExternally,
-    openWorkspaceFile,
     openWorkspaceFolder,
     openWorkspaceFolderEntry,
+    previewQuoteId,
+    previewWorkspaceAgentId,
     sidebarFileBack,
     openSidebarFileBack,
     props,
@@ -135,10 +137,22 @@ export function ConversationPanels(panelProps: { onOpenUsage?: ((trigger: HTMLBu
   );
   // This computer reads the skills of its own agents from the workspace. A joined host publishes its
   // own agents, for an owner or admin, when it serves `agent-publish-v1`.
+  // A remote agent's host resolves its settings, so the account defaults of this computer do not apply.
+  const localAgentDefaults = () => (props.server?.kind === "local" ? props.agentDefaults : undefined);
   const canPublish = () =>
     props.runtime
       ? props.runtime.admin !== undefined && serverCanAdminister(props.server, "agent-publish-v1")
       : props.server?.kind === "local";
+  // The web client asks the host directly; desktop goes through main for this computer and for a joined server.
+  // The calls follow the server id, so a new summary of the same server keeps the loaded profiles.
+  const browserProfileServerId = createMemo(() =>
+    props.server && serverSupportsCapability(props.server, BROWSER_PROFILES_CAPABILITY) ? props.server.id : undefined,
+  );
+  const browserProfileCalls = createMemo(() => {
+    if (props.runtime) return props.runtime.browserProfiles;
+    const serverId = browserProfileServerId();
+    return serverId === undefined ? undefined : desktopBrowserProfileCalls(serverId);
+  });
   let browserPreviewTrigger: HTMLButtonElement | undefined;
   /** The panes this chat can open. The web client has no Files pane, and a chat without a thread has no files. */
   const sidePanelPanes = createMemo((): SidePanelPane[] => [
@@ -293,13 +307,13 @@ export function ConversationPanels(panelProps: { onOpenUsage?: ((trigger: HTMLBu
                 onWidthChange={setBrowserPanelWidth}
                 onOpenLink={(url) => void openExternalMessageUrl(url)}
                 onOpenSharedFile={openSharedFile}
-                onOpenWorkspaceFile={file().directory ? openWorkspaceFolderEntry : openWorkspaceFile}
+                onOpenWorkspaceFile={previewWorkspaceAgentId() ? openWorkspaceFolderEntry : undefined}
                 onOpenWorkspaceFolder={openWorkspaceFolder}
                 onBack={sidebarFileBack() === null ? undefined : openSidebarFileBack}
                 sourceUrl={attached()?.previewUrl ?? null}
                 pageUrl={htmlAttachmentPageUrl(attached()) ?? file().preview?.pageUrl}
                 pageHtml={props.runtime?.visualPage ? htmlAttachmentPageHtml(attached(), file().preview) : undefined}
-                selectionQuoteId={filePreviewQuoteId(file())}
+                selectionQuoteId={previewQuoteId()}
                 onOpenExternally={openSidebarFileExternally}
                 onDownload={downloadSidebarFile}
                 /* A browser cannot show a file in the file manager. */
@@ -493,10 +507,11 @@ export function ConversationPanels(panelProps: { onOpenUsage?: ((trigger: HTMLBu
               busyMessageModeEditable={props.server?.kind === "local"}
               newChatEditable={props.server?.kind === "local"}
               quickAcknowledgementEditable={props.server?.kind === "local"}
-              taskLimitEditable={props.server?.kind === "local"}
+              taskLimitEditable={props.server?.kind === "local" || props.remoteTaskLimitLoaded === true}
               backupModelsEditable={props.server?.kind === "local" || props.remoteBackupModelsLoaded === true}
               usageLimited={props.usageLimited}
               defaultBusyMessageMode={props.defaultBusyMessageMode}
+              agentDefaults={localAgentDefaults()}
               memoryLimit={props.server?.kind === "local" ? props.agentMemoryLimit : undefined}
               agents={props.agents}
               onStartNewChat={props.onClearAgentContext}
@@ -543,6 +558,10 @@ export function ConversationPanels(panelProps: { onOpenUsage?: ((trigger: HTMLBu
               onConnectProvider={props.onConnectProvider}
               canConnectProvider={props.canConnectProvider}
               onManageProviders={props.onManageProviders}
+              browserProfileCalls={
+                serverCanAdminister(props.server, BROWSER_PROFILES_CAPABILITY) ? browserProfileCalls() : undefined
+              }
+              onManageBrowserProfiles={props.onManageBrowserProfiles}
               modelOptions={props.modelOptions}
               working={agentActivity() === "Working"}
               maxWidth={settingsMaxWidth}

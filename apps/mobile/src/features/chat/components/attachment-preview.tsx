@@ -26,7 +26,7 @@ const dimensionCache = createImageDimensionCache({
     const file = new File(Paths.cache, "chat-image-dimensions-v1.json");
     return file.exists ? file.textSync() : null;
   },
-  write: (text) => new File(Paths.cache, "chat-image-dimensions-v1.json").write(text),
+  write: (text) => new File(Paths.cache, "chat-image-dimensions-v1.json").writeSync(text),
 });
 
 export function rememberImageDimensions(id: string, dimensions: ImageDimensions) {
@@ -85,7 +85,7 @@ function keepImageFile(serverId: string, attachment: AttachmentSummary, data: Re
     const file = mediaFile(serverId, attachment);
     if (!file.exists || file.size !== attachment.size) {
       file.parentDirectory.create({ intermediates: true, idempotent: true });
-      file.write(data.base64, { encoding: "base64" });
+      file.writeSync(data.base64, { encoding: "base64" });
     }
     return file.uri;
   } catch {
@@ -142,7 +142,7 @@ export function useAttachmentFile(serverId: string, attachment: AttachmentSummar
       if (!result.data) throw new Error(t("mobile.chat.attachment.unavailable"));
       const name = attachment.name.replace(/[/\\\p{Cc}]/gu, "_");
       file = new File(Paths.cache, `${Date.now()}-${name}`);
-      file.write(result.data.base64, { encoding: "base64" });
+      file.writeSync(result.data.base64, { encoding: "base64" });
       await Sharing.shareAsync(file.uri, { mimeType: result.data.mimeType, dialogTitle: attachment.name });
     } catch (error) {
       void haptics.notification("error");
@@ -174,7 +174,7 @@ export function useAttachmentFile(serverId: string, attachment: AttachmentSummar
       // The photo library reads the type from the extension, so the file keeps one.
       const extension = attachmentFileExtension(attachment.name) ?? result.data.mimeType.split("/")[1] ?? "png";
       file = new File(Paths.cache, `${Date.now()}-download.${extension}`);
-      file.write(result.data.base64, { encoding: "base64" });
+      file.writeSync(result.data.base64, { encoding: "base64" });
       await MediaLibrary.Asset.create(file.uri);
       return true;
     } catch (error) {
@@ -217,7 +217,7 @@ export async function shareLocalAttachment(file: { name: string; mimeType: strin
     if (!uri) {
       if (!file.base64) throw new Error(t("mobile.chat.attachment.unavailable"));
       temporary = new File(Paths.cache, `${Date.now()}-${file.name.replace(/[/\\\p{Cc}]/gu, "_")}`);
-      temporary.write(file.base64, { encoding: "base64" });
+      temporary.writeSync(file.base64, { encoding: "base64" });
       uri = temporary.uri;
     }
     await Sharing.shareAsync(uri, { mimeType: file.mimeType, dialogTitle: file.name });

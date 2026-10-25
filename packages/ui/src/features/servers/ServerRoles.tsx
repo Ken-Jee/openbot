@@ -154,6 +154,59 @@ function AgentAccessRow(props: {
   );
 }
 
+/**
+ * The menu that gives one level to every agent of the open role. Its mark shows the level when all
+ * agents have the same one.
+ */
+function SetAllLevelsMenu(props: {
+  title: string;
+  levels: AgentAccessLevel[];
+  disabled: boolean;
+  mount: HTMLElement | undefined;
+  onChange: (level: AgentAccessLevel) => void;
+}) {
+  const { t } = useText();
+  const common = () => {
+    const [first] = props.levels;
+    return first !== undefined && props.levels.every((level) => level === first) ? first : undefined;
+  };
+  return (
+    <DropdownMenu.Root placement="bottom-end" gutter={4} modal={false}>
+      <DropdownMenu.Trigger
+        class={`${buttonVariants({ variant: "ghost", size: "sm" })} server-roles-member-trigger`}
+        disabled={props.disabled}
+        aria-label={t("server.roles.setAllLabel", { role: props.title })}
+      >
+        <span class="server-roles-member-summary">{t("server.roles.setAll")}</span>
+        <ChevronDown aria-hidden="true" />
+      </DropdownMenu.Trigger>
+      {/* A portal without a mount uses the document body. */}
+      <DropdownMenu.Portal mount={props.mount ?? document.body}>
+        <DropdownMenu.Content>
+          {/* With mixed levels no item is checked, so each choice is a change. */}
+          <DropdownMenu.RadioGroup
+            aria-label={t("server.roles.setAllLabel", { role: props.title })}
+            value={common() ?? ""}
+            onChange={(value: string) => {
+              const level = AGENT_ACCESS_LEVELS.find((item) => item === value);
+              if (level) props.onChange(level);
+            }}
+          >
+            <For each={[...AGENT_ACCESS_LEVELS]}>
+              {(level) => (
+                <DropdownMenu.RadioItem value={level}>
+                  <MenuMark on={common() === level} />
+                  {t(LEVEL_LABELS[level])}
+                </DropdownMenu.RadioItem>
+              )}
+            </For>
+          </DropdownMenu.RadioGroup>
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
+  );
+}
+
 /** The name field of a role. It saves on Enter or when it loses focus, not on each key. */
 function RoleNameField(props: { name: string; disabled: boolean; onRename: (name: string) => void }) {
   const { t } = useText();
@@ -190,8 +243,9 @@ export interface ServerRolesPanelProps {
   onCreate: () => void;
   onRename: (roleId: string, name: string) => void;
   onDelete: (roleId: string) => void;
-  onSetEveryoneLevel: (agentId: string, level: AgentAccessLevel) => void;
-  onSetRoleLevel: (roleId: string, agentId: string, level: AgentAccessLevel) => void;
+  /** Gives `level` to each agent of `agentIds`, in one save. */
+  onSetEveryoneLevel: (agentIds: readonly string[], level: AgentAccessLevel) => void;
+  onSetRoleLevel: (roleId: string, agentIds: readonly string[], level: AgentAccessLevel) => void;
 }
 
 /**
@@ -210,9 +264,25 @@ export function ServerRolesPanel(props: ServerRolesPanelProps) {
   const agentList = (
     title: string,
     level: (agentId: string) => AgentAccessLevel,
-    onChange: (agentId: string, level: AgentAccessLevel) => void,
+    onChange: (agentIds: readonly string[], level: AgentAccessLevel) => void,
   ) => (
-    <SettingsSection title={t("server.roles.agents")}>
+    <SettingsSection
+      title={t("server.roles.agents")}
+      actions={
+        props.agents.length > 1 ? (
+          <SetAllLevelsMenu
+            title={title}
+            levels={props.agents.map((agent) => level(agent.id))}
+            disabled={props.disabled}
+            mount={props.menuMount}
+            onChange={(next) => {
+              const changed = props.agents.filter((agent) => level(agent.id) !== next).map((agent) => agent.id);
+              if (changed.length > 0) onChange(changed, next);
+            }}
+          />
+        ) : undefined
+      }
+    >
       <ItemGroup class="settings-modal-card">
         <For
           each={props.agents}
@@ -233,7 +303,7 @@ export function ServerRolesPanel(props: ServerRolesPanelProps) {
               level={level(agent.id)}
               disabled={props.disabled}
               menuMount={props.menuMount}
-              onChange={(next) => onChange(agent.id, next)}
+              onChange={(next) => onChange([agent.id], next)}
             />
           )}
         </For>
@@ -321,7 +391,7 @@ export function ServerRolesPanel(props: ServerRolesPanelProps) {
             {agentList(
               role().name,
               (agentId) => roleLevel(role(), agentId),
-              (agentId, level) => props.onSetRoleLevel(role().id, agentId, level),
+              (agentIds, level) => props.onSetRoleLevel(role().id, agentIds, level),
             )}
           </>
         )}

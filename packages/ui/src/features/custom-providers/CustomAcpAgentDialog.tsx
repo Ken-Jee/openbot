@@ -44,6 +44,7 @@ const AGENT_ID_PLACEHOLDER = "my-agent";
 const COMMAND_PLACEHOLDER = "my-agent";
 const ARGS_PLACEHOLDER = "acp";
 const ENV_NAME_PLACEHOLDER = "NAME";
+const USAGE_PROMPT_PLACEHOLDER = "/usage";
 
 type EnvRow = CustomAcpAgentDraft["env"][number];
 
@@ -327,6 +328,27 @@ export function CustomAcpAgentDialog(props: CustomAcpAgentDialogProps) {
                     })
                   }
                 />
+
+                <Field
+                  label={t("customProvider.acp.usagePrompt")}
+                  description={t("customProvider.acp.usagePromptHint")}
+                  error={shown()?.usagePrompt}
+                >
+                  <Input
+                    class="custom-acp-code"
+                    value={draft.usagePrompt}
+                    onValueChange={(value) =>
+                      setDraft((state) => {
+                        state.usagePrompt = value;
+                      })
+                    }
+                    placeholder={USAGE_PROMPT_PLACEHOLDER}
+                    autocomplete="off"
+                    spellcheck={false}
+                    maxlength={CUSTOM_AGENT_LIMITS.usagePrompt}
+                    disabled={busy()}
+                  />
+                </Field>
 
                 <Show when={props.onCheck}>
                   {(runCheck) => (

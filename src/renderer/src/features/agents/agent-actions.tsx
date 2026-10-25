@@ -5,8 +5,9 @@ import { toast } from "@openbot/ui";
 import type { AgentProfile } from "@openbot/ui/data";
 import { AgentDeleteUndoToast, startUndoCountdown } from "@openbot/ui/features/agents/AgentDeleteUndoToast";
 import type { FirstAgentDraft } from "@openbot/ui/features/agents/FirstAgentSetup";
+import { duplicateSection as duplicateSectionWith } from "@openbot/ui/features/sidebar/duplicate-section";
 import { currentText } from "@openbot/ui/text";
-import { onCleanup } from "solid-js";
+import { createSignal, onCleanup } from "solid-js";
 import { actionToast } from "../../action-toast";
 import { desktopAnalytics } from "../../analytics";
 import { toAgentProfile, withoutAgent } from "../../app-message-projection";
@@ -69,9 +70,11 @@ const AgentActions = createSimpleContext({
     } = useAgents();
     const { initializeConversation, removeConversation } = useConversation();
     const { setActiveTurns, setFailedTurns, setQueues, setPendingPrompts } = useTurns();
-    const { setSidebarLayout, removePinnedSidebarItemEverywhere } = useSidebar();
+    const { sidebarLayout, setSidebarLayout, applySidebarLayoutAction, removePinnedSidebarItemEverywhere } =
+      useSidebar();
     const { clearDirectSelection } = useDirectMessages();
     const { selectAgent } = useNavigation();
+    const [duplicatingSectionIds, setDuplicatingSectionIds] = createSignal<Set<string>>(new Set());
 
     /** Asks the host for the agent. */
     function requestNewAgent(draft: NewAgentDraft) {
@@ -130,6 +133,16 @@ const AgentActions = createSimpleContext({
       setSettingsRequest({ agentId, nonce: Date.now() });
     }
 
+    /** Copies one agent into the roster and the layout, and leaves the selection alone. `null`: the scope ended. */
+    async function copyAgent(agentId: string) {
+      const result = await agentsPort().agent.duplicateAgent(agentId);
+      if (!scopeIsCurrent()) return null;
+      const profile = createStoredProfile(toAgentProfile(result.agent));
+      setAgentList((current) => [profile, ...current.filter((candidate) => candidate.id !== profile.id)]);
+      setSidebarLayout(result.layout);
+      return result;
+    }
+
     async function duplicateAgent(agentId: string): Promise<void> {
       if (agentSetupOpen() && creatingAgent()) return;
       if (!activeServerSupportsCapability("agent-duplication") || duplicatingAgentIds().has(agentId)) return;
@@ -137,11 +150,8 @@ const AgentActions = createSimpleContext({
       const properties = analyticsAgentProperties(agentId);
       setDuplicatingAgentIds((current) => new Set(current).add(agentId));
       try {
-        const result = await agentsPort().agent.duplicateAgent(agentId);
-        if (!scopeIsCurrent()) return;
-        const profile = createStoredProfile(toAgentProfile(result.agent));
-        setAgentList((current) => [profile, ...current.filter((candidate) => candidate.id !== profile.id)]);
-        setSidebarLayout(result.layout);
+        const result = await copyAgent(agentId);
+        if (!result) return;
         selectAgent(result.agent.id);
         analytics.track("agent_action", { action: "duplicate", result: "succeeded", ...(properties ?? {}) });
       } catch (error) {
@@ -163,6 +173,62 @@ const AgentActions = createSimpleContext({
         setDuplicatingAgentIds((current) => {
           const next = new Set(current);
           next.delete(agentId);
+          return next;
+        });
+      }
+    }
+
+    /** Copies a custom section and each of its agents. The user stays on the agent that is open. */
+    async function duplicateSection(sectionId: string): Promise<void> {
+      if (agentSetupOpen() && creatingAgent()) return;
+      if (!activeServerSupportsCapability("agent-duplication") || !activeServerSupportsCapability("sidebar-layout")) {
+        return;
+      }
+      if (duplicatingSectionIds().has(sectionId)) return;
+      setDuplicatingSectionIds((current) => new Set(current).add(sectionId));
+      try {
+        const hidden = userHiddenAgentIds();
+        await duplicateSectionWith(
+          {
+            layout: sidebarLayout(),
+            agentIds: agentList()
+              .filter((agent) => !hidden.has(agent.id))
+              .map((agent) => agent.id),
+            // The agent's own Duplicate item waits too: the host refuses a second copy of one agent.
+            duplicateAgent: async (agentId) => {
+              if (!scopeIsCurrent()) return null;
+              setDuplicatingAgentIds((current) => new Set(current).add(agentId));
+              try {
+                const result = await copyAgent(agentId);
+                return result && { agentId: result.agent.id, layout: result.layout };
+              } finally {
+                setDuplicatingAgentIds((current) => {
+                  const next = new Set(current);
+                  next.delete(agentId);
+                  return next;
+                });
+              }
+            },
+            // A server switch during the call ends the chain: the next call would reach the other server.
+            mutateLayout: async (action) => {
+              if (!scopeIsCurrent()) return null;
+              const layout = await applySidebarLayoutAction(action);
+              return scopeIsCurrent() ? layout : null;
+            },
+          },
+          sectionId,
+        );
+      } catch (error) {
+        const { t, errorMessage } = currentText();
+        actionToast.error(t("sidebar.section.duplicateTitle"), {
+          description: errorMessage(error, t("sidebar.section.duplicateFailed")),
+          report: { operation: "agent", source: "action", cause_code: classifyFailure(error) },
+        });
+        throw error;
+      } finally {
+        setDuplicatingSectionIds((current) => {
+          const next = new Set(current);
+          next.delete(sectionId);
           return next;
         });
       }
@@ -328,7 +394,16 @@ const AgentActions = createSimpleContext({
       }
     }
 
-    return { createAgent, createAgentInPlace, editAgent, duplicateAgent, deleteAgent, setAgentHiddenByUser };
+    return {
+      createAgent,
+      createAgentInPlace,
+      editAgent,
+      duplicateAgent,
+      duplicateSection,
+      duplicatingSectionIds,
+      deleteAgent,
+      setAgentHiddenByUser,
+    };
   },
 });
 

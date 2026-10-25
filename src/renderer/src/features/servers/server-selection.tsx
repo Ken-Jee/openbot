@@ -3,6 +3,7 @@ import { currentText } from "@openbot/ui/text";
 import { onSettled } from "solid-js";
 import { actionToast } from "../../action-toast";
 import { desktopAnalytics } from "../../analytics";
+import { usePlatform } from "../../platform";
 import { createSimpleContext } from "../../simple-context";
 import { useAgents } from "../agents/agents-context";
 import { useConversationController } from "../conversation/conversation-controller-context";
@@ -45,6 +46,7 @@ const ServerSelection = createSimpleContext({
     const { agentSetupOpen, creatingAgent } = useAgents();
     const { stopComposerTyping } = useConversationController();
     const { setDirectTyping } = useDirectMessages();
+    const { chatWindow } = usePlatform();
 
     async function selectServer(
       serverId: string,
@@ -52,6 +54,9 @@ const ServerSelection = createSimpleContext({
       recoverAuthoritativeServer = true,
     ): Promise<boolean> {
       if (agentSetupOpen() && creatingAgent()) return false;
+      // Main has one active server for the app. A chat window stays on its own server, so a switch
+      // from it would move the main window instead.
+      if (chatWindow) return false;
       const selectionIsCurrent = beginServerSelection();
       const analytics = desktopAnalytics.scope();
       const previousServerId = servers().find((server) => server.active)?.id;

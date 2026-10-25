@@ -91,10 +91,11 @@ export function connectorSummary(detail: ConnectorDetail, t: TextValue["t"]): Co
     case "bitwarden": {
       if (detail.props.statusError) return unknownSummary(t);
       const header = bitwardenStatus(detail.props);
+      const host = detail.props.hostName;
       return {
         status: header.status,
         statusLabel: t(header.label),
-        summary: t("connector.bitwarden.description"),
+        summary: host ? t("connector.bitwarden.descriptionHost", { host }) : t("connector.bitwarden.description"),
       };
     }
     case "slack":

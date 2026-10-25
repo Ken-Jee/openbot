@@ -5,7 +5,7 @@ import { BloubAvatarThumbnail } from "@/features/agents/components/bloub-avatar"
 import { ChatMarkdown } from "@/features/chat/components/chat-markdown";
 import { SettingsSection } from "@/features/settings/components/settings-content";
 import type { MobileAgent } from "@/features/workspace/model/workspace-types";
-import { MenuView } from "@/shared/components/menu-view";
+import { CoveringMenuView } from "@/shared/components/covering-menu-view";
 import { useText } from "@/shared/lib/text";
 
 type TaskCommand = (taskId: string, type: "resume" | "reassign", recipientAgentId?: string | null) => void;
@@ -93,8 +93,8 @@ function TaskActionCard({
             <Button.Label>{t("mobile.channel.task.resume")}</Button.Label>
           </Button>
           <View className="flex-1" pointerEvents={disabled || !members.length ? "none" : "auto"}>
-            <MenuView
-              style={{ flex: 1 }}
+            <CoveringMenuView
+              accessibilityLabel={t("mobile.channel.task.reassign")}
               actions={members.map((member) => ({ id: member.id, title: member.name, attributes: { disabled } }))}
               onPressAction={({ nativeEvent }) => {
                 if (!disabled && members.some((member) => member.id === nativeEvent.event))
@@ -110,7 +110,7 @@ function TaskActionCard({
               >
                 <Button.Label>{t("mobile.channel.task.reassign")}</Button.Label>
               </Button>
-            </MenuView>
+            </CoveringMenuView>
           </View>
         </View>
       </View>

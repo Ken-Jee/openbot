@@ -24,6 +24,8 @@ export const queryKeys = {
   accountSessions: (...scope: [QueryScope] | []) => ["account-sessions", ...(scope[0] ?? [])],
   hostedServerPlans: (...scope: [QueryScope] | []) => ["hosted-server-plans", ...(scope[0] ?? [])],
   agentTemplate: (apiUrl: string | null, templateId: string | null) => ["agent-template", apiUrl, templateId],
+  /** The public Marketplace catalog of one account service: a list read, or one listing. */
+  marketplace: (apiUrl: string | null, ...parts: (string | null)[]) => ["marketplace", apiUrl, ...parts],
 
   /** Every agent record. Without a scope, the records of all accounts and servers. */
   agentInfo: (

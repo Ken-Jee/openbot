@@ -291,6 +291,8 @@ export interface HostedServerCatalogPlan {
   memberLimit: number;
   relativeSpeed: number;
   prices: Record<BillingCurrency, Record<BillingInterval, number>>;
+  /** No new server can take this plan. Older account servers do not send it. */
+  soldOut?: boolean;
 }
 
 export interface HostedServerCatalog {
@@ -367,13 +369,15 @@ export function parseHostedServerCatalog(value: unknown): HostedServerCatalog | 
     }
     const prices = parsePlanPrices(entry.prices);
     if (!prices) continue;
-    plans.push({
+    const plan: HostedServerCatalogPlan = {
       id: entry.id,
       diskGb: entry.diskGb,
       memberLimit: entry.memberLimit,
       relativeSpeed: entry.relativeSpeed,
       prices,
-    });
+    };
+    if (entry.soldOut === true) plan.soldOut = true;
+    plans.push(plan);
   }
   return { plans };
 }

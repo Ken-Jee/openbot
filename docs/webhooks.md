@@ -37,6 +37,14 @@ change it back to **Webhook**, the routine gets a new URL and a new secret.
 The URL also changes when you sign in to a different OpenBot account on the host. The secret stays
 the same. Copy the new URL into the sending service.
 
+### Send a test event
+
+In the routine editor, select **Send test event**. The host makes an event that matches the event
+type and the filters, signs it with the routine secret, and receives it as it receives a relayed
+request. The event type is `openbot.test` when the routine accepts all types. The test shows in the
+history, and a match starts one run. A paused routine does not run. The test does not go through
+the relay, so it does not show whether a sender can reach the URL.
+
 ## Send a request
 
 Send a `POST` request with `Content-Type: application/json` to the routine URL. The body has this

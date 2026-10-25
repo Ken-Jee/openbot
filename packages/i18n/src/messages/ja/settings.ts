@@ -6,6 +6,14 @@ export const messages = {
   "settings.language.description": "メニュー、ボタン、メッセージをこの言語で表示します。",
   "settings.language.system": "システムに合わせる",
   "settings.appearance.title": "外観",
+  "settings.appearance.theme.title": "テーマ",
+  "settings.appearance.theme.description": "明るい色か暗い色。「システム」はデバイスの設定に合わせます。",
+  "settings.appearance.theme.system": "システム",
+  "settings.appearance.theme.light": "ライト",
+  "settings.appearance.theme.dark": "ダーク",
+  "settings.appearance.transparentWindow.title": "透明なウインドウ",
+  "settings.appearance.transparentWindow.description":
+    "ウインドウの後ろにぼかしたデスクトップを表示します。Webサイトとメニューもアプリのテーマになります。",
   "settings.interfaceSize.title": "インターフェイスのサイズ",
   "settings.interfaceSize.description": "OpenBot のテキストとコントロールのサイズです。",
   "settings.logoColor.title": "ロゴの色",
@@ -27,6 +35,11 @@ export const messages = {
   "settings.launchAtLogin.description": "このコンピューターにサインインするとアプリを開きます。",
   "settings.keepRunning.title": "OpenBot をバックグラウンドで実行し続ける",
   "settings.keepRunning.description": "ウィンドウを閉じたあとも実行中のタスクを続けます。",
+  "settings.keepAwake.title": "このコンピュータをスリープさせない",
+  "settings.keepAwake.description":
+    "電源に接続している間、ルーティンが予定どおりに実行されます。ディスプレイはオフになることがあります。",
+  "settings.keepAwakeOnBattery.title": "バッテリー駆動中も",
+  "settings.keepAwakeOnBattery.description": "バッテリー駆動中もスリープさせません。バッテリーの消耗が早くなります。",
   "settings.restoreWorkspace.title": "起動時に前回のワークスペースを復元する",
   "settings.restoreWorkspace.description": "前回のセッションのワークスペースとタスクを開きます。",
   "settings.externalLinks.title": "外部リンクの開き方",
@@ -38,6 +51,9 @@ export const messages = {
   "settings.sendShortcut.enter": "Enter で送信",
   "settings.sendShortcut.modEnterMac": "⌘Enter で送信",
   "settings.sendShortcut.modEnterWin": "Ctrl+Enter で送信",
+  "settings.showAgentSteps.title": "エージェントのステップを表示",
+  "settings.showAgentSteps.description":
+    "このデバイスとこのブラウザーで、各ターンの思考、ツールのステップ、メモリーの変更を既定で開きます。",
   "settings.busyMessage.title": "作業中のエージェントの方向を修正",
   "settings.busyMessage.description":
     "新しいメッセージはキューに入らず、エージェントの現在の作業に加わります。ChatGPT と Claude で使えます。",
@@ -190,6 +206,19 @@ export const messages = {
   "settings.mobileConnect.link.error.revoke": "永続リンクを取り消せませんでした。",
   "settings.mobileConnect.devices.title": "接続済みのデバイス",
   "settings.mobileConnect.devices.refreshing": "更新中…",
+  "settings.mobileConnect.route.title": "デバイスの接続方法",
+  "settings.mobileConnect.route.description":
+    "このコンピューターに接続するスマートフォン、ほかのコンピューター、チームメンバー向けです。",
+  "settings.mobileConnect.route.openbot.title": "OpenBot 経由",
+  "settings.mobileConnect.route.openbot.badge": "推奨",
+  "settings.mobileConnect.route.openbot.description":
+    "どのネットワークでも使えます。チャットとファイルはデバイス間で暗号化されます。",
+  "settings.mobileConnect.route.private.title": "プライベートネットワーク",
+  "settings.mobileConnect.route.private.tailscale": "Tailscale を検出",
+  "settings.mobileConnect.route.private.description":
+    "Tailscale またはこの Wi-Fi。デバイスのサインインは引き続き OpenBot で行います。チャットとファイルは OpenBot のサーバーを通らず、デバイスはそのネットワーク上でのみ接続します。",
+  "settings.mobileConnect.route.error.load": "デバイスの接続方法を読み込めませんでした。",
+  "settings.mobileConnect.route.error.save": "デバイスの接続方法を変更できませんでした。",
   "settings.mobileConnect.disconnectInfo.title": "デバイスの接続解除",
   "settings.mobileConnect.disconnectInfo.description":
     "アクセスはすぐに取り消されます。モバイルアプリは、再度開くかバックグラウンドから戻すまで現在の画面を表示し続けることがあります。",
@@ -400,6 +429,7 @@ export const messages = {
   "settings.hostedServers.deleteFailed": "サーバーを削除できませんでした。",
   "settings.hostedServers.plan.label": "プラン",
   "settings.hostedServers.plan.recommended": "おすすめ",
+  "settings.hostedServers.plan.soldOut": "売り切れ",
   "settings.hostedServers.plan.perMonth": "/ 月",
   "settings.hostedServers.plan.disk": "{count} GB のストレージ",
   "settings.hostedServers.plan.linux": "Linux マシン",

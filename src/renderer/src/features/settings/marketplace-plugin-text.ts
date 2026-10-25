@@ -1,9 +1,9 @@
+import type { McpConnectFlow } from "@openbot/contracts/mcp-connect-flows";
 import { type AppTextKey, type AppTranslate, translateFor } from "@openbot/i18n";
 import type {
   MarketplacePluginDetail,
   MarketplacePluginServer,
 } from "@openbot/ui/features/settings/marketplace-plugins";
-import type { McpConnectFlow } from "@openbot/ui/features/settings/mcp-connect-auth";
 
 /** The keys of one catalog listing's text. Apps and prompts go by their catalog id. */
 interface PluginTextKeys {

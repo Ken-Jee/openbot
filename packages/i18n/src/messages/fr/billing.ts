@@ -56,7 +56,6 @@ export const messages = {
   "billing.lifecycle.automatic": "Le renouvellement automatique reprend",
   "billing.lifecycle.noRefund": "Aucun remboursement du temps non utilisé",
   "billing.lifecycle.noRenewal": "Aucun autre renouvellement",
-  "billing.lifecycle.open": "Ouvrir l’aperçu de conception",
   "billing.lifecycle.dateUtc": "{date} UTC",
   "billing.lifecycle.renews": "Le renouvellement automatique est activé.",
   "billing.lifecycle.schedule": "Supprimer à la fin de la période",

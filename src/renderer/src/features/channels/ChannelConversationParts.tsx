@@ -29,6 +29,8 @@ export interface ChannelRoutineHost {
   eventsServerId: () => string | undefined;
   /** Whether the `eventsServerId` host has `routine-recovery-v1`. */
   routineRecovery: () => boolean;
+  /** Whether the `eventsServerId` host sends a test event to a webhook routine. */
+  webhookTests: () => boolean;
 }
 
 function useOpenChannel(channelId: string) {
@@ -176,7 +178,9 @@ export function ChannelSettingsPane(
     const serverId = props.routines.eventsServerId();
     const eventApi =
       runtime().eventRoutines ??
-      (serverId ? desktopEventRoutinesApi(serverId, props.routines.routineRecovery()) : undefined);
+      (serverId
+        ? desktopEventRoutinesApi(serverId, props.routines.routineRecovery(), props.routines.webhookTests())
+        : undefined);
     return eventApi ? eventRoutinesPort({ kind: "channel", id: props.channelId }, eventApi, legacy) : legacy;
   });
   // The settings rows show both counts before either view opens, so the pane loads them and follows

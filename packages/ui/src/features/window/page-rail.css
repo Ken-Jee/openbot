@@ -1,6 +1,8 @@
 /* The page rail at the left of the window, on desktop and on the web. The window styles place it in
- * the window grid. The window buttons of macOS sit at the top of the rail, in the top row. */
+ * the window grid. The window buttons of macOS sit at the top of the rail, in the top row. Other
+ * windows can show the OpenBot logo there. */
 .window-rail {
+  position: relative;
   display: flex;
   width: 52px;
   min-height: 0;
@@ -9,6 +11,37 @@
   align-items: center;
   padding: calc(var(--left-header-height, 38px) + var(--openbot-space-1)) 0 var(--openbot-space-3);
   -webkit-app-region: drag;
+}
+
+/* The logo has the size of a rail icon, in the column of the icons. Its top padding is the same as
+ * the top padding of `.sidebar-topbar`, so it is on the center line of the server logo. */
+.window-rail-logo {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  display: flex;
+  height: var(--left-header-height, 38px);
+  align-items: center;
+  justify-content: center;
+  padding-top: 2px;
+}
+
+.window-rail-logo .app-logo {
+  display: block;
+  width: var(--openbot-icon-lg);
+  height: var(--openbot-icon-lg);
+}
+
+.window-rail-logo-link {
+  display: flex;
+  border-radius: var(--openbot-radius-logo);
+  -webkit-app-region: no-drag;
+}
+
+.window-rail-logo-link:focus-visible {
+  outline: 0;
+  box-shadow: var(--openbot-focus-ring);
 }
 
 .window-rail-group {
@@ -121,4 +154,26 @@
 
 .window-rail-usage-arc[data-usage-tone="critical"] {
   stroke: var(--openbot-danger);
+}
+
+/* The usage of a custom agent: its logo with no ring, at the size of a rail icon. The hover card
+ * shows the answer of the agent as it wrote it. */
+.window-rail-button .window-rail-agent-usage-logo {
+  width: var(--openbot-icon-md);
+  height: var(--openbot-icon-md);
+}
+
+.window-rail-agent-usage {
+  display: grid;
+  padding-inline: var(--openbot-space-1);
+  gap: var(--openbot-space-1);
+}
+
+.window-rail-agent-usage-text {
+  margin: 0;
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+  line-height: var(--openbot-leading-sm);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }

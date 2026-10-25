@@ -22,7 +22,7 @@ export const messages = defineMessages("agentSettings", {
   "agentSettings.backupModels.intro":
     "When {model} reaches its usage limit before {name} starts to write, {name} asks you which model to use.",
   "agentSettings.backupModels.introAutomatic":
-    "When {model} reaches its usage limit before {name} starts to write, {name} switches to the first available model in the order.",
+    "When {model} reaches its usage limit or fails with a provider error before {name} starts to write, {name} switches to the first available model in the order.",
   "agentSettings.backupModels.ask": "Ask before switching",
   "agentSettings.backupModels.order": "Order",
   "agentSettings.backupModels.listLabel": "Backup models, in order",
@@ -35,7 +35,7 @@ export const messages = defineMessages("agentSettings", {
   "agentSettings.backupModels.unavailable": "Not available now · skipped",
   "agentSettings.backupModels.withAccount": "{model} · {account}",
   "agentSettings.backupModels.note":
-    "{name} never switches after it starts to write. It goes back to {model} when the limit ends.",
+    "{name} never switches after it starts to write. It goes back to {model} when the limit ends, or 10 minutes after a provider error.",
   "agentSettings.groups.brain": "Brain",
   "agentSettings.groups.knows": "Knows",
   "agentSettings.groups.does": "Does",
@@ -154,6 +154,15 @@ export const messages = defineMessages("agentSettings", {
   "agentSettings.quickAcknowledgement.title": "Show the plan before long tasks",
   "agentSettings.quickAcknowledgement.description":
     "Before a long task, the agent shows its plan. It starts after 10 s, or when you press Start.",
+  "agentSettings.browserProfile.label": "Browser profile",
+  "agentSettings.browserProfile.shared": "Shared",
+  "agentSettings.browserProfile.agent": "Only this agent",
+  "agentSettings.browserProfile.missing": "Deleted profile",
+  "agentSettings.browserProfile.new": "New profile",
+  "agentSettings.browserProfile.manageTitle": "Browser profiles",
+  "agentSettings.browserProfile.manageDescription":
+    "Each profile keeps its own sign-ins and cookies. A change closes the agent's open tabs.",
+  "agentSettings.browserProfile.manage": "Manage",
   "agentSettings.runtime.workspaceEnforcedProcess":
     "The whole {provider} process runs in a sandbox, so a write outside fails. Available on macOS only.",
 });

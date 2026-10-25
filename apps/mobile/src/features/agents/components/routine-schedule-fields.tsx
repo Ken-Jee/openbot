@@ -26,7 +26,6 @@ import { useText } from "@/shared/lib/text";
 import { RoutineTimePicker } from "./routine-schedule-time";
 
 const PROBLEM_TEXT = {
-  endBeforeStart: "mobile.agent.record.problem.endBeforeStart",
   invalidDate: "mobile.agent.record.problem.invalidDate",
   cronRequired: "mobile.agent.record.problem.cronRequired",
   cronTooLong: "mobile.agent.record.problem.cronTooLong",

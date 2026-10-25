@@ -2,7 +2,14 @@ import { BlurView } from "expo-blur";
 import { Typography } from "heroui-native";
 import Reply from "lucide-react-native/icons/reply";
 import { memo, useEffect, useId, useRef, useState } from "react";
-import { type ColorValue, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
+import {
+  type ColorValue,
+  ScrollView,
+  type ScrollViewInstance,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from "react-native";
 import Animated, {
   cancelAnimation,
   Easing,
@@ -160,7 +167,7 @@ function VoiceTranscript({
   topInset: number;
   bottomInset: number;
 }) {
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useRef<ScrollViewInstance>(null);
   const [reserve] = useState(createRevealQueue);
   // A word is known by its position: the recognizer corrects a word in place,
   // and only words at new positions come in.

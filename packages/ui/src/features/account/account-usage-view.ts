@@ -1,6 +1,7 @@
 import {
   type AccountUsage,
   type AccountUsageLimit,
+  type AccountUsageWindow,
   type AgentProviderId,
   agentProviderDescriptor,
   agentProviderName,
@@ -41,8 +42,13 @@ export interface AccountUsageProviderRow {
   /** The window that stops work first. The dock chip shows it. */
   remainingPercent: number | null;
   tone: AccountUsageTone;
-  /** Every reported window, the shortest first, so a weekly limit does not hide the 5-hour one. */
+  /**
+   * Every reported window, the shortest first, so a weekly limit does not hide the 5-hour one. For a
+   * provider that names quota groups, the windows of each group in the provider's order.
+   */
   windows: AccountUsageWindowRow[];
+  /** The reading's own windows, the shortest first. The rail ring shows them, not the quota groups. */
+  ringWindows: AccountUsageWindowRow[];
   /** `false` for a provider that has no usage reading, so a missing amount is not a failure. */
   reportsUsage: boolean;
 }
@@ -104,18 +110,48 @@ function usageRow(
   limit: AccountUsageLimit | null,
   text: UsageText,
 ): AccountUsageProviderRow {
-  const windows = (limit ? reportedUsageWindows(limit) : []).map((window): AccountUsageWindowRow => {
+  const windowRow = (window: AccountUsageWindow, label: string): AccountUsageWindowRow => {
     const remainingPercent = usageRemainingPercent(window.usedPercent);
     return {
-      label: usageWindowLabel(window.windowDurationMins, text),
+      label,
       remainingPercent,
       tone: usageTone(remainingPercent),
       resetsAt: window.resetsAt,
       resetsAtLabel: formatUsageReset(window.resetsAt, text),
     };
-  });
+  };
+  const ownWindows = (limit ? reportedUsageWindows(limit) : []).map((window) =>
+    windowRow(
+      window,
+      // Cursor's two windows share one billing cycle and differ by the models they cover. One
+      // window alone is the whole plan.
+      provider === "cursor" && limit?.primary && limit.secondary
+        ? text.t(window === limit?.primary ? "account.usage.window.cursorModels" : "account.usage.window.otherModels")
+        : usageWindowLabel(window.windowDurationMins, text),
+    ),
+  );
+  // Antigravity limits each group of models apart, such as Gemini 4 Argon: one line per group, by
+  // Google's name. The ring stays on the reading's own windows, the "Gemini Models" group.
+  const groups = limit?.groups ?? [];
+  const windows =
+    groups.length > 1
+      ? groups.flatMap((group) => {
+          const groupWindows = reportedUsageWindows(group);
+          return groupWindows.map((window) =>
+            windowRow(
+              window,
+              groupWindows.length > 1
+                ? text.t("account.usage.window.group", {
+                    group: group.name,
+                    window: usageWindowLabel(window.windowDurationMins, text),
+                  })
+                : group.name,
+            ),
+          );
+        })
+      : ownWindows;
   // The shortest window comes first, so on a tie the shorter window stops work first.
-  const binding = windows.reduce<AccountUsageWindowRow | null>(
+  const binding = ownWindows.reduce<AccountUsageWindowRow | null>(
     (lowest, window) => (lowest === null || window.remainingPercent < lowest.remainingPercent ? window : lowest),
     null,
   );
@@ -129,6 +165,7 @@ function usageRow(
     remainingPercent,
     tone: usageTone(remainingPercent),
     windows,
+    ringWindows: ownWindows,
     reportsUsage: agentProviderDescriptor(provider).reportsUsage,
   };
 }

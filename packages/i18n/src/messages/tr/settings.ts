@@ -6,6 +6,14 @@ export const messages = {
   "settings.language.description": "OpenBot menüleri, düğmeleri ve mesajları bu dilde gösterir.",
   "settings.language.system": "Sistem varsayılanı",
   "settings.appearance.title": "Görünüm",
+  "settings.appearance.theme.title": "Tema",
+  "settings.appearance.theme.description": "Açık veya koyu renkler. “Sistem”, cihazınızın ayarını izler.",
+  "settings.appearance.theme.system": "Sistem",
+  "settings.appearance.theme.light": "Açık",
+  "settings.appearance.theme.dark": "Koyu",
+  "settings.appearance.transparentWindow.title": "Saydam pencere",
+  "settings.appearance.transparentWindow.description":
+    "Pencerenin arkasında bulanık masaüstünü gösterir. Siteler ve menüler bu durumda uygulama temasını kullanır.",
   "settings.interfaceSize.title": "Arayüz boyutu",
   "settings.interfaceSize.description": "OpenBot'taki metin ve denetimlerin boyutu.",
   "settings.logoColor.title": "Logo rengi",
@@ -27,6 +35,11 @@ export const messages = {
   "settings.launchAtLogin.description": "Bu bilgisayarda oturum açtığınızda uygulamayı açın.",
   "settings.keepRunning.title": "OpenBot'u arka planda çalışır durumda tut",
   "settings.keepRunning.description": "Pencereyi kapattıktan sonra etkin görevleri çalıştırmaya devam edin.",
+  "settings.keepAwake.title": "Bilgisayarı uyanık tut",
+  "settings.keepAwake.description":
+    "Bilgisayar prize takılıyken rutinler zamanında çalışır. Ekran yine de kapanabilir.",
+  "settings.keepAwakeOnBattery.title": "Pildeyken de",
+  "settings.keepAwakeOnBattery.description": "Bilgisayarı pildeyken de uyanık tut. Pil daha hızlı biter.",
   "settings.restoreWorkspace.title": "Başlangıçta son çalışma alanını geri yükle",
   "settings.restoreWorkspace.description": "Önceki oturumunuzdaki çalışma alanını ve görevleri açın.",
   "settings.externalLinks.title": "Harici bağlantıları şurada aç",
@@ -38,6 +51,9 @@ export const messages = {
   "settings.sendShortcut.enter": "Göndermek için Enter",
   "settings.sendShortcut.modEnterMac": "Göndermek için ⌘Enter",
   "settings.sendShortcut.modEnterWin": "Göndermek için Ctrl+Enter",
+  "settings.showAgentSteps.title": "Ajan adımlarını göster",
+  "settings.showAgentSteps.description":
+    "Bu cihazda ve tarayıcıda her turun düşünme sürecini, araç adımlarını ve bellek değişikliklerini varsayılan olarak açar.",
   "settings.busyMessage.title": "Ajanları çalışırken yönlendir",
   "settings.busyMessage.description":
     "Yeni mesajlar kuyruğa değil, ajanın mevcut işine eklenir. ChatGPT ve Claude ile çalışır.",
@@ -191,6 +207,19 @@ export const messages = {
   "settings.mobileConnect.link.error.revoke": "Kalıcı bağlantı iptal edilemedi.",
   "settings.mobileConnect.devices.title": "Bağlı cihazlar",
   "settings.mobileConnect.devices.refreshing": "Yenileniyor…",
+  "settings.mobileConnect.route.title": "Cihazlar nasıl bağlanır",
+  "settings.mobileConnect.route.description":
+    "Bu bilgisayara bağlanan telefonlar, diğer bilgisayarlar ve ekip üyeleri için.",
+  "settings.mobileConnect.route.openbot.title": "OpenBot üzerinden",
+  "settings.mobileConnect.route.openbot.badge": "Önerilen",
+  "settings.mobileConnect.route.openbot.description":
+    "Her ağda çalışır. Sohbetler ve dosyalar cihazlarınız arasında şifrelenir.",
+  "settings.mobileConnect.route.private.title": "Özel ağ",
+  "settings.mobileConnect.route.private.tailscale": "Tailscale bulundu",
+  "settings.mobileConnect.route.private.description":
+    "Tailscale veya bu Wi-Fi. Cihazlar yine OpenBot ile oturum açar. Sohbetler ve dosyalar asla OpenBot sunucularından geçmez ve cihazlar yalnızca o ağda bağlanır.",
+  "settings.mobileConnect.route.error.load": "Cihazların nasıl bağlandığı yüklenemedi.",
+  "settings.mobileConnect.route.error.save": "Cihazların nasıl bağlandığı değiştirilemedi.",
   "settings.mobileConnect.disconnectInfo.title": "Bir cihazın bağlantısını kesme",
   "settings.mobileConnect.disconnectInfo.description":
     "Erişim hemen iptal edilir. Mobil uygulama yeniden açılana veya arka plandan geri getirilene kadar mevcut ekranını göstermeye devam edebilir.",
@@ -404,6 +433,7 @@ export const messages = {
   "settings.hostedServers.deleteFailed": "Sunucu silinemedi.",
   "settings.hostedServers.plan.label": "Plan",
   "settings.hostedServers.plan.recommended": "En avantajlı",
+  "settings.hostedServers.plan.soldOut": "Tükendi",
   "settings.hostedServers.plan.perMonth": "/ ay",
   "settings.hostedServers.plan.disk": "{count} GB depolama",
   "settings.hostedServers.plan.linux": "Linux makinesi",

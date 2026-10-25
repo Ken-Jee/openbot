@@ -5,7 +5,7 @@ import { BrowserWindow, type Session, type WebContents, type WebContentsView, we
 import type { BrowserCdpEngine } from "./browser-cdp";
 import type { BrowserDiagnostics } from "./browser-diagnostics";
 import type { BrowserOperationError } from "./browser-effects";
-import { isPersistableBrowserUrl } from "./browser-state";
+import { type BrowserTabSession, isPersistableBrowserUrl } from "./browser-state";
 
 /**
  * One tab as `BrowserHost` holds it. The host owns every tab and its lifecycle; the tab operations in
@@ -35,10 +35,21 @@ export interface BrowserHostTab {
    */
   secretDocument?: boolean;
   /**
+   * `fill_card` typed a saved card into the current document. Its fields show the number and the
+   * security code, and page code can read them, so screenshots, previews, evaluation and recording
+   * stay blocked until a main-frame navigation replaces the document.
+   */
+  filledCard?: boolean;
+  /**
    * A session of this tab and its popups only, kept in memory: a sign-in page that the host opened
    * for someone else. Such a tab is not saved, and its cookies go when it closes.
    */
   privateSession?: Session;
+  /**
+   * The persistent session this tab and its popups use: the agent's own session or a named profile.
+   * Absent: the shared session. Fixed for the life of the tab.
+   */
+  tabSession?: BrowserTabSession;
   popup: boolean;
   popupFailure?: BrowserTab["popupFailure"];
   closing?: boolean;

@@ -7,6 +7,7 @@ import {
   type BrowserDockPresentation,
   type BrowserDockSkill,
   type BrowserTab,
+  isBrowserDockIsland,
 } from "@openbot/contracts/ipc";
 import { BROWSER_USER_CONTROL_CAPABILITY } from "@openbot/contracts/team-protocol/browser-user-control-v1";
 import type { ComposerAgent, ComposerMcpServer, ComposerSkill } from "@openbot/ui/data";
@@ -75,14 +76,42 @@ export function BrowserDockAdapter(adapterProps: { tab: BrowserTab | undefined; 
     const request = props.browserTakeover;
     return request && request.tabId === adapterProps.tab?.id ? request : undefined;
   };
-  /** One open question with no choices is answered from the field. Others need the chat. */
-  const question = () => {
+  /**
+   * The cards that the user answered. A card goes from the dock at once, and the dock shows the agent's work.
+   * When the answer fails, the card shows again as a new `attempt`.
+   */
+  const [answered, setAnswered] = createSignal<ReadonlySet<string>>(new Set());
+  const [attempt, setAttempt] = createSignal(0);
+  /**
+   * One open question with no choices is answered from the field. Other questions show as a card over the
+   * page. A secret answer, a card of the agent's own design, and a card that main would refuse need the chat.
+   */
+  const question = createMemo(() => {
     const prompt = props.prompt;
     if (!prompt || prompt.agentId !== props.agent?.id || prompt.questions.length === 0) return undefined;
+    if (answered().has(promptCardKey(prompt))) return undefined;
     const [first] = prompt.questions;
     const fromField = prompt.questions.length === 1 && first && first.options === null && !first.isSecret;
-    return { prompt, first: fromField ? first : undefined };
-  };
+    const card: BrowserIslandContent = {
+      kind: "prompt",
+      requestId: prompt.requestId,
+      questions: prompt.questions,
+      attempt: attempt(),
+    };
+    const inDock =
+      !fromField &&
+      !props.promptUiBlock &&
+      prompt.questions.every((entry) => !entry.isSecret) &&
+      isBrowserDockIsland(card);
+    return { prompt, first: fromField ? first : undefined, card: inDock ? card : undefined };
+  });
+  const approval = createMemo(() => {
+    const current = props.approval;
+    if (!current || current.agentId !== props.agent?.id) return undefined;
+    if (answered().has(approvalCardKey(current))) return undefined;
+    const card: BrowserIslandContent = { kind: "approval", approval: current, attempt: attempt() };
+    return isBrowserDockIsland(card) ? card : undefined;
+  });
   const reply = createMemo(() => {
     const agentId = props.agent?.id;
     const marker = agentId ? openedAfter().get(agentId) : undefined;
@@ -104,7 +133,10 @@ export function BrowserDockAdapter(adapterProps: { tab: BrowserTab | undefined; 
     if (request?.secret) return { kind: "secret", request };
     if (request) return { kind: "activity", control: "request" };
     if (adapterProps.tab?.userControl) return { kind: "activity", control: "user" };
+    const approvalCard = approval();
+    if (approvalCard) return approvalCard;
     const asked = question();
+    if (asked?.card) return asked.card;
     if (asked) {
       const id = `prompt:${asked.prompt.requestId}`;
       const body = asked.prompt.questions.map((entry) => entry.question).join("\n\n");
@@ -164,12 +196,66 @@ export function BrowserDockAdapter(adapterProps: { tab: BrowserTab | undefined; 
       // The user can select the tab of another agent before the answer arrives: clear the draft of this one.
       const target = currentTarget();
       const draft = currentDraft();
-      void props.onAnswerPrompt({ [asked.first.id]: [answer] }).then((answered) => {
-        if (answered && target) clearSubmittedDraft(target, { ...draft, attachments: [] });
+      const prompt = asked.prompt;
+      void props.onAnswerPrompt({ [asked.first.id]: [answer] }).then((done) => {
+        if (!done) return;
+        presentResolution(prompt);
+        if (target) clearSubmittedDraft(target, { ...draft, attachments: [] });
       });
       return;
     }
     void submitComposer();
+  }
+
+  /** Answers the card on the page. An answer for a card that has gone does nothing. */
+  async function answerPrompt(requestId: string | number, answers: Record<string, string[]>): Promise<boolean> {
+    const asked = question();
+    if (asked?.card?.kind !== "prompt" || String(asked.prompt.requestId) !== String(requestId)) return false;
+    const prompt = asked.prompt;
+    const done = await sendAnswer(promptCardKey(prompt), () => props.onAnswerPrompt(answers));
+    if (done) presentResolution(prompt);
+    return done;
+  }
+
+  async function respondApproval(requestId: string | number, decision: "accept" | "decline"): Promise<boolean> {
+    const current = approval();
+    if (current?.kind !== "approval" || String(current.approval.requestId) !== String(requestId)) return false;
+    const key = approvalCardKey(current.approval);
+    const done = await sendAnswer(key, () => props.onRespondToApproval(decision));
+    // The approval has gone from the turns, and the agent can use its request id again.
+    if (done) forgetAnswered(key);
+    return done;
+  }
+
+  /**
+   * The chat shows the answer of its own card, then marks the prompt as done. The dock card has gone, so it
+   * marks it at once: the chat must not show the card again.
+   */
+  function presentResolution(prompt: NonNullable<typeof props.prompt>) {
+    props.onPromptResolutionPresented?.(prompt.agentId, prompt.turnId, prompt.requestId);
+  }
+
+  function forgetAnswered(key: string) {
+    setAnswered((keys) => {
+      const next = new Set(keys);
+      next.delete(key);
+      return next;
+    });
+  }
+
+  /** Removes the card while its answer goes to the agent, and shows it again when the answer fails. */
+  async function sendAnswer(key: string, respond: () => Promise<boolean>): Promise<boolean> {
+    setAnswered((keys) => new Set(keys).add(key));
+    let done = false;
+    try {
+      done = await respond();
+      return done;
+    } finally {
+      if (!done) {
+        forgetAnswered(key);
+        setAttempt((value) => value + 1);
+      }
+    }
   }
 
   /** The overlay's field: a revision changes only for a draft that did not come from the overlay. */
@@ -258,6 +344,12 @@ export function BrowserDockAdapter(adapterProps: { tab: BrowserTab | undefined; 
       case "dismiss-reply":
         dismissReply(action.id);
         return;
+      case "answer-prompt":
+        void answerPrompt(action.requestId, action.answers);
+        return;
+      case "respond-approval":
+        void respondApproval(action.requestId, action.decision);
+        return;
       case "open-chat":
         setActiveRightPanel("browser");
         return;
@@ -318,7 +410,10 @@ export function BrowserDockAdapter(adapterProps: { tab: BrowserTab | undefined; 
             onCancelEdit={() => void cancelQueuedMessageEdit()}
             onReorder={reorderPresentedQueue}
             onHandoff={onHandoff()}
+            vaultSave={props.server?.kind === "local"}
             onRespondSecret={(input) => conversationRuntime(props).agent.respondToBrowserSecret(input)}
+            onAnswerPrompt={answerPrompt}
+            onRespondApproval={respondApproval}
             onDismissReply={dismissReply}
             onOpenChat={() => setActiveRightPanel("browser")}
             onSelectAgent={props.onSelectAgent}
@@ -328,6 +423,15 @@ export function BrowserDockAdapter(adapterProps: { tab: BrowserTab | undefined; 
       }}
     </Show>
   );
+}
+
+/** The request ids count per agent process, so the key also has the agent and the turn. */
+function promptCardKey(prompt: { agentId: string; turnId: string; requestId: string | number }): string {
+  return JSON.stringify(["prompt", prompt.agentId, prompt.turnId, String(prompt.requestId)]);
+}
+
+function approvalCardKey(approval: { agentId: string; requestId: string | number }): string {
+  return JSON.stringify(["approval", approval.agentId, String(approval.requestId)]);
 }
 
 /** Main refuses a whole presentation with a field over its limit, so a long step or reply is cut here. */

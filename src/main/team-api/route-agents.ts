@@ -296,11 +296,12 @@ export async function routeAgents(
     const requestId = promptRequestId(body.requestId);
     requireRequestAgent(agents.agentIdForRequest(requestId));
     await runCauseEffect(
-      agents.respondToApproval({
-        requestId,
-        decision: approvalDecision(body.decision),
-      }),
-    ).catch(inactiveAsConflict);
+      agents.respondToApproval(
+        { requestId, decision: approvalDecision(body.decision) },
+        // Some approvals let agents use what is the owner's alone, such as a saved card.
+        { owner: member.role === "owner" },
+      ),
+    ).catch(refusedPromptAnswer);
     return empty(204);
   }
   if (method === "POST" && url.pathname === BROWSER_SECRET_RESPONSE_PATH) {
@@ -358,7 +359,7 @@ function inactiveAsConflict(error: unknown): never {
   throw error;
 }
 
-/** As `inactiveAsConflict`, and a member's answer that only the owner or an admin may give is forbidden. */
+/** As `inactiveAsConflict`, and an answer that the member's role may not give is forbidden. */
 function refusedPromptAnswer(error: unknown): never {
   if (error instanceof ForbiddenAttentionAnswer) throw new HttpError(403, error.message);
   return inactiveAsConflict(error);

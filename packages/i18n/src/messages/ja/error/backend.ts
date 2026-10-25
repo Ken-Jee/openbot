@@ -47,6 +47,9 @@ export const messages = {
     "このブラウザーのタブはシークレットを待っています。先にシークレットの要求に応答してください。",
   "error.backend.browserUserControlUnsupported":
     "このリモートホストは、ブラウザーのタブの操作の引き継ぎに対応していません。",
+  "error.backend.browserSignInUnsupported": "このリモートホストはこのコンピューターからのサインインを受け取れません。",
+  "error.backend.browserSignInOpenFailed": "OpenBot はサインインウィンドウを開けませんでした。",
+  "error.backend.browserSignInReadFailed": "OpenBot はウィンドウからサインインを読み取れませんでした。",
   "error.backend.browserStopUnsupported": "このリモートホストはページの読み込みを停止できません。",
   "error.backend.sharedDataLocalOnly": "共有データは、これらのエージェントを実行しているコンピューターで管理されます。",
   "error.backend.browserUrlProtocol": "HTTP(S) のブラウザー URL のみ使用できます。",
@@ -70,6 +73,11 @@ export const messages = {
   "error.backend.channelRoutingTooLong":
     "この依頼はルーティングのコンテキスト上限を超えています。メンバーを選択するか、短い依頼を送信してください。",
   "error.backend.channelTaskMemberRequired": "このタスクのメンバーを選択してください。",
+  "error.backend.channelRoutingFailed": "ルーティングに失敗しました。メンバーを選択するか、もう一度お試しください。",
+  "error.backend.channelLeadTimedOut":
+    "チャンネルリードが時間内に応答しませんでした。メンバーを選択するか、もう一度お試しください。",
+  "error.backend.channelLeadFailed":
+    "チャンネルリードがこのメッセージをルーティングできませんでした。メンバーを選択するか、もう一度お試しください。",
   "error.backend.channelRequestMemberRequired": "この依頼のメンバーを選択してください。",
   "error.backend.channelDeliveryNotCreated": "チャンネルへの配信を作成できませんでした。",
   "error.backend.channelAssignmentStopped": "このチャンネルの割り当ては停止されたか、置き換えられました。",
@@ -268,11 +276,20 @@ export const messages = {
   "error.backend.approvalInactive": "この承認はもう有効ではありません。",
   "error.backend.takeoverInactive": "このブラウザーの操作引き継ぎはもう有効ではありません。",
   "error.backend.authSubmitting": "認証の送信はすでに実行中です。",
+  "error.backend.apiKeySaveFailed": "API キーを保存できませんでした。もう一度お試しください。",
+  "error.backend.apiKeyNotAllowed": "API キーを入力できるのはサーバーの所有者か管理者だけです。",
+  "error.backend.apiKeySaving": "API キーはすでに保存中です。",
   "error.backend.authRequestInactive": "この安全な認証要求はもう有効ではありません。",
   "error.backend.secureAuthUnavailable": "安全な認証を使用できません。",
   "error.backend.browserUrlRequired": "ブラウザーの URL が必要です。",
   "error.backend.browserUrlTooLong": "ブラウザーの URL が長すぎます。",
   "error.backend.browserTabLimit": "ブラウザーで開けるタブは {limit} 個までです。",
+  "error.backend.browserProfileMissing":
+    "このエージェントのブラウザープロファイルはもうありません。エージェントの設定で別のプロファイルを選んでください。",
+  "error.backend.browserProfileNotFound": "このブラウザープロファイルはもうありません。",
+  "error.backend.browserProfileNameTaken": "この名前のブラウザープロファイルはすでにあります。",
+  "error.backend.browserSessionInUse": "このブラウザーセッションはまだタブで使われています。もう一度お試しください。",
+  "error.backend.browserProfileLimit": "ブラウザープロファイルは {limit} 個まで作成できます。",
   "error.backend.browserLowMemory":
     "このサーバーはメモリーが不足しているため、ブラウザーで新しいタブを開けません。タブを閉じるか、ほかのエージェントの作業が終わるまでお待ちください。",
   "error.backend.browserOpenFailed": "{url} を開けません: {reason}",

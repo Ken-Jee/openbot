@@ -13,6 +13,7 @@ const goose: CustomAcpAgentDraft = {
   command: "goose",
   args: "acp",
   env: [{ name: "GOOSE_PROVIDER", value: "ollama" }],
+  usagePrompt: "",
 };
 
 const args: Parameters<typeof CustomAcpAgentDialog>[0] = {
@@ -50,6 +51,7 @@ export const AgentEdit: Story = {
       args: ["acp"],
       envNames: ["GOOSE_PROVIDER", "OPENAI_API_KEY"],
       resolvedCommand: "/opt/homebrew/bin/goose",
+      usagePrompt: "/usage",
     }),
   },
 };

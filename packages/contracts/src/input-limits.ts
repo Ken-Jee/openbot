@@ -38,6 +38,8 @@ export const INPUT_LIMITS = {
   routineRunsPage: 100,
   // Handoffs inside one routine. A flow wider than this is no longer readable on one canvas.
   routineFlowLinks: 50,
+  // The reason an agent gives when it reports that its routine run failed.
+  routineFailureReason: 500,
   // Open waits of one agent. A wait is a request the agent has not finished, and more than this many
   // at once is a loop that opens waits, not work.
   agentWaits: 20,

@@ -9,6 +9,7 @@ export const messages = {
   "error.team.identityCreateFailed": "Não foi possível criar a identidade da equipe.",
   "error.team.accountChangedDuringCreate": "A conta conectada mudou durante a criação deste servidor.",
   "error.team.notConfigured": "Este OpenBot não foi configurado.",
+  "error.team.keyRotationMissing": "Nenhuma alteração de chave do servidor está pendente.",
   "error.team.serverNotActive": "Este servidor não é mais o servidor ativo da conta conectada.",
   "error.team.logoInvalid": "Escolha uma imagem PNG, JPEG ou WebP válida de até 512 KB.",
   "error.team.ownerMembershipConflict":
@@ -91,6 +92,7 @@ export const messages = {
   "error.team.hostTimezoneUnsupported": "Esta conexão não oferece suporte ao fuso horário do servidor.",
   "error.team.routineResultsUnsupported": "Esta conexão não oferece suporte a destinos de rotinas.",
   "error.team.agentMemoryLimitUnsupported": "Esta conexão não oferece suporte ao limite de memórias dos agentes.",
+  "error.team.promptCacheTtlUnsupported": "Esta conexão não oferece suporte à duração do cache de prompts.",
   "error.team.attachmentNameRequired": "É necessário informar um nome seguro para o anexo.",
   "error.team.attachmentNotFound": "Anexo não encontrado.",
   "error.team.sharedFileTooLarge": "O arquivo compartilhado excede o limite de 100 MB.",

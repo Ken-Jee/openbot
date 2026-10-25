@@ -272,6 +272,8 @@ export const messages = {
     "Um ID de agente deve conter letras minúsculas, dígitos ou `-`, e não pode ser o ID de um provedor integrado.",
   "error.provider.customAgentEnvInvalid":
     "Um nome de variável deve conter letras, dígitos ou `_` e não pode começar com um dígito. Use cada nome uma única vez, com no máximo 16 nomes.",
+  "error.provider.customAgentUsagePromptInvalid":
+    "Um comando de uso deve ser uma única linha com no máximo 256 caracteres.",
   "error.provider.customAgentCommandInvalid":
     "O comando deve ser um caminho completo, um caminho que comece com ~/ ou um nome de comando sem espaços.",
   "error.provider.customAgentArgsInvalid":
@@ -304,6 +306,8 @@ export const messages = {
   "error.provider.useChangeFailed": "O OpenBot não conseguiu mudar a configuração do provedor.",
   "error.provider.accountsUnsupported": "{provider} aceita apenas uma conta.",
   "error.provider.accountNeedsConnection": "Conecte {provider} antes de adicionar outra conta.",
+  "error.provider.usageResetUnsupported": "{provider} não pode redefinir limites de uso.",
+  "error.provider.usageResetNotConnected": "Entre novamente nesta conta do {provider} antes de redefinir o uso dela.",
   "error.provider.accountLimit": "{provider} aceita no máximo {limit} contas.",
   "error.provider.accountNotFound": "Esta conta de {provider} não está neste computador. Atualize e tente novamente.",
   "error.provider.accountAlreadyAdded": "Esta conta de {provider} já está conectada.",

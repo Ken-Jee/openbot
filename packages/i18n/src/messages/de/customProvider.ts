@@ -158,6 +158,9 @@ export const messages = {
   "customProvider.acp.args": "Argumente",
   "customProvider.acp.argsHint":
     "Trenne Argumente mit Leerzeichen. Setze Argumente mit Leerzeichen in Anführungszeichen.",
+  "customProvider.acp.usagePrompt": "Nutzungsbefehl",
+  "customProvider.acp.usagePromptHint":
+    "OpenBot sendet ihn höchstens alle 5 Minuten und zeigt die letzte Antwort an. Verwende einen Befehl, den der Agent selbst beantwortet, etwa /usage.",
   "customProvider.acp.env": "Umgebungsvariablen",
   "customProvider.acp.env.name": "Name von Variable {number}",
   "customProvider.acp.env.value": "Wert von Variable {number}",
@@ -190,6 +193,7 @@ export const messages = {
   "customProvider.acp.error.envDuplicate": "Dieser Agent legt {name} bereits fest.",
   "customProvider.acp.error.envValueRequired": "Gib einen Wert für diese Variable ein.",
   "customProvider.acp.error.envValueLength": "Der Wert muss kürzer als {max} Zeichen sein.",
+  "customProvider.acp.error.usagePromptInvalid": "Verwende eine Zeile mit höchstens {max} Zeichen.",
   "customProvider.acp.error.agentIdPattern":
     "Verwende Kleinbuchstaben, Zahlen oder Bindestriche. Beginne mit einem Buchstaben oder einer Zahl. Verwende höchstens 40 Zeichen.",
   "customProvider.agents.title": "Eigene Agenten",

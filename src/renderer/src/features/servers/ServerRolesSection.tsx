@@ -189,14 +189,14 @@ export function createServerRolesSection(host: ServerSettingsSectionHost, visibl
                   () => setPage({ kind: "list" }),
                 )
               }
-              onSetEveryoneLevel={(agentId, level) =>
+              onSetEveryoneLevel={(agentIds, level) =>
                 save((change) => {
-                  change.everyone[agentId] = level;
+                  for (const agentId of agentIds) change.everyone[agentId] = level;
                 })
               }
-              onSetRoleLevel={(roleId, agentId, level) =>
+              onSetRoleLevel={(roleId, agentIds, level) =>
                 editRole(roleId, (role) => {
-                  role.agents[agentId] = level;
+                  for (const agentId of agentIds) role.agents[agentId] = level;
                 })
               }
             />

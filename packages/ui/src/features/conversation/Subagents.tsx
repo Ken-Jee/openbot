@@ -58,7 +58,8 @@ function elapsedMs(subagent: ConversationSubagent, now: number): number {
   return timeOf(subagent.endedAt, now) - timeOf(subagent.startedAt, now);
 }
 
-function useDuration() {
+/** "12s" or "1m 05s": the time of a subagent, or of a turn in its steps row. */
+export function useDuration() {
   const { t } = useText();
   return (ms: number) => {
     const total = Math.max(0, Math.floor(ms / 1_000));

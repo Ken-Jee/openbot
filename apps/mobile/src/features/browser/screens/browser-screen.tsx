@@ -16,9 +16,9 @@ import Plus from "lucide-react-native/icons/plus";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import {
   ActionSheetIOS,
-  type NativeSyntheticEvent,
   TextInput,
-  type TextInputKeyPressEventData,
+  type TextInputInstance,
+  type TextInputKeyPressEvent,
   View,
   type ViewStyle,
 } from "react-native";
@@ -162,7 +162,7 @@ function BrowserView({
   );
   const [mode, setMode] = useState<LiveViewMode>(rememberedMode);
   const stage = useRef<BrowserLiveStageHandle>(null);
-  const keyboardField = useRef<TextInput>(null);
+  const keyboardField = useRef<TextInputInstance>(null);
   const typed = useRef("");
   const [keyboardShown, setKeyboardShown] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -773,7 +773,7 @@ function BrowserView({
             typed.current = "";
           }
         }}
-        onKeyPress={(event: NativeSyntheticEvent<TextInputKeyPressEventData>) => {
+        onKeyPress={(event: TextInputKeyPressEvent) => {
           // Backspace in an empty field changes no text, so the change handler never hears it.
           if (event.nativeEvent.key === "Backspace" && typed.current === "") sendKeys(namedKeyInputs("Backspace"));
         }}

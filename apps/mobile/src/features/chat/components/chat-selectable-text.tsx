@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { type ColorValue, TextInput, useWindowDimensions } from "react-native";
+import { type ColorValue, TextInput, type TextInputInstance, useWindowDimensions } from "react-native";
 import { isIOS } from "@/shared/lib/platform";
 import { useText } from "@/shared/lib/text";
 
@@ -37,7 +37,7 @@ export function ChatSelectableText({
 }) {
   const { t } = useText();
   const { fontScale } = useWindowDimensions();
-  const input = useRef<TextInput>(null);
+  const input = useRef<TextInputInstance>(null);
   useEffect(() => {
     input.current?.focus();
     input.current?.setSelection(0, text.length);

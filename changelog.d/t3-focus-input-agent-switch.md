@@ -1,4 +1,0 @@
-### Changed
-
-- When you open an agent, the cursor goes into its message box, so you can type immediately.
-  Before, the focus stayed on the item that you clicked.

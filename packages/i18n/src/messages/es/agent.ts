@@ -64,6 +64,8 @@ export const messages = {
   "agent.error.mcpNotStarted": "Servidor MCP sin iniciar",
   "agent.error.codexConfigIgnored": "Advertencia de configuración de Codex",
   "agent.error.provider": "Error del proveedor",
+  "agent.error.run": "{provider} · {model}",
+  "agent.error.providerNamed": "Error de {provider}",
   "agent.color.red": "Rojo",
   "agent.color.orange": "Naranja",
   "agent.color.yellow": "Amarillo",

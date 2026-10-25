@@ -48,8 +48,9 @@ let
   # Its libraries and the bundled cua-driver find the usual Linux paths there.
   contents = appimageTools.extract {
     inherit pname version src;
-    # The bundled Sunshine needs libminiupnpc.so.17, which nixpkgs does not have. Without the runtime
-    # directory, OpenBot shows remote desktop as unavailable and does not try to start it.
+    # The bundled Sunshine needs the Ubuntu libraries of scripts/hosting/packages.txt, and this
+    # environment was not checked against them. Without the runtime directory, OpenBot shows remote
+    # desktop as unavailable and does not try to start it.
     postExtract = ''
       rm -rf $out/resources/remote-desktop-runtime
     '';

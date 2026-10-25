@@ -299,6 +299,16 @@ export const messages = {
   "server.settings.notReachable": "No accesible en línea. Los miembros y las invitaciones existentes se conservan.",
   "server.settings.notPublished": "No accesible en línea.",
   "server.settings.generatedName": "Servidor de {name}",
+  "server.settings.hostKeyTitle": "Clave del servidor",
+  "server.settings.hostKeyRotate": "Cambiar la clave del servidor",
+  "server.settings.hostKeyDescription":
+    "Crea una nueva clave de identidad para este servidor. Los ordenadores y teléfonos vinculados y las rutas de webhook siguen conectados.",
+  "server.settings.hostKeyRotateAction": "Cambiar",
+  "server.settings.hostKeyConfirmTitle": "¿Cambiar la clave del servidor?",
+  "server.settings.hostKeyConfirmDescription":
+    "La clave actual y la nueva firman un traspaso. Las apps de los miembros cambian a la nueva clave cuando se vuelven a conectar. Hazlo si el archivo de la clave se copió o quedó expuesto.",
+  "server.settings.hostKeyRotated": "Clave del servidor cambiada",
+  "server.settings.hostKeyLocalOnly": "Aquí solo el servidor de este ordenador puede cambiar su clave.",
   "server.settings.removeTitle": "Eliminar servidor",
   "server.settings.removeDescription":
     "Elimina este servidor del servicio de cuentas para todos los miembros. Úsalo cuando su equipo ya no esté disponible.",
@@ -394,6 +404,8 @@ export const messages = {
   "server.invite.pendingTitle": "Invitaciones pendientes",
   "server.invite.pendingCount": "Pendientes: {total}",
   "server.invite.noPending": "No hay invitaciones pendientes.",
+  "server.invite.emptyTitle": "Envía la primera {word}.",
+  "server.invite.emptyWord": "invitación",
   "server.invite.neverExpires": {
     one: "Nunca caduca · {count} incorporación",
     other: "Nunca caduca · {count} incorporaciones",

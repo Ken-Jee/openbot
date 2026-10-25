@@ -4,6 +4,7 @@ import { type AgentEvent, isAgentEvent } from "../ipc-agent-events";
 import { isTeamRealtimeEvent, type TeamRealtimeEvent } from "../ipc-team-host";
 import { isBoolean, isDynamicRecord, isNumber, isString } from "../runtime-values";
 import { restoreBrowserSecretMetadata } from "./browser-secret-v1";
+import { restoreBrowserTakeoverReason } from "./browser-sign-in-v1";
 import { eventConversationKey, withConversationPlans } from "./conversation-plan-v4";
 import { withConversationSenders } from "./conversation-sender-v5";
 import {
@@ -43,10 +44,11 @@ export function decodeTeamProtocolV8BaseCurrentEvent(value: unknown): TeamProtoc
   try {
     current = withEventPromptMultiSelect(
       withEventConversationPlans(
-        restoreBrowserSecretMetadata(toCurrentAgentKeys(decodedValue), value),
+        restoreBrowserTakeoverReason(restoreBrowserSecretMetadata(toCurrentAgentKeys(decodedValue), value), value),
         value,
-        // A host sends a UI block only under ui-blocks-v1, the subagents only under subagents-v1, and
-        // a multi-select flag only under prompt-multi-select-v1, so a present one is always kept.
+        // A host sends a UI block only under ui-blocks-v1, the subagents only under subagents-v1, a
+        // multi-select flag only under prompt-multi-select-v1, and a takeover reason only under
+        // browser-sign-in, so a present one is always kept.
         value,
         value,
       ),
@@ -65,6 +67,7 @@ export function encodeTeamProtocolV8BaseCurrentEvent(
   options: {
     preserveSemanticTags?: boolean;
     preserveBrowserSecrets?: boolean;
+    browserSignIn?: boolean;
     uiBlocks?: boolean;
     subagents?: boolean;
     promptMultiSelect?: boolean;
@@ -83,7 +86,13 @@ export function encodeTeamProtocolV8BaseCurrentEvent(
   if (decoded.kind !== "known") return null;
   const encoded = encodeTeamProtocolV8BaseEvent(decoded.event);
   const promptMultiSelect = options.promptMultiSelect === true && eventHasPromptQuestions(event.type);
-  if (!encoded || (!options.preserveBrowserSecrets && !eventConversationKey(event.type) && !promptMultiSelect))
+  if (
+    !encoded ||
+    (!options.preserveBrowserSecrets &&
+      !options.browserSignIn &&
+      !eventConversationKey(event.type) &&
+      !promptMultiSelect)
+  )
     return encoded;
   // The block and the subagents go as written: the key swap would rename a response value under a
   // field id such as `agentId`.
@@ -94,7 +103,8 @@ export function encodeTeamProtocolV8BaseCurrentEvent(
     options.subagents ? currentValue : null,
   );
   const output = promptMultiSelect ? withEventPromptMultiSelect(withPlans, currentValue) : withPlans;
-  return JSON.stringify(options.preserveBrowserSecrets ? restoreBrowserSecretMetadata(output, wireValue) : output);
+  const withSecrets = options.preserveBrowserSecrets ? restoreBrowserSecretMetadata(output, wireValue) : output;
+  return JSON.stringify(options.browserSignIn ? restoreBrowserTakeoverReason(withSecrets, wireValue) : withSecrets);
 }
 
 /**

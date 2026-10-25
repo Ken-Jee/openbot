@@ -48,6 +48,10 @@ export const messages = {
     "Cet onglet du navigateur attend un secret. Répondez d’abord à la demande de secret.",
   "error.backend.browserUserControlUnsupported":
     "Cet hôte distant ne permet pas de prendre le contrôle d’un onglet du navigateur.",
+  "error.backend.browserSignInUnsupported":
+    "Cet hôte distant ne peut pas recevoir une connexion depuis cet ordinateur.",
+  "error.backend.browserSignInOpenFailed": "OpenBot n’a pas pu ouvrir la fenêtre de connexion.",
+  "error.backend.browserSignInReadFailed": "OpenBot n’a pas pu lire la connexion dans la fenêtre.",
   "error.backend.browserStopUnsupported": "Cet hôte distant ne peut pas arrêter le chargement d’une page.",
   "error.backend.sharedDataLocalOnly": "Les données partagées sont gérées sur l’ordinateur qui exécute ces agents.",
   "error.backend.browserUrlProtocol": "Seules les URL de navigateur HTTP(S) sont autorisées.",
@@ -70,6 +74,11 @@ export const messages = {
   "error.backend.channelRoutingTooLong":
     "Cette demande dépasse la limite de contexte de routage. Sélectionnez un membre ou envoyez une demande plus courte.",
   "error.backend.channelTaskMemberRequired": "Choisissez un membre pour cette tâche.",
+  "error.backend.channelRoutingFailed": "Le routage a échoué. Choisissez un membre ou réessayez.",
+  "error.backend.channelLeadTimedOut":
+    "Le responsable du canal n'a pas répondu à temps. Choisissez un membre ou réessayez.",
+  "error.backend.channelLeadFailed":
+    "Le responsable du canal n'a pas pu router ce message. Choisissez un membre ou réessayez.",
   "error.backend.channelRequestMemberRequired": "Choisissez un membre pour cette demande.",
   "error.backend.channelDeliveryNotCreated": "La distribution dans le canal n’a pas été créée.",
   "error.backend.channelAssignmentStopped": "Cette tâche de canal a été arrêtée ou remplacée.",
@@ -276,11 +285,20 @@ export const messages = {
   "error.backend.approvalInactive": "Cette approbation n’est plus active.",
   "error.backend.takeoverInactive": "Cette prise de contrôle du navigateur n’est plus active.",
   "error.backend.authSubmitting": "L’envoi de l’authentification est déjà en cours.",
+  "error.backend.apiKeySaveFailed": "OpenBot n’a pas pu enregistrer la clé d’API. Réessayez.",
+  "error.backend.apiKeyNotAllowed": "Seul le propriétaire du serveur ou un administrateur peut saisir une clé d’API.",
+  "error.backend.apiKeySaving": "La clé d’API est déjà en cours d’enregistrement.",
   "error.backend.authRequestInactive": "Cette demande d’authentification sécurisée n’est plus active.",
   "error.backend.secureAuthUnavailable": "L’authentification sécurisée est indisponible.",
   "error.backend.browserUrlRequired": "Une URL de navigateur est requise.",
   "error.backend.browserUrlTooLong": "L’URL du navigateur est trop longue.",
   "error.backend.browserTabLimit": "Le navigateur peut avoir jusqu’à {limit} onglets ouverts.",
+  "error.backend.browserProfileMissing":
+    "Le profil de navigateur de cet agent n’existe plus. Choisissez un autre profil dans les réglages de l’agent.",
+  "error.backend.browserProfileNotFound": "Ce profil de navigateur n’existe plus.",
+  "error.backend.browserProfileNameTaken": "Un profil de navigateur porte déjà ce nom.",
+  "error.backend.browserSessionInUse": "Un onglet utilise encore cette session de navigateur. Réessayez.",
+  "error.backend.browserProfileLimit": "Vous pouvez avoir jusqu’à {limit} profils de navigateur.",
   "error.backend.browserLowMemory":
     "Ce serveur manque de mémoire : le navigateur ne peut pas ouvrir un autre onglet. Fermez un onglet, ou attendez la fin du travail des autres agents.",
   "error.backend.browserOpenFailed": "Impossible d’ouvrir {url} : {reason}",

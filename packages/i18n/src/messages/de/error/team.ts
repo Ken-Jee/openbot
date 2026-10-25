@@ -10,6 +10,7 @@ export const messages = {
   "error.team.accountChangedDuringCreate":
     "Das angemeldete Konto wurde während der Erstellung dieses Servers geändert.",
   "error.team.notConfigured": "Dieser OpenBot wurde nicht eingerichtet.",
+  "error.team.keyRotationMissing": "Es wartet keine Änderung des Serverschlüssels.",
   "error.team.serverNotActive": "Dieser Server ist für das angemeldete Konto nicht mehr aktiv.",
   "error.team.logoInvalid": "Wähle ein gültiges PNG-, JPEG- oder WebP-Bild mit höchstens 512 KB.",
   "error.team.ownerMembershipConflict":
@@ -91,6 +92,7 @@ export const messages = {
   "error.team.hostTimezoneUnsupported": "Diese Verbindung unterstützt die Zeitzone des Servers nicht.",
   "error.team.routineResultsUnsupported": "Diese Verbindung unterstützt keine Ziele für Routinen.",
   "error.team.agentMemoryLimitUnsupported": "Diese Verbindung unterstützt das Erinnerungslimit der Agenten nicht.",
+  "error.team.promptCacheTtlUnsupported": "Diese Verbindung unterstützt die Prompt-Cache-Dauer nicht.",
   "error.team.attachmentNameRequired": "Ein sicherer Anhangsname ist erforderlich.",
   "error.team.attachmentNotFound": "Anhang nicht gefunden.",
   "error.team.sharedFileTooLarge": "Die geteilte Datei überschreitet die Grenze von 100 MB.",

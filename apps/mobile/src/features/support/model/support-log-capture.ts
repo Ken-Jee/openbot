@@ -20,7 +20,7 @@ function persist(): void {
   if (persistTimer !== null) clearTimeout(persistTimer);
   persistTimer = null;
   try {
-    new File(Paths.cache, CACHE_FILE).write(JSON.stringify(supportLog.entries()));
+    new File(Paths.cache, CACHE_FILE).writeSync(JSON.stringify(supportLog.entries()));
   } catch {
     // The log on the screen and the saved file still work without the cache copy.
   }

@@ -73,7 +73,7 @@ function scheduleSave() {
     savePending = false;
     const entries = [...waveforms].filter(([, peaks]) => peaks !== "failed").slice(-SAVED_LIMIT);
     try {
-      storage().write(JSON.stringify(entries));
+      storage().writeSync(JSON.stringify(entries));
     } catch {
       // The shapes are read again from the files next time.
     }

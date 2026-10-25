@@ -16,7 +16,7 @@ import {
   type RoutineRunFields,
   type RoutineSchedule,
 } from "@openbot/contracts/ipc";
-import type { RoutineWebhookTriggerInput } from "@openbot/contracts/ipc-events";
+import type { RoutineWebhookTriggerInput, WebhookTestResult } from "@openbot/contracts/ipc-events";
 import type { AppTextKey } from "@openbot/i18n";
 import {
   Button,
@@ -36,6 +36,7 @@ import {
   Text,
   Textarea,
   toast,
+  Webhook,
 } from "@openbot/ui";
 import { createScrollFades } from "@openbot/ui/components/createScrollFades";
 import { SettingsBackIcon, SettingsForwardIcon } from "@openbot/ui/components/SettingsPanel";
@@ -72,7 +73,8 @@ import { isEventRoutine, routineListSummary, routineScheduleOf } from "./routine
 import type { RoutineEditorRecord, RoutinesPort } from "./routines-port";
 
 export interface RoutineSelectionRequest {
-  routineId: string;
+  /** Null starts a new routine. */
+  routineId: string | null;
   routineName: string;
   nonce: number;
 }
@@ -80,6 +82,7 @@ export interface RoutineSelectionRequest {
 type PendingRoutineExit =
   | "list"
   | "close"
+  | "new"
   | { kind: "routine-selection"; routine: RoutineEditorRecord | null; routineName: string }
   | { kind: "conversation-message"; messageId: string };
 
@@ -149,6 +152,8 @@ export function AgentRoutinesSettings(props: AgentRoutinesSettingsProps) {
   const [dirty, setDirty] = createSignal(false);
   const [testing, setTesting] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
+  // Set by a Save of a draft with a missing field, so the fields say what is missing.
+  const [showErrors, setShowErrors] = createSignal(false);
   const [confirmDelete, setConfirmDelete] = createSignal(false);
   const [deleting, setDeleting] = createSignal(false);
   // The list rows whose Pause or Resume waits for the host.
@@ -276,7 +281,14 @@ export function AgentRoutinesSettings(props: AgentRoutinesSettingsProps) {
       lastSelectionRequestNonce = request.nonce;
       props.onSelectionRequestHandled?.(request.nonce);
       if (!loaded) return;
-      requestRoutineSelection(request, currentRoutines.find((routine) => routine.id === request.routineId) ?? null);
+      // The editor state is read once, when the request arrives; a later edit must not run it again.
+      untrack(() => {
+        if (request.routineId === null) {
+          requestExit("new");
+          return;
+        }
+        requestRoutineSelection(request, currentRoutines.find((routine) => routine.id === request.routineId) ?? null);
+      });
     },
   );
 
@@ -335,6 +347,7 @@ export function AgentRoutinesSettings(props: AgentRoutinesSettingsProps) {
       destination: undefined,
     });
     resetWebhookState();
+    setShowErrors(false);
     resetResults();
     void loadRuns(routine.id);
     void loadResults(routine.id);
@@ -363,6 +376,7 @@ export function AgentRoutinesSettings(props: AgentRoutinesSettingsProps) {
       destination: undefined,
     });
     resetWebhookState();
+    setShowErrors(false);
     resetResults();
     void loadResultOptions();
   }
@@ -383,6 +397,7 @@ export function AgentRoutinesSettings(props: AgentRoutinesSettingsProps) {
     setConfirmDelete(false);
     setPendingExit(null);
     resetWebhookState();
+    setShowErrors(false);
     resetResults();
   }
 
@@ -428,6 +443,10 @@ export function AgentRoutinesSettings(props: AgentRoutinesSettingsProps) {
       props.onClose?.();
       return;
     }
+    if (target === "new") {
+      createDraft();
+      return;
+    }
     if (target.kind === "conversation-message") {
       props.onOpenRun?.(target.messageId);
       return;
@@ -460,7 +479,11 @@ export function AgentRoutinesSettings(props: AgentRoutinesSettingsProps) {
 
   async function saveDraft(): Promise<void> {
     const current = draft();
-    if (!current || !dirty() || !validDraft(current) || saving()) return;
+    if (!current || !dirty() || saving()) return;
+    if (!validDraft(current)) {
+      setShowErrors(true);
+      return;
+    }
     const savingRevision = draftRevision;
     setSaving(true);
     setError(null);
@@ -629,20 +652,19 @@ export function AgentRoutinesSettings(props: AgentRoutinesSettingsProps) {
   }
 
   /**
-   * The menu that changes the trigger. A host without events keeps the schedule chips only. It reads
-   * the draft through `current` in its props, so a draft change does not make a new menu.
+   * The menu that changes the schedule frequency. A host without events keeps the schedule chips only.
+   * It reads the draft through `current` in its props, so a draft change does not make a new menu.
    */
   function triggerMenu(current: () => RoutineDraft): JSX.Element {
     if (!props.port.events) return undefined;
     return (
       <RoutineTriggerMenu
-        value={current().triggerKind === "webhook" ? "webhook" : current().scheduleDraft.kind}
+        value={current().scheduleDraft.kind}
         kinds={scheduleKinds()}
         onSelect={(choice) =>
-          changeDraft((value) => {
-            if (choice === "webhook") return { ...value, triggerKind: "webhook" };
-            return reopened(withSchedule(value, switchDraftKind(value.scheduleDraft, choice, new Date())));
-          })
+          changeDraft((value) =>
+            reopened(withSchedule(value, switchDraftKind(value.scheduleDraft, choice, new Date()))),
+          )
         }
       />
     );
@@ -650,6 +672,23 @@ export function AgentRoutinesSettings(props: AgentRoutinesSettingsProps) {
 
   function scheduleKinds() {
     return props.port.onceSchedule ? ROUTINE_LOCAL_DRAFT_KINDS : ROUTINE_SAVED_DRAFT_KINDS;
+  }
+
+  /**
+   * Sends one signed test event to the saved routine, then shows its run. Undefined when the host
+   * cannot send one; the card shows the step disabled until the routine is saved.
+   */
+  function sendTestEvent(): (() => Promise<WebhookTestResult>) | undefined {
+    const events = props.port.events;
+    const send = events?.api.sendTestEvent;
+    if (!events || !send) return undefined;
+    return async () => {
+      const id = draft()?.id;
+      if (!id) throw new Error(t("routine.webhook.testFailed"));
+      const result = await send({ id, owner: events.owner });
+      if (draft()?.id === id) await loadRuns(id);
+      return result;
+    };
   }
 
   async function regenerateSecret(): Promise<void> {
@@ -879,7 +918,6 @@ export function AgentRoutinesSettings(props: AgentRoutinesSettingsProps) {
                       <Button
                         type="button"
                         size="sm"
-                        disabled={!validDraft(current())}
                         loading={saving()}
                         loadingLabel={t("common.saving")}
                         onClick={() => void saveDraft()}
@@ -897,11 +935,56 @@ export function AgentRoutinesSettings(props: AgentRoutinesSettingsProps) {
                   value={current().name}
                   placeholder={t("routine.settings.namePlaceholder")}
                   maxlength={INPUT_LIMITS.routineName}
+                  invalid={showErrors() && !current().name.trim()}
+                  aria-describedby={showErrors() && !current().name.trim() ? "agent-routine-name-error" : undefined}
                   onValueChange={(name) => changeDraft((value) => ({ ...value, name }))}
                 />
+                <Show when={showErrors() && !current().name.trim()}>
+                  <Text
+                    as="p"
+                    id="agent-routine-name-error"
+                    variant="caption"
+                    tone="danger"
+                    class="agent-routine-field-error"
+                  >
+                    {t("routine.settings.nameRequired")}
+                  </Text>
+                </Show>
               </label>
               <section class="agent-routine-when" aria-labelledby="agent-routine-when-heading">
                 <h3 id="agent-routine-when-heading">{t("routine.settings.whenToRun")}</h3>
+                {/* A host with events offers both triggers, so the choice is always in view. */}
+                <Show when={props.port.events}>
+                  <fieldset class="agent-routine-trigger-kind">
+                    <legend class="sr-only">{t("routine.trigger.kind")}</legend>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={current().triggerKind === "schedule" ? "secondary" : "ghost"}
+                      aria-pressed={current().triggerKind === "schedule" ? "true" : "false"}
+                      onClick={() => {
+                        if (current().triggerKind !== "schedule")
+                          changeDraft((value) => ({ ...value, triggerKind: "schedule" }));
+                      }}
+                    >
+                      <Clock3 class="agent-routine-trigger-kind-icon" aria-hidden="true" />
+                      {t("routine.trigger.groupSchedule")}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={current().triggerKind === "webhook" ? "secondary" : "ghost"}
+                      aria-pressed={current().triggerKind === "webhook" ? "true" : "false"}
+                      onClick={() => {
+                        if (current().triggerKind !== "webhook")
+                          changeDraft((value) => ({ ...value, triggerKind: "webhook" }));
+                      }}
+                    >
+                      <Webhook class="agent-routine-trigger-kind-icon" aria-hidden="true" />
+                      {t("routine.settings.triggerWebhook")}
+                    </Button>
+                  </fieldset>
+                </Show>
                 <Show
                   when={current().triggerKind === "schedule"}
                   fallback={
@@ -916,7 +999,9 @@ export function AgentRoutinesSettings(props: AgentRoutinesSettingsProps) {
                       secret={webhook.secret}
                       onSecretDismiss={resetWebhookState}
                       onRegenerateSecret={regenerateSecret}
-                      menu={triggerMenu(current)}
+                      onSave={() => void saveDraft()}
+                      saving={saving()}
+                      onSendTest={sendTestEvent()}
                     />
                   }
                 >
@@ -932,6 +1017,7 @@ export function AgentRoutinesSettings(props: AgentRoutinesSettingsProps) {
                 <span id="agent-routine-instruction-label">{t("routine.settings.instruction")}</span>
                 <Textarea
                   aria-labelledby="agent-routine-instruction-label"
+                  invalid={showErrors() && !current().instruction.trim()}
                   value={current().instruction}
                   placeholder={
                     props.port.ownerNoun === "channel"
@@ -939,9 +1025,27 @@ export function AgentRoutinesSettings(props: AgentRoutinesSettingsProps) {
                       : t("routine.settings.instructionPlaceholderAgent")
                   }
                   maxlength={INPUT_LIMITS.routineInstruction}
-                  aria-describedby={props.port.ownerNoun === "channel" ? undefined : "agent-routine-no-update-hint"}
+                  aria-describedby={
+                    [
+                      showErrors() && !current().instruction.trim() ? "agent-routine-instruction-error" : "",
+                      props.port.ownerNoun === "channel" ? "" : "agent-routine-no-update-hint",
+                    ]
+                      .filter(Boolean)
+                      .join(" ") || undefined
+                  }
                   onValueChange={(instruction) => changeDraft((value) => ({ ...value, instruction }))}
                 />
+                <Show when={showErrors() && !current().instruction.trim()}>
+                  <Text
+                    as="p"
+                    id="agent-routine-instruction-error"
+                    variant="caption"
+                    tone="danger"
+                    class="agent-routine-field-error"
+                  >
+                    {t("routine.settings.instructionRequired")}
+                  </Text>
+                </Show>
                 {/* A scheduled run of an agent routine that answers only the marker posts nothing. */}
                 <Show when={props.port.ownerNoun !== "channel"}>
                   <Text id="agent-routine-no-update-hint" variant="caption" tone="muted">

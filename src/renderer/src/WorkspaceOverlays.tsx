@@ -1,4 +1,5 @@
 import type { CentralAuthUser, RoutineFields, ServerSummary } from "@openbot/contracts/ipc";
+import { BROWSER_PROFILES_CAPABILITY } from "@openbot/contracts/team-protocol/browser-profiles-v1";
 import { classifyFailure } from "@openbot/telemetry";
 import { isAgentAccount } from "@openbot/ui/components/provider-accounts";
 import type { AcpRegistrySettingsApi } from "@openbot/ui/features/custom-providers/AcpRegistrySettings";
@@ -8,12 +9,14 @@ import { LeaveServerDialog } from "@openbot/ui/features/servers/LeaveServerDialo
 import { RestartServerDialog } from "@openbot/ui/features/servers/RestartServerDialog";
 import type { HostedSiteDeleteResult } from "@openbot/ui/features/settings/stores/hosted-sites-store";
 import { currentText } from "@openbot/ui/text";
-import { createEffect, Loading, Show, untrack } from "solid-js";
+import { createEffect, createMemo, Loading, Show, untrack } from "solid-js";
 import { actionToast } from "./action-toast";
 import { desktopAnalytics } from "./analytics";
 import { appPort } from "./app-port";
 import { useAuth } from "./features/account/account-context";
 import { useAgents } from "./features/agents/agents-context";
+import { desktopBrowserProfileCalls } from "./features/browser/browser-profiles-port";
+import { createBrowserProfilesStore } from "./features/browser/stores/browser-profiles-store";
 import type { ConnectorRegistry } from "./features/connectors/connector-registry";
 import { useConnectors } from "./features/connectors/connectors-context";
 import { conversationPort } from "./features/conversation/conversation-port";
@@ -38,9 +41,12 @@ import { useServerSwitch } from "./features/servers/server-switch";
 import { useServers } from "./features/servers/servers-context";
 import type { HostProviderSettings } from "./features/settings/ProviderSettingsSection";
 import { useSettings } from "./features/settings/settings-context";
+import { settingsPort } from "./features/settings/settings-port";
 import { useUpdates } from "./features/updates/updates-context";
 import { useWhatsNew } from "./features/updates/whats-new-context";
 import { usePlanLimitRows } from "./features/usage/plan-limit-rows";
+import { createVaultStore } from "./features/vault/stores/vault-store";
+import { desktopVaultCalls } from "./features/vault/vault-port";
 import { useWindowPage } from "./features/window/window-page-context";
 import { useGlobalSearchSources } from "./global-search-sources";
 import { RemoteDesktopWorkspace, SettingsModal } from "./lazy-views";
@@ -379,6 +385,7 @@ function ServerSettings(props: { connectors: ConnectorRegistry }) {
     refreshServerSettings,
     saveServerIdentity,
     recheckScreenRecording,
+    rotateHostKey,
     setServerPublished,
     createServerInvite,
     updateServerMember,
@@ -406,6 +413,18 @@ function ServerSettings(props: { connectors: ConnectorRegistry }) {
     setMcpServerEnabled,
     testMcpServer,
   } = useServerSettings();
+  /**
+   * The named browser profiles of the selected server: this computer, or a joined server whose host
+   * serves `browser-profiles-v1` to this owner or admin. One store per server, so the list of the
+   * last server never shows for the next. The section lists them each time it opens.
+   */
+  const browserProfileServerId = createMemo(() => serverSettingsTarget()?.id);
+  const browserProfiles = createMemo(() => {
+    const calls = desktopBrowserProfileCalls(browserProfileServerId());
+    return createBrowserProfilesStore(() => calls);
+  });
+  /** The Vault of this computer. A joined server keeps its Vault on its host. */
+  const vault = createVaultStore(desktopVaultCalls());
   // The workspace belongs to the selected server. For another server, the switch comes first and
   // the agent is published for the scope it lands in; a message there opens as its agent's chat.
   const openOnServer = (server: ServerSummary, agentId: string, open: () => void) => {
@@ -601,6 +620,7 @@ function ServerSettings(props: { connectors: ConnectorRegistry }) {
           onRetry={() => refreshServerSettings(server().id)}
           onSaveIdentity={saveServerIdentity}
           onSetPublished={setServerPublished}
+          onRotateHostKey={server().kind === "local" ? rotateHostKey : undefined}
           onSetMuted={(muted) => setServerMuted(server().id, muted)}
           onSetNotificationLevel={(level) => setServerNotificationLevel(server().id, level)}
           onCreateInvite={createServerInvite}
@@ -679,6 +699,7 @@ function ServerSettings(props: { connectors: ConnectorRegistry }) {
           hostUpdate={{}}
           hostTimezone={{}}
           hostMemoryLimit={{}}
+          hostPromptCacheTtl={{}}
           agentAccess={{ listAgents: () => appPort().agent.listAgents(server().id) }}
           initialSection={serverSettingsSection()}
           // Any member imports into this computer or a remote host with `agent-import-v1`.
@@ -705,6 +726,12 @@ function ServerSettings(props: { connectors: ConnectorRegistry }) {
               ? { api: appPort().routineFeed, listAgents: () => appPort().agent.listAgents(server().id) }
               : undefined
           }
+          browserProfiles={
+            serverCanAdminister(server(), BROWSER_PROFILES_CAPABILITY)
+              ? { store: browserProfiles(), listAgents: () => appPort().agent.listAgents(server().id) }
+              : undefined
+          }
+          vault={server().kind === "local" ? { store: vault } : undefined}
         />
       )}
     </Show>
@@ -759,6 +786,7 @@ function AppSettings(props: AccountProps) {
         preferencesLoadFailed={preferencesLoadFailed()}
         onRetryPreferencesLoad={reloadPreferences}
         appInfo={platform.appInfo()}
+        chatWindow={platform.chatWindow !== null}
         builtInDisplayGeometry={builtInDisplayGeometry()}
         servers={servers()}
         updateStatus={updates.status()}
@@ -784,6 +812,8 @@ function AppSettings(props: AccountProps) {
         onRevokeMobileConnectLink={auth.revokeMobileConnectLink}
         onListMobileConnectedDevices={auth.listMobileConnectedDevices}
         onRevokeMobileConnectedDevice={auth.revokeMobileConnectedDevice}
+        onGetRemoteNetworkRoute={() => settingsPort().getRemoteNetworkRoute()}
+        onSetRemoteNetworkRoute={(route) => settingsPort().setRemoteNetworkRoute({ route })}
         onListAccountSessions={auth.listAccountSessions}
         onRevokeAccountSession={auth.revokeAccountSession}
         onSignOut={platform.landingPreview ? undefined : auth.logoutCentralAccount}

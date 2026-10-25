@@ -6,7 +6,7 @@ import { createLandingReveal } from "./createLandingReveal";
 import { LandingIcon } from "./LandingIcon";
 
 const FOOTER_DESCRIPTION =
-  "Persistent AI teammates on your own computer. Run Codex, Claude, Gemini, Grok or your own model with the plans you already pay for.";
+  "Persistent AI teammates on your own computer. Run Codex, Claude, Gemini, Grok, Muse Code, Pi or your own model with the plans you already pay for.";
 
 const SOCIALS = [
   {

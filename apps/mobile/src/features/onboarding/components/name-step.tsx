@@ -1,7 +1,7 @@
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import { useThemeColor } from "heroui-native/hooks";
 import { useEffect, useRef } from "react";
-import { TextInput, useWindowDimensions, View } from "react-native";
+import { TextInput, type TextInputInstance, useWindowDimensions, View } from "react-native";
 import Animated from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -52,7 +52,7 @@ export function NameStep({
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
   const [foreground, muted] = useThemeColor(["foreground", "muted"]);
-  const input = useRef<TextInput>(null);
+  const input = useRef<TextInputInstance>(null);
   const trimmed = name.trim();
   // Small phones keep the field and the ideas above the keyboard.
   const heroSize = height < 760 ? 100 : 132;

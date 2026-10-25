@@ -29,6 +29,7 @@ import type { ToolUsageSignal } from "../backend/agent/thread-items";
 import type { BrowserSiteVisit } from "../backend/browser-host";
 import type { TurnModelUsage } from "../backend/database/agent-usage";
 import { type AnalyticsOperationFailure, analyticsIO, analyticsSync } from "./analytics-effects";
+import { PROVIDER_AUTH_KINDS, type ProviderAuthKind } from "./analytics-provider-auth";
 import { localDay, RESOURCE_ENUMS, RESOURCE_PROPERTY_NAMES, type ResourceProperties } from "./resource-summary";
 
 const OPENPANEL_API_URL = "https://analytics.openbot.run/api";
@@ -134,6 +135,8 @@ export interface HostAnalyticsOptions {
   platform: "darwin" | "win32" | "linux";
   resolveOwner: () => AnalyticsIdentity | null;
   resolveAgent: (agentId: string) => AgentSummary | null;
+  /** How the agent's provider is paid for, read when a turn completes. */
+  resolveProviderAuth?: (agent: AgentSummary) => ProviderAuthKind;
   /**
    * The provider-reported token counts of a turn by provider and model, from the usage records that
    * the Usage report reads. An empty list means the provider reported none.
@@ -191,6 +194,7 @@ const HOST_ALLOWLIST = {
     ...AGENT_PROPERTY_NAMES,
     "origin",
     "status",
+    "provider_auth",
     "duration_ms",
     "token_usage",
     "uncached_input_tokens",
@@ -271,6 +275,7 @@ export class HostAnalytics {
   readonly #reports: ReportQueue | undefined;
   readonly #resolveOwner: HostAnalyticsOptions["resolveOwner"];
   readonly #resolveAgent: HostAnalyticsOptions["resolveAgent"];
+  readonly #resolveProviderAuth: HostAnalyticsOptions["resolveProviderAuth"];
   readonly #resolveTurnUsage: HostAnalyticsOptions["resolveTurnUsage"];
   readonly #resolveMcpServer: NonNullable<HostAnalyticsOptions["resolveMcpServer"]>;
   readonly #resolveRoutineRun: NonNullable<HostAnalyticsOptions["resolveRoutineRun"]>;
@@ -299,6 +304,7 @@ export class HostAnalytics {
     this.#reports = options.reports;
     this.#resolveOwner = options.resolveOwner;
     this.#resolveAgent = options.resolveAgent;
+    this.#resolveProviderAuth = options.resolveProviderAuth;
     this.#resolveTurnUsage = options.resolveTurnUsage;
     this.#resolveMcpServer = options.resolveMcpServer ?? (() => null);
     this.#resolveRoutineRun = options.resolveRoutineRun ?? (() => null);
@@ -376,6 +382,7 @@ export class HostAnalytics {
             ...this.#agentProperties(event.agentId),
             origin,
             status: normalizedTurnStatus(event.status),
+            ...this.#providerAuth(event.agentId),
             ...(activeTurn === undefined
               ? {}
               : {
@@ -842,6 +849,16 @@ export class HostAnalytics {
     };
   }
 
+  #providerAuth(agentId: string): HostProperties {
+    const agent = this.#resolveProviderAuth && this.#resolveAgent(agentId);
+    if (!agent || !this.#resolveProviderAuth) return {};
+    try {
+      return { provider_auth: this.#resolveProviderAuth(agent) };
+    } catch {
+      return { provider_auth: "unknown" };
+    }
+  }
+
   /** The turn's usage rows, or `null` when they cannot be read and no token property is sent. */
   #turnUsage(agentId: string, turnId: string, startedAtTime: number): readonly TurnModelUsage[] | null {
     const resolve = this.#resolveTurnUsage;
@@ -1010,6 +1027,7 @@ function sanitizeHostProperty(name: HostEventName, key: string, value: unknown):
     if (key === "computer_use_enabled") return isBoolean(value) ? value : undefined;
     return boundedCount(value, 10_000);
   }
+  if (key === "provider_auth") return isOneOf(PROVIDER_AUTH_KINDS, value) ? value : undefined;
   if (key === "agent_source") return isOneOf(["curated", "community", "custom"] as const, value) ? value : undefined;
   if (key === "agent_listing") return isString(value) && LISTING_SLUG_PATTERN.test(value) ? value : undefined;
   if (key === "status") return isString(value) ? normalizedTurnStatus(value) : undefined;

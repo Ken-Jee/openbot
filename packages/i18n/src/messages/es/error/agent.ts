@@ -67,6 +67,8 @@ export const messages = {
     "El estado del agente contiene identificadores de agente duplicados; no se sobrescribirá.",
   "error.agent.copyNameFailed": "OpenBot no pudo crear un nombre único para la copia del agente.",
   "error.agent.endpointRemoved": "Se eliminó el endpoint que usaba este agente. Elige otro modelo para él.",
+  "error.agent.turnStalled":
+    "{provider} dejó de responder, así que OpenBot terminó este turno. Envía el mensaje de nuevo o elige otro modelo.",
   "error.agent.selectedGone": "El agente seleccionado ya no existe.",
   "error.agent.profileEndpointsChanged":
     "Los endpoints personalizados cambiaron durante la generación. Inténtalo de nuevo.",

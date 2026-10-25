@@ -3,6 +3,7 @@ import {
   type ClientAgentSummary,
   type ForeignProviderId,
   foreignProvider,
+  isAgentMarketplaceSource,
   isAgentModel,
   isAgentProvider,
   isAgentProviderRef,
@@ -23,7 +24,10 @@ export type RemoteAgent = Pick<
   "id" | "name" | "title" | "description" | "preview" | "updatedAt" | "avatarSeed" | "avatarHue"
 > &
   Partial<
-    Pick<AgentSummary, "provider" | "model" | "reasoningEffort" | "avatarUrl" | "notifications" | "workspacePath">
+    Pick<
+      AgentSummary,
+      "provider" | "model" | "reasoningEffort" | "avatarUrl" | "notifications" | "workspacePath" | "marketplaceSource"
+    >
   > & { foreignProvider?: ForeignProviderId | undefined };
 
 export function projectAgent(serverId: string, agent: RemoteAgent): MobileAgent {
@@ -44,6 +48,9 @@ export function projectAgent(serverId: string, agent: RemoteAgent): MobileAgent 
     avatarUrl: agent.avatarUrl ?? null,
     avatarSeed: agent.avatarSeed,
     avatarHue: agent.avatarHue,
+    marketplaceSource: agent.marketplaceSource
+      ? { listingId: agent.marketplaceSource.listingId, version: agent.marketplaceSource.version }
+      : undefined,
   };
 }
 
@@ -86,6 +93,8 @@ export function decodeAgent(value: unknown): RemoteAgent {
     avatarUrl: isString(value.avatarUrl) ? value.avatarUrl : null,
     avatarSeed: value.avatarSeed,
     avatarHue: value.avatarHue,
+    // An older host sends no listing; a malformed one is left out rather than failing the agent list.
+    marketplaceSource: isAgentMarketplaceSource(value.marketplaceSource) ? value.marketplaceSource : undefined,
   };
 }
 

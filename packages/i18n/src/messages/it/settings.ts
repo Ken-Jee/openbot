@@ -6,6 +6,14 @@ export const messages = {
   "settings.language.description": "OpenBot mostra menu, pulsanti e messaggi in questa lingua.",
   "settings.language.system": "Predefinita di sistema",
   "settings.appearance.title": "Aspetto",
+  "settings.appearance.theme.title": "Tema",
+  "settings.appearance.theme.description": "Colori chiari o scuri. «Sistema» segue l'impostazione del dispositivo.",
+  "settings.appearance.theme.system": "Sistema",
+  "settings.appearance.theme.light": "Chiaro",
+  "settings.appearance.theme.dark": "Scuro",
+  "settings.appearance.transparentWindow.title": "Finestra trasparente",
+  "settings.appearance.transparentWindow.description":
+    "Mostra la scrivania sfocata dietro la finestra. Siti e menu usano allora il tema dell’app.",
   "settings.interfaceSize.title": "Dimensione dell'interfaccia",
   "settings.interfaceSize.description": "La dimensione di testo e controlli in OpenBot.",
   "settings.logoColor.title": "Colore del logo",
@@ -28,6 +36,12 @@ export const messages = {
   "settings.launchAtLogin.description": "Apri l'app quando accedi a questo computer.",
   "settings.keepRunning.title": "Mantieni OpenBot attivo in background",
   "settings.keepRunning.description": "Le attività in corso continuano anche dopo aver chiuso la finestra.",
+  "settings.keepAwake.title": "Mantieni attivo il computer",
+  "settings.keepAwake.description":
+    "Le routine partono in orario finché il computer è collegato alla corrente. Lo schermo può comunque spegnersi.",
+  "settings.keepAwakeOnBattery.title": "Anche a batteria",
+  "settings.keepAwakeOnBattery.description":
+    "Mantieni il computer attivo anche a batteria. La batteria si scarica più in fretta.",
   "settings.restoreWorkspace.title": "Ripristina l'ultimo workspace all'avvio",
   "settings.restoreWorkspace.description": "Apri il workspace e le attività della sessione precedente.",
   "settings.externalLinks.title": "Apri i link esterni in",
@@ -39,6 +53,9 @@ export const messages = {
   "settings.sendShortcut.enter": "Invio per inviare",
   "settings.sendShortcut.modEnterMac": "⌘Invio per inviare",
   "settings.sendShortcut.modEnterWin": "Ctrl+Invio per inviare",
+  "settings.showAgentSteps.title": "Mostra i passaggi dell'agente",
+  "settings.showAgentSteps.description":
+    "Apre per impostazione predefinita il ragionamento, i passaggi degli strumenti e le modifiche alle memorie di ogni turno su questo dispositivo e browser.",
   "settings.busyMessage.title": "Indirizza gli agenti mentre lavorano",
   "settings.busyMessage.description":
     "I nuovi messaggi si uniscono al lavoro in corso dell'agente, non alla coda. Funziona con ChatGPT e Claude.",
@@ -194,6 +211,19 @@ export const messages = {
   "settings.mobileConnect.link.error.revoke": "Impossibile revocare il link permanente.",
   "settings.mobileConnect.devices.title": "Dispositivi collegati",
   "settings.mobileConnect.devices.refreshing": "Aggiornamento…",
+  "settings.mobileConnect.route.title": "Come si connettono i dispositivi",
+  "settings.mobileConnect.route.description":
+    "Per telefoni, altri computer e membri del team che si connettono a questo computer.",
+  "settings.mobileConnect.route.openbot.title": "Tramite OpenBot",
+  "settings.mobileConnect.route.openbot.badge": "Consigliato",
+  "settings.mobileConnect.route.openbot.description":
+    "Funziona su qualsiasi rete. Chat e file sono cifrati tra i tuoi dispositivi.",
+  "settings.mobileConnect.route.private.title": "Rete privata",
+  "settings.mobileConnect.route.private.tailscale": "Tailscale trovato",
+  "settings.mobileConnect.route.private.description":
+    "Tailscale o questo Wi-Fi. I dispositivi accedono comunque con OpenBot. Chat e file non passano mai dai server di OpenBot, e i dispositivi si connettono solo su quella rete.",
+  "settings.mobileConnect.route.error.load": "Impossibile caricare come si connettono i dispositivi.",
+  "settings.mobileConnect.route.error.save": "Impossibile cambiare come si connettono i dispositivi.",
   "settings.mobileConnect.disconnectInfo.title": "Disconnettere un dispositivo",
   "settings.mobileConnect.disconnectInfo.description":
     "L'accesso viene revocato subito. L'app mobile può continuare a mostrare la schermata attuale finché non viene riaperta o riportata in primo piano.",
@@ -408,6 +438,7 @@ export const messages = {
   "settings.hostedServers.deleteFailed": "Impossibile eliminare il server.",
   "settings.hostedServers.plan.label": "Piano",
   "settings.hostedServers.plan.recommended": "Più conveniente",
+  "settings.hostedServers.plan.soldOut": "Esaurito",
   "settings.hostedServers.plan.perMonth": "/ mese",
   "settings.hostedServers.plan.disk": "{count} GB di spazio",
   "settings.hostedServers.plan.linux": "Macchina Linux",

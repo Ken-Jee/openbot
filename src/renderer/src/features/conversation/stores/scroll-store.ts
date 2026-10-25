@@ -21,7 +21,7 @@ import {
 import { currentText } from "@openbot/ui/text";
 import type { VirtualItem } from "@tanstack/virtual-core";
 import { createEffect, createMemo, createSignal, onCleanup, untrack } from "solid-js";
-import { groupAgentMessageMarkers } from "../agent-message-timeline";
+import { groupAgentMessageMarkers, markOpenAgentMessages } from "../agent-message-timeline";
 import type { ConversationProps, ConversationTarget } from "../conversation-types";
 import {
   expandRoutineRunGroups,
@@ -32,6 +32,7 @@ import {
   routineRunTurnMessages,
   summarizeRoutineRunMessages,
 } from "../routine-run-timeline";
+import { isTurnAnswer } from "../turn-steps";
 import { conversationOwnerId } from "./composer-store";
 
 interface ScrollElements {
@@ -70,8 +71,18 @@ export function createScrollStore(deps: ScrollStoreDeps) {
   let talliedConversationIdentity: string | undefined;
 
   const [openRoutineRuns, setOpenRoutineRuns] = createSignal<RoutineRunOpenState>(new Map());
+  // The thinking and the memory changes of a turn show in the steps above its answer. A turn with
+  // no answer shows its memory changes in a row of their own.
+  const answeredTurns = createMemo(
+    () => new Set(deps.props.messages.flatMap((message) => (isTurnAnswer(message) ? [message.turnId] : []))),
+  );
   const shownMessages = createMemo(() =>
-    deps.props.messages.filter((message) => message.kind !== "thinking" && !silentAgentAnswer(message)),
+    deps.props.messages.filter(
+      (message) =>
+        message.kind !== "thinking" &&
+        !(message.kind === "memory-changes" && answeredTurns().has(message.turnId)) &&
+        !silentAgentAnswer(message),
+    ),
   );
   const routineRunTurns = createMemo(() => routineRunTurnMessages(deps.props.messages, shownMessages()));
   /* The messages of a routine run follow its row and open and close with it. */
@@ -82,6 +93,15 @@ export function createScrollStore(deps: ScrollStoreDeps) {
   function toggleRoutineRun(marker: RoutineRunToggleMarkerModel): void {
     const key = routineRunToggleKey(marker);
     setOpenRoutineRuns((open) => new Map(open).set(key, marker.expanded !== true));
+  }
+  /* The exchange ids of the agent messages whose text shows under their marker. */
+  const [openAgentMessages, setOpenAgentMessages] = createSignal<ReadonlySet<string>>(new Set());
+  function toggleAgentMessage(messageId: string): void {
+    setOpenAgentMessages((open) => {
+      const next = new Set(open);
+      if (!next.delete(messageId)) next.add(messageId);
+      return next;
+    });
   }
   /*
    * An open chat marks its messages read at once, so read state loses the first unread message.
@@ -114,7 +134,7 @@ export function createScrollStore(deps: ScrollStoreDeps) {
       state?.agentId === deps.props.agent?.id && state?.threadId === deps.props.agent?.threadId
         ? state?.compaction?.startedAt
         : undefined;
-    const messages = drawnMessages();
+    const messages = markOpenAgentMessages(drawnMessages(), openAgentMessages());
     const boundary =
       startedAt === undefined
         ? -1
@@ -310,6 +330,7 @@ export function createScrollStore(deps: ScrollStoreDeps) {
     messageVirtualizer,
     timelineMessages,
     toggleRoutineRun,
+    toggleAgentMessage,
     timelineIndexById,
     unreadBoundaryMessageId,
     updateScrollFade,

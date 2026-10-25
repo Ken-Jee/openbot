@@ -4,6 +4,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { join } from "node:path";
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import {
+  type AgentDefaults,
   type AgentModelOption,
   type AgentSummary,
   agentAutomationAllowed,
@@ -72,6 +73,8 @@ export interface AutomationServerOptions {
     AgentSummary,
     "id" | "name" | "allowAutomation" | "hiddenAt" | "provider" | "model" | "reasoningEffort"
   >[];
+  /** The account defaults; an agent with no automation setting of its own follows them. */
+  agentDefaults: () => AgentDefaults;
   /** The models that the provider CLIs list now. */
   listModels: () => AgentModelOption[];
   listRoutines: (agentId: string) => readonly Pick<Routine, "id" | "name" | "active">[];
@@ -129,7 +132,9 @@ export class AutomationServer {
   readonly sync = Effect.fn("AutomationServer.sync")(function* (this: AutomationServer) {
     yield* this.#step(
       Effect.suspend(() => {
-        const wanted = !this.#stopped && this.#options.listAgents().some(agentAutomationAllowed);
+        const wanted =
+          !this.#stopped &&
+          this.#options.listAgents().some((agent) => agentAutomationAllowed(agent, this.#options.agentDefaults()));
         if (wanted && !this.#server) return this.#start();
         if (!wanted) return this.#close();
         return Effect.void;
@@ -360,7 +365,7 @@ export class AutomationServer {
   #requireAgent(agentId: string, routine = false) {
     const agent = this.#options.listAgents().find((candidate) => candidate.id === agentId);
     if (!agent) throw new HttpError(404, "not found");
-    if (!agentAutomationAllowed(agent))
+    if (!agentAutomationAllowed(agent, this.#options.agentDefaults()))
       throw new HttpError(
         403,
         routine ? sourceText("error.agent.automationOff") : sourceText("error.agent.localScriptsOff"),
@@ -422,7 +427,7 @@ export class AutomationServer {
       this.#options
         .listAgents()
         // A hidden agent takes no new work, so a script does not see it until it is restored.
-        .filter((agent) => agentAutomationAllowed(agent) && agent.hiddenAt === undefined)
+        .filter((agent) => agentAutomationAllowed(agent, this.#options.agentDefaults()) && agent.hiddenAt === undefined)
         .map((agent) => ({
           id: agent.id,
           name: agent.name,

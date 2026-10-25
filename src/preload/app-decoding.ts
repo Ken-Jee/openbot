@@ -17,8 +17,11 @@ import {
 import { parseHostedSiteList, parseHostedSiteSummary } from "@openbot/contracts/hosted-sites";
 import {
   type AccountSession,
+  AGENT_DEFAULT_KEYS,
+  type AgentDefaults,
   type AgentMemoryLimitPreference,
   type AnalyticsPreference,
+  type AppAppearancePreference,
   type AppBehaviorPreference,
   type AppInfo,
   type AppInterfaceSizePreference,
@@ -31,11 +34,15 @@ import {
   type CentralAuthIssue,
   type CentralAuthState,
   type CentralAuthUser,
+  type ChatWindowTarget,
+  CUSTOM_AGENT_LIMITS,
   type CustomAgentCheckResult,
   type CustomAgentResult,
   type CustomAgentSummary,
+  type CustomAgentUsage,
   type CustomProviderResult,
   type CustomProviderSummary,
+  DEFAULT_AGENT_DEFAULTS,
   type DetectedAcpAgent,
   type DetectedModelServer,
   type DiscoverModelsResult,
@@ -50,6 +57,7 @@ import {
   isAgentMemoryLimit,
   isAgentModel,
   isAgentProvider,
+  isAppAppearance,
   isAppInterfaceSize,
   isAppLanguage,
   isAppLogoColor,
@@ -58,6 +66,7 @@ import {
   isCustomAgentCheckResult,
   isCustomAgentResult,
   isCustomAgentSummary,
+  isCustomAgentUsage,
   isCustomProviderResult,
   isCustomProviderSummary,
   isDetectedAcpAgent,
@@ -66,6 +75,7 @@ import {
   isProviderDetectionSettings,
   isRemoteDesktopSetupStatus,
   isRemoteDesktopTestStatus,
+  isRemoteNetworkRoute,
   isSpeechVoice,
   isVoiceLanguage,
   isVoiceModelId,
@@ -81,6 +91,7 @@ import {
   parseOnePasswordConnectorStatus,
   type RemoteDesktopSetupStatus,
   type RemoteDesktopTestStatus,
+  type RemoteNetworkRouteState,
   type RemoteSessionReusePreference,
   SPEECH_MODEL_ID,
   type SpeechAudio,
@@ -150,6 +161,13 @@ export function decodeBusyMessageModePreference(value: unknown): BusyMessageMode
   return { mode: preference.mode };
 }
 
+export function decodeAgentDefaults(value: unknown): AgentDefaults {
+  const defaults = decodeRecord(value, "agent defaults");
+  const decoded = { ...DEFAULT_AGENT_DEFAULTS };
+  for (const key of AGENT_DEFAULT_KEYS) decoded[key] = requiredBoolean(defaults, key);
+  return decoded;
+}
+
 export function decodeAgentMemoryLimitPreference(value: unknown): AgentMemoryLimitPreference {
   const preference = decodeRecord(value, "agent memory limit preference");
   if (!isAgentMemoryLimit(preference.limit)) throw new Error("Invalid agent memory limit.");
@@ -168,10 +186,26 @@ export function decodeAppLogoColorPreference(value: unknown): AppLogoColorPrefer
   return { color: preference.color };
 }
 
+export function decodeAppAppearancePreference(value: unknown): AppAppearancePreference {
+  const preference = decodeRecord(value, "appearance preference");
+  if (!isAppAppearance(preference.appearance)) throw new Error("Invalid appearance.");
+  if (typeof preference.transparentWindow !== "boolean") throw new Error("Invalid transparent window.");
+  return { appearance: preference.appearance, transparentWindow: preference.transparentWindow };
+}
+
 export function decodeAppInterfaceSizePreference(value: unknown): AppInterfaceSizePreference {
   const preference = decodeRecord(value, "interface size preference");
   if (!isAppInterfaceSize(preference.percent)) throw new Error("Invalid interface size.");
   return { percent: preference.percent };
+}
+
+export function decodeChatWindowTargets(value: unknown): ChatWindowTarget[] {
+  if (!Array.isArray(value)) throw new Error("Invalid chat windows.");
+  return value.map((item) => {
+    const target = decodeRecord(item, "chat window");
+    if (!isString(target.serverId) || !isString(target.agentId)) throw new Error("Invalid chat window.");
+    return { serverId: target.serverId, agentId: target.agentId };
+  });
 }
 
 export function decodeCentralAuthState(value: unknown): CentralAuthState {
@@ -313,6 +347,8 @@ export function decodeAppBehaviorPreference(value: unknown): AppBehaviorPreferen
   return {
     launchAtLogin: nullableBoolean(preference, "launchAtLogin"),
     keepRunningInBackground: nullableBoolean(preference, "keepRunningInBackground"),
+    keepAwake: nullableBoolean(preference, "keepAwake"),
+    keepAwakeOnBattery: nullableBoolean(preference, "keepAwakeOnBattery"),
   };
 }
 
@@ -320,6 +356,12 @@ export function decodeRemoteSessionReusePreference(value: unknown): RemoteSessio
   return {
     keepBetweenRuns: requiredBoolean(decodeRecord(value, "remote session preference"), "keepBetweenRuns"),
   };
+}
+
+export function decodeRemoteNetworkRouteState(value: unknown): RemoteNetworkRouteState {
+  const state = decodeRecord(value, "remote network route");
+  if (!isRemoteNetworkRoute(state.route)) throw new Error("Invalid remote network route.");
+  return { route: state.route, tailscaleConnected: requiredBoolean(state, "tailscaleConnected") };
 }
 
 export function decodeNotificationPreference(value: unknown): NotificationPreference {
@@ -535,6 +577,13 @@ export function decodeCustomAgentResult(value: unknown): CustomAgentResult {
   return value;
 }
 
+export function decodeCustomAgentUsage(value: unknown): CustomAgentUsage[] {
+  if (!Array.isArray(value) || value.length > CUSTOM_AGENT_LIMITS.agents || !value.every(isCustomAgentUsage)) {
+    throw new Error("Invalid custom agent usage response.");
+  }
+  return value;
+}
+
 export function decodeCustomAgentCheckResult(value: unknown): CustomAgentCheckResult {
   if (!isCustomAgentCheckResult(value)) throw new Error("Invalid agent check response.");
   return value;
@@ -565,7 +614,18 @@ export function decodeRemoteDesktopTestFromMain(value: unknown): RemoteDesktopTe
 }
 
 export function decodeBitwardenConnectorStatus(value: unknown): BitwardenConnectorStatus {
-  if (!value || typeof value !== "object" || !("connected" in value) || typeof value.connected !== "boolean")
+  if (
+    !value ||
+    typeof value !== "object" ||
+    !("connected" in value) ||
+    !isBoolean(value.connected) ||
+    !("connecting" in value) ||
+    !isBoolean(value.connecting) ||
+    !("serverUrl" in value) ||
+    !(value.serverUrl === null || isString(value.serverUrl)) ||
+    !("error" in value) ||
+    !(value.error === null || isString(value.error))
+  )
     throw new Error("Invalid Bitwarden connector response.");
-  return { connected: value.connected };
+  return { connected: value.connected, connecting: value.connecting, serverUrl: value.serverUrl, error: value.error };
 }

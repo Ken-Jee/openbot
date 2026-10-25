@@ -8,6 +8,7 @@ import { FuseV1Options, getCurrentFuseWire } from "@electron/fuses";
 import { isDynamicRecord, isNumber, isString } from "@openbot/contracts/runtime-values";
 import { createOpenBotLogger, toLogValue } from "@openbot/logging";
 import { isMissingFileError } from "../src/backend/file-errors";
+import { elfSearchPaths, ORIGIN_SEARCH_PATH } from "./elf-search-paths";
 
 const logger = createOpenBotLogger("verify-linux-package");
 
@@ -61,6 +62,10 @@ const appPath = resolve(
 const executablePath = resolve(appPath, "openbot");
 const resourcesPath = resolve(appPath, "resources");
 const asarPath = resolve(resourcesPath, "app.asar");
+const voiceRuntimePath = resolve(resourcesPath, "voice/runtime");
+const voiceRuntimeFiles = ["sherpa-onnx.node", "libsherpa-onnx-c-api.so", "libonnxruntime.so"];
+const voiceHostPath = resolve(resourcesPath, "app.asar.unpacked/out/main/voice-transcription-host.js");
+const speechHostPath = resolve(resourcesPath, "app.asar.unpacked/out/main/voice-speech-host.js");
 
 await Promise.all([
   access(executablePath),
@@ -70,12 +75,17 @@ await Promise.all([
   access(resolve(resourcesPath, "managed-skills")),
   access(resolve(resourcesPath, "licenses/Electron-LICENSE")),
   access(resolve(resourcesPath, "licenses/LICENSES.chromium.html")),
+  access(resolve(resourcesPath, "licenses/sherpa-onnx-LICENSE")),
+  access(resolve(resourcesPath, "licenses/onnxruntime-LICENSE")),
+  ...voiceRuntimeFiles.map((name) => access(resolve(voiceRuntimePath, name))),
+  access(voiceHostPath),
+  access(speechHostPath),
   // A hosted server refuses an update to a release without all of its hosting files.
   ...["packages.txt", "openbot-hosted.apparmor", ...HOSTED_UNITS].map((file) =>
     access(resolve(resourcesPath, "hosting", file)),
   ),
   ...HOSTED_SCRIPTS.map((file) => access(resolve(resourcesPath, "hosting", file), constants.X_OK)),
-  // Computer Use is the one native runtime the Linux build does ship.
+  // The Computer Use driver of this architecture.
   access(resolve(resourcesPath, `cua-driver/linux/${architecture}/cua-driver`)),
   access(resolve(resourcesPath, `cua-driver/linux/${architecture}/wayland-helper/winrects@cua/extension.js`)),
   access(resolve(resourcesPath, `cua-driver/linux/${architecture}/LICENSE.md`)),
@@ -86,10 +96,39 @@ await Promise.all(
   ),
 );
 
-// Voice is not built for Linux. This assertion is the regression guard for the platform split of
-// `extraResources`: if it ever returns to the shared list, the Linux build either fails outright
-// on a missing source or ships a runtime it cannot use.
-await assertAbsent(resolve(resourcesPath, "voice"), "Voice transcription is not available on Linux");
+// The voice runtime is the one this architecture loads. The Parakeet, Bark, Whisper and Supertonic
+// models are downloaded on demand.
+await Promise.all(voiceRuntimeFiles.map((name) => assertElfMachine(resolve(voiceRuntimePath, name))));
+// `prepare-voice` removes the CI build directory and the working directory from the search paths.
+for (const name of voiceRuntimeFiles) {
+  const paths = elfSearchPaths(await readFile(resolve(voiceRuntimePath, name)));
+  if (paths.some(({ value }) => value !== ORIGIN_SEARCH_PATH)) {
+    throw new Error(
+      `${name} must load libraries only from its own directory: ${paths.map(({ value }) => value).join(", ")}`,
+    );
+  }
+}
+await Promise.all(
+  [
+    "voice/model",
+    "voice/bark-3.0-plus-int8",
+    "voice/whisper-turbo-int8",
+    "voice/supertonic-3-int8",
+    "voice/runtime/encoder.int8.onnx",
+    "voice/runtime/turbo-encoder.int8.onnx",
+    "voice/runtime/vocoder.int8.onnx",
+  ].map((path) =>
+    assertAbsent(resolve(resourcesPath, path), "The on-demand voice models must not be in the application"),
+  ),
+);
+for (const [path, name] of [
+  [voiceHostPath, "voice transcription"],
+  [speechHostPath, "speech"],
+] as const) {
+  if (/from "(?!node:)/.test(await readFile(path, "utf8"))) {
+    throw new Error(`The ${name} host must import nothing but node: builtins.`);
+  }
+}
 // The remote desktop runtime is built for x64 only, and only for this platform.
 if (architecture === "x64") {
   await Promise.all(
@@ -132,15 +171,7 @@ expectEqual(packagedManifest.name, "openbot", "packaged name");
 expectEqual(packagedManifest.productName, "OpenBot", "packaged product name");
 expectEqual(packagedManifest.version, packageJson.version, "packaged version");
 
-const executable = await readFile(executablePath);
-if (executable.toString("binary", 0, 4) !== "\x7fELF") throw new Error("The executable has no ELF header.");
-if (executable[4] !== 2) throw new Error("Expected a 64-bit ELF executable.");
-const machine = executable.readUInt16LE(18);
-if (machine !== target.elfMachine) {
-  throw new Error(
-    `Expected a Linux ${target.label} executable, but its ELF machine type is 0x${machine.toString(16)}.`,
-  );
-}
+await assertElfMachine(executablePath);
 
 const appImages = existsSync("dist") ? await findAppImages() : [];
 for (const appImage of appImages) {
@@ -181,12 +212,24 @@ await verifyLaunch(executablePath);
 
 logger.info(`Verified ${appPath}`);
 logger.info(
-  `OpenBot ${packageJson.version} · Linux ${architecture} · manifest · no voice or remote desktop · ASAR integrity · hardened fuses · launch`,
+  `OpenBot ${packageJson.version} · Linux ${architecture} · manifest · voice runtime · ASAR integrity · hardened fuses · launch`,
 );
 
 function expectEqual(actual: unknown, expected: unknown, label: string): void {
   if (actual !== expected) {
     throw new Error(`Unexpected ${label}: ${String(actual)} (expected ${String(expected)})`);
+  }
+}
+
+async function assertElfMachine(path: string): Promise<void> {
+  const file = await readFile(path);
+  if (file.toString("binary", 0, 4) !== "\x7fELF") throw new Error(`${path} has no ELF header.`);
+  if (file[4] !== 2) throw new Error(`Expected a 64-bit ELF file: ${path}`);
+  const machine = file.readUInt16LE(18);
+  if (machine !== target.elfMachine) {
+    throw new Error(
+      `Expected a Linux ${target.label} file, but the ELF machine type of ${path} is 0x${machine.toString(16)}.`,
+    );
   }
 }
 

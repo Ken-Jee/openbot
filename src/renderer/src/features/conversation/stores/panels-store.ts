@@ -19,6 +19,7 @@ import type {
   SidePanelPane,
 } from "../conversation-types";
 import { agentSkillsMode } from "../installed-skills-source";
+import { filePreviewQuoteId } from "../quoted-text";
 import { conversationOwnerId } from "./composer-store";
 
 // Each member reads the interface language when it is called.
@@ -26,7 +27,8 @@ const { t, errorMessage } = currentText();
 
 export interface RoutineSettingsRequest {
   agentId: string;
-  routineId: string;
+  /** Null starts a new routine. */
+  routineId: string | null;
   routineName: string;
   nonce: number;
 }
@@ -210,14 +212,14 @@ export function createPanelsStore(deps: PanelsStoreDeps) {
     setActiveRightPanel("task", agentId);
   }
 
-  function openRoutineSettings(routine: { routineId: string; name: string }): void {
+  function openRoutineSettings(routine: { routineId: string; name: string } | "new"): void {
     const agentId = deps.props.agent?.id;
     if (!agentId) return;
     routineSettingsRequestNonce += 1;
     setRoutineSettingsRequest({
       agentId,
-      routineId: routine.routineId,
-      routineName: routine.name,
+      routineId: routine === "new" ? null : routine.routineId,
+      routineName: routine === "new" ? "" : routine.name,
       nonce: routineSettingsRequestNonce,
     });
     setActiveRightPanel("settings", agentId);
@@ -291,7 +293,7 @@ export function createPanelsStore(deps: PanelsStoreDeps) {
   }
 
   function openSharedFile(path: string) {
-    const ownerAgentId = deps.props.agent?.id;
+    const ownerAgentId = conversationOwnerId(deps.props);
     if (!ownerAgentId) return;
     const serverId = deps.props.server?.id ?? "local";
     const target = { agentId: ownerAgentId, serverId };
@@ -304,7 +306,7 @@ export function createPanelsStore(deps: PanelsStoreDeps) {
           if (
             !scopeActive() ||
             generation !== deps.currentFilePreviewGeneration() ||
-            deps.props.agent?.id !== ownerAgentId
+            conversationOwnerId(deps.props) !== ownerAgentId
           ) {
             releaseFilePreviewPage(preview.pageUrl);
             return;
@@ -332,15 +334,18 @@ export function createPanelsStore(deps: PanelsStoreDeps) {
   /**
    * A chip can name a folder as well as a file. When the file preview fails, the folder listing is
    * tried; when that fails too, the preview error stays, because it names the path the agent wrote.
+   * `agentId` is the agent whose workspace holds the path; in a channel, the agent that wrote it.
    */
-  function openWorkspaceFile(path: string, folder?: string) {
-    const agentId = deps.props.agent?.id;
-    if (!agentId) return;
+  function openWorkspaceFile(path: string, folder?: string, agentId = deps.props.agent?.id) {
+    const ownerAgentId = conversationOwnerId(deps.props);
+    if (!agentId || !ownerAgentId) return;
     const serverId = deps.props.server?.id ?? "local";
-    const target = { agentId, serverId };
+    const target = { agentId: ownerAgentId, serverId };
     const generation = deps.nextFilePreviewGeneration();
     const current = () =>
-      scopeActive() && generation === deps.currentFilePreviewGeneration() && deps.props.agent?.id === agentId;
+      scopeActive() &&
+      generation === deps.currentFilePreviewGeneration() &&
+      conversationOwnerId(deps.props) === ownerAgentId;
     const agent = conversationRuntime(deps.props).agent;
     deps.setComposerError(null, target);
     void agent.previewWorkspaceFile({ agentId, path }).then(
@@ -349,14 +354,14 @@ export function createPanelsStore(deps: PanelsStoreDeps) {
           releaseFilePreviewPage(preview.pageUrl);
           return;
         }
-        deps.setSidebarFilePreview({ ownerAgentId: agentId, source: { kind: "workspace", path, folder }, preview });
-        setActiveRightPanel("file-preview", agentId);
+        deps.setSidebarFilePreview({ ownerAgentId, source: { kind: "workspace", agentId, path, folder }, preview });
+        setActiveRightPanel("file-preview", ownerAgentId);
       },
       (error) =>
         agent.listWorkspaceDirectory({ agentId, path }).then(
           (directory) => {
             if (!current()) return;
-            showWorkspaceFolder(agentId, path, directory);
+            showWorkspaceFolder(ownerAgentId, agentId, path, directory);
           },
           () => {
             if (!scopeActive() || generation !== deps.currentFilePreviewGeneration()) return;
@@ -366,18 +371,26 @@ export function createPanelsStore(deps: PanelsStoreDeps) {
     );
   }
 
+  /** The agent whose workspace the shown file or folder is in, so that its links open there too. */
+  function previewWorkspaceAgentId(): string | undefined {
+    const source = deps.sidebarFilePreview()?.source;
+    return source?.kind === "workspace" || source?.kind === "workspace-folder" ? source.agentId : deps.props.agent?.id;
+  }
+
   function openWorkspaceFolder(path: string) {
-    const agentId = deps.props.agent?.id;
-    if (!agentId) return;
-    const target = { agentId, serverId: deps.props.server?.id ?? "local" };
+    const agentId = previewWorkspaceAgentId();
+    const ownerAgentId = conversationOwnerId(deps.props);
+    if (!agentId || !ownerAgentId) return;
+    const target = { agentId: ownerAgentId, serverId: deps.props.server?.id ?? "local" };
     const generation = deps.nextFilePreviewGeneration();
     deps.setComposerError(null, target);
     void conversationRuntime(deps.props)
       .agent.listWorkspaceDirectory({ agentId, path })
       .then(
         (directory) => {
-          if (generation !== deps.currentFilePreviewGeneration() || deps.props.agent?.id !== agentId) return;
-          showWorkspaceFolder(agentId, path, directory);
+          if (generation !== deps.currentFilePreviewGeneration() || conversationOwnerId(deps.props) !== ownerAgentId)
+            return;
+          showWorkspaceFolder(ownerAgentId, agentId, path, directory);
         },
         (error) => {
           if (generation !== deps.currentFilePreviewGeneration()) return;
@@ -386,20 +399,34 @@ export function createPanelsStore(deps: PanelsStoreDeps) {
       );
   }
 
-  function showWorkspaceFolder(agentId: string, path: string, directory: WorkspaceDirectory) {
+  function showWorkspaceFolder(ownerAgentId: string, agentId: string, path: string, directory: WorkspaceDirectory) {
     deps.setSidebarFilePreview({
-      ownerAgentId: agentId,
-      source: { kind: "workspace-folder", path },
+      ownerAgentId,
+      source: { kind: "workspace-folder", agentId, path },
       preview: null,
       directory,
     });
-    setActiveRightPanel("file-preview", agentId);
+    setActiveRightPanel("file-preview", ownerAgentId);
   }
 
-  /** Opens a file of the folder view, so that the panel can go back to the folder. */
+  /**
+   * Opens a file of the folder view, so that the panel can go back to the folder, or a link of the
+   * shown file. Both are in the workspace of the agent the panel shows.
+   */
   function openWorkspaceFolderEntry(path: string) {
     const file = deps.sidebarFilePreview();
-    openWorkspaceFile(path, file?.directory?.path);
+    openWorkspaceFile(path, file?.directory?.path, previewWorkspaceAgentId());
+  }
+
+  /** The quote id of the file that the side panel shows. See `filePreviewQuoteId`. */
+  function previewQuoteId(): string | undefined {
+    const file = deps.sidebarFilePreview();
+    const source = file?.source;
+    const workspacePath =
+      deps.props.channel && source?.kind === "workspace"
+        ? deps.props.agents.find((agent) => agent.id === source.agentId)?.workspacePath
+        : undefined;
+    return filePreviewQuoteId(file, workspacePath);
   }
 
   /** Back to the folder a file came from, or up one folder. Absent when there is nowhere to go. */
@@ -440,7 +467,7 @@ export function createPanelsStore(deps: PanelsStoreDeps) {
     const request =
       source.kind === "shared"
         ? agent.openSharedFile({ path: source.path, action })
-        : agent.openWorkspaceFile({ agentId: file.ownerAgentId, path: source.path, action });
+        : agent.openWorkspaceFile({ agentId: source.agentId, path: source.path, action });
     const fallback = action === "download" ? t("attachment.error.download") : t("attachment.error.openFile");
     void request.catch((error) => deps.setComposerError(errorMessage(error, fallback), target));
   }
@@ -484,6 +511,8 @@ export function createPanelsStore(deps: PanelsStoreDeps) {
     openWorkspaceFile,
     openWorkspaceFolder,
     openWorkspaceFolderEntry,
+    previewQuoteId,
+    previewWorkspaceAgentId,
     sidebarFileBack,
     openSidebarFileBack,
     openSidebarFileExternally,

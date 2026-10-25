@@ -4,6 +4,7 @@ import type {
   AgentEvent,
   AgentMemory,
   AgentMemorySelectionState,
+  ConversationMemoryChange,
   CreateAgentMemoryInput,
   DeleteAgentMemoryInput,
   SetAgentMemoryInclusionInput,
@@ -188,12 +189,19 @@ export class AgentMemories {
     if (params.tool === "search_memories") {
       const parsed = searchMemoriesInput.safeParse(params.arguments);
       if (!parsed.success) return openBotToolFailure(sourceText("error.backend.memorySearchQuery"));
-      return memoryRecallResult(this.#memories.search(senderAgentId, parsed.data.query, parsed.data.limit), redact);
+      const result = memoryRecallResult(
+        this.#memories.search(senderAgentId, parsed.data.query, parsed.data.limit),
+        redact,
+      );
+      this.#emitRecallProgress(params, senderAgentId, result.count);
+      return result.response;
     }
     if (params.tool === "list_memories") {
       const parsed = listMemoriesInput.safeParse(params.arguments);
       if (!parsed.success) return openBotToolFailure("after must be a memory ID or null.");
-      return memoryRecallResult(this.#memories.listPage(senderAgentId, parsed.data.after ?? null), redact);
+      const result = memoryRecallResult(this.#memories.listPage(senderAgentId, parsed.data.after ?? null), redact);
+      this.#emitRecallProgress(params, senderAgentId, result.count);
+      return result.response;
     }
     if (params.tool === "set_memory_inclusion") {
       const parsed = setMemoryInclusionInput.safeParse(params.arguments);
@@ -347,11 +355,16 @@ export class AgentMemories {
     return null;
   }
 
-  /** Commits a turn's staged mutations, or discards them when the turn did not complete. */
-  finishTurn(turnId: string, status: string): void {
+  /**
+   * Commits a turn's staged mutations, or discards them when the turn did not complete. Answers the
+   * memories that the commit saved, updated and forgot, by agent. A mutation that the commit skipped
+   * is not in it.
+   */
+  finishTurn(turnId: string, status: string): Map<string, ConversationMemoryChange[]> {
     const pending = this.#pending.get(turnId) ?? [];
     this.#pending.delete(turnId);
-    if (status !== "completed" || pending.length === 0) return;
+    const changes = new Map<string, ConversationMemoryChange[]>();
+    if (status !== "completed" || pending.length === 0) return changes;
 
     const affectedAgents = new Set<string>();
     const createdMemories = new Set<string>();
@@ -366,6 +379,14 @@ export class AgentMemories {
       if (mutation.epoch !== this.#epoch(mutation.agentId)) continue;
       const before = this.#storedState(mutation.agentId);
       const previousSelections = this.#memories.listSelections(mutation.agentId);
+      const previousMemory =
+        mutation.type === "selection" || !mutation.memoryId
+          ? null
+          : this.#memories.get(mutation.agentId, mutation.memoryId);
+      const previousIds =
+        mutation.type === "remember" && !mutation.memoryId
+          ? new Set(this.#memories.list(mutation.agentId).map((memory) => memory.id))
+          : null;
       try {
         if (mutation.type === "selection")
           this.#memories.setInclusions(
@@ -426,9 +447,36 @@ export class AgentMemories {
         revisions.set(previous.revision, selection.revision);
         ownRevisions.set(key, revisions);
       }
-      if (this.#storedState(mutation.agentId) !== before) affectedAgents.add(mutation.agentId);
+      if (this.#storedState(mutation.agentId) === before) continue;
+      affectedAgents.add(mutation.agentId);
+      const committed = changes.get(mutation.agentId) ?? [];
+      committed.push(...this.#committedChanges(mutation, previousMemory, previousIds));
+      changes.set(mutation.agentId, committed);
     }
     for (const agentId of affectedAgents) this.stateChanged(agentId);
+    return changes;
+  }
+
+  /** What one committed mutation did to the memory texts. A change of inclusion only is not shown. */
+  #committedChanges(
+    mutation: PendingMemoryMutation,
+    previous: AgentMemory | null,
+    previousIds: ReadonlySet<string> | null,
+  ): ConversationMemoryChange[] {
+    if (mutation.type === "selection") return [];
+    if (mutation.type === "forget") {
+      if (!previous || this.#memories.get(mutation.agentId, mutation.memoryId)) return [];
+      return [{ memoryId: previous.id, action: "forgotten", text: previous.text }];
+    }
+    if (previous) {
+      const current = this.#memories.get(mutation.agentId, previous.id);
+      if (!current || current.text === previous.text) return [];
+      return [{ memoryId: current.id, action: "updated", text: current.text, previousText: previous.text }];
+    }
+    return this.#memories
+      .list(mutation.agentId)
+      .filter((memory) => !previousIds?.has(memory.id))
+      .map((memory) => ({ memoryId: memory.id, action: "saved" as const, text: memory.text }));
   }
 
   /** Reserve prompt space for this turn's staged changes, without making them visible to search. */
@@ -610,6 +658,17 @@ export class AgentMemories {
     return memories;
   }
 
+  /** A step of the turn's activity, so the chat shows that the agent looked in its memory. */
+  #emitRecallProgress(params: DynamicToolCallParams, agentId: string, count: number): void {
+    this.#emit({
+      type: "turn-progress",
+      agentId,
+      threadId: this.#conversation.publicThreadId(agentId, params.threadId),
+      turnId: params.turnId,
+      detail: sourceText("status.agent.memoriesSearched", { count }),
+    });
+  }
+
   #stage(turnId: string, mutation: PendingMemoryMutation): void {
     const pending = this.#pending.get(turnId) ?? [];
     if (!pending.some((candidate) => candidate.callId === mutation.callId)) pending.push(mutation);
@@ -625,7 +684,7 @@ export class AgentMemories {
 function memoryRecallResult(
   result: AgentMemorySearchResult | AgentMemoryListPage,
   redact: (value: string) => string,
-): OpenBotToolResponse {
+): { response: OpenBotToolResponse; count: number } {
   while (
     Buffer.byteLength(redact(JSON.stringify(result)), "utf8") > AGENT_MEMORY_CONTEXT_BUDGET_BYTES &&
     result.memories.length > 0
@@ -634,5 +693,8 @@ function memoryRecallResult(
     result.hasMore = true;
     if ("nextCursor" in result) result.nextCursor = result.memories.at(-1)?.id ?? null;
   }
-  return { success: true, contentItems: [{ type: "inputText", text: redact(JSON.stringify(result)) }] };
+  return {
+    response: { success: true, contentItems: [{ type: "inputText", text: redact(JSON.stringify(result)) }] },
+    count: result.memories.length,
+  };
 }

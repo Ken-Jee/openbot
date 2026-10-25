@@ -15,6 +15,7 @@ import { openTurnActivity } from "@/features/workspace/model/agent-activity";
 import { showsOnline } from "@/features/workspace/model/server-status";
 import { useText } from "@/shared/lib/text";
 import { chatRowIndex, latestReadableMessage, projectChatMessages, withFailureReasons } from "../model/chat-messages";
+import { useAgentMentionSkills } from "../model/use-agent-mention-skills";
 import { ChatTaskRows, useOpenAgentTasks } from "./chat-task-rows";
 import { ChatView } from "./chat-view";
 import { useChatQueue } from "./use-chat-queue";
@@ -129,6 +130,8 @@ export function MobileChatView({
       // The list can show the message, and clear the focus, before the request ends.
       if (messageId && request.current === id)
         setFocus((current) => (current?.messageId === messageId ? { messageId, loaded: true } : current));
+      // Events keep a loaded chat up to date while the connection stays, so it opens without a read.
+      if (conversationStore.isUpToDate(agent.id)) return;
       // A latest page that meets the window around the message joins the two.
       await loadConversation(agent.id, agent.serverId);
     };
@@ -182,6 +185,7 @@ export function MobileChatView({
       message.turnId === conversation?.activeTurnId,
   );
   const viewOnly = useAgentViewOnly(agent.serverId, agent.id);
+  const mentionSkills = useAgentMentionSkills(agent.id, agent.serverId, showsOnline(server));
   const questionForm = useQuestionPrompt(
     agent.id,
     activePrompt?.kind === "question" ? activePrompt : undefined,
@@ -194,6 +198,7 @@ export function MobileChatView({
       queue={queue}
       agents={serverAgents}
       mentionAgents={mentionAgents}
+      mentionSkills={mentionSkills}
       projectedMessages={messages}
       referenceMessages={references}
       ready={Boolean(conversation)}

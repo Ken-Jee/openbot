@@ -72,11 +72,12 @@ export const messages = defineMessages("provider", {
   "provider.aria.moreActions": "More actions for {name}",
 
   // The switch that turns a provider on or off in OpenBot. While an agent uses the provider, the
-  // switch stays on and the row names the agents.
+  // switch stays on and a toast names the agent, or counts the agents when there are more.
   "provider.aria.use": "Use {name} in OpenBot",
+  "provider.use.inUseOne": "{agent} uses {name}. Change the model of this agent, then turn {name} off.",
   "provider.use.inUse": {
-    one: "{agents} uses {name}. Change the model of this agent, then turn {name} off.",
-    other: "{agents} use {name}. Change the model of these agents, then turn {name} off.",
+    one: "{count} agent uses {name}. Change the model of this agent, then turn {name} off.",
+    other: "{count} agents use {name}. Change the model of these agents, then turn {name} off.",
   },
 
   // The dialog that signs in to a provider with a code on another device.
@@ -184,6 +185,19 @@ export const messages = defineMessages("provider", {
   "provider.account.finishSignIn": "Finish the sign-in in the browser.",
   "provider.account.remove": "Remove account",
   "provider.account.actionFailed": "Could not change the {name} account.",
+  "provider.account.resetUsage": "Reset usage",
+  "provider.account.resetUsageTitle": "Reset the usage of {name}?",
+  "provider.account.resetUsageDescription": {
+    one: "This uses your last usage reset credit. The spent usage limits of this account start again now. You cannot undo this.",
+    other:
+      "This uses 1 of your {count} usage reset credits. The spent usage limits of this account start again now. You cannot undo this.",
+  },
+  "provider.account.resetUsagePending": "Resetting…",
+  "provider.account.resetUsageDone": "The usage limits of {name} start again now.",
+  "provider.account.resetUsageNothing": "{name} has no spent usage limit. No credit was used.",
+  "provider.account.resetUsageNoCredit": "{name} has no usage reset credits left.",
+  "provider.account.resetUsageAlreadyRedeemed": "This reset credit of {name} was already used.",
+  "provider.account.resetUsageFailed": "Could not reset the usage of {name}.",
 
   // Settings > Providers: a list of providers, and one page for each provider.
   "provider.settings.connected": "Connected",
@@ -229,6 +243,13 @@ export const messages = defineMessages("provider", {
   "provider.settings.update": "Update",
   "provider.settings.downloadLabel": "Download of {name}",
   "provider.settings.diagnostics": "Diagnostics",
+  "provider.settings.cache": "Cache",
+  "provider.settings.promptCache": "Prompt cache",
+  "provider.settings.promptCacheDescription":
+    "How long Claude keeps the context of an agent in the cache between turns.",
+  "provider.settings.promptCacheHour": "1 hour",
+  "provider.settings.promptCacheMinutes": "5 minutes",
+  "provider.settings.promptCacheLoadFailed": "Could not load the prompt cache time of this server.",
   "provider.settings.use": "Use",
   "provider.settings.defaultForNew": "Default for new agents",
   "provider.settings.startsWith": "New agents start with {name}.",

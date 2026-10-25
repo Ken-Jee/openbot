@@ -37,11 +37,13 @@ import {
   type RemoteRecoveryStatus,
 } from "@openbot/team-client/remote-recovery";
 import { reconcilePendingRequests } from "@openbot/team-client/runtime-attention";
+import { duplicateSection as duplicateSectionWith } from "@openbot/ui/features/sidebar/duplicate-section";
 import { currentText } from "@openbot/ui/text";
 import { errorReference, type UserErrorDetails } from "@openbot/user-errors";
 import { createEffect, createMemo, createSignal, createStore, onSettled } from "solid-js";
 import { toAgentProfile } from "../../app-message-projection";
 import { mergeConversationPage, missingReplyOriginals } from "../conversation/conversation-merge";
+import { appendTurnStepLine, type TurnStepLines } from "../conversation/turn-step-lines";
 import { followsServerUpdate } from "../servers/server-update-flow";
 import { createSidebarPreferences } from "../sidebar/sidebar-preferences";
 import { defaultSidebarLayout } from "../sidebar/sidebar-sections";
@@ -233,6 +235,8 @@ export function createWebWorkspace(
     sidebarLayout: defaultSidebarLayout(),
     userHiddenAgents: [],
   });
+  // Every progress line of the newest turns, by turn, for the steps under the activity line.
+  const [stepLines, setStepLines] = createSignal<TurnStepLines>({});
   let generation = 0;
   let selectedId: string | null = null;
   let hostId: string | null = null;
@@ -481,6 +485,7 @@ export function createWebWorkspace(
           setState((draft) => {
             draft.progress[event.agentId] = { turnId: event.turnId, detail: cleanAgentMessageText(event.detail) };
           });
+          setStepLines((current) => appendTurnStepLine(current, event.turnId, cleanAgentMessageText(event.detail)));
         } else if (event.type === "turn-started") {
           setState((draft) => {
             delete draft.progress[event.agentId];
@@ -586,6 +591,7 @@ export function createWebWorkspace(
     },
   );
   // A hosted server keeps running while this tab is visible and has focus (`focus-use-v1`).
+  const [duplicatingSectionIds, setDuplicatingSectionIds] = createSignal<ReadonlySet<string>>(new Set());
   const [pageFocused, setPageFocused] = createSignal(!document.hidden && document.hasFocus());
   const focusUse = createFocusUsePing(() => void runtime.focusUse().catch(() => undefined));
   createEffect(
@@ -703,6 +709,7 @@ export function createWebWorkspace(
             draft.approvals = [];
             draft.prompts = [];
             draft.progress = {};
+            setStepLines({});
             draft.takeovers = [];
             draft.browserTabs = [];
             draft.activeBrowserTabId = null;
@@ -817,6 +824,7 @@ export function createWebWorkspace(
       draft.approvals = [];
       draft.prompts = [];
       draft.progress = {};
+      setStepLines({});
       draft.takeovers = [];
       draft.browserTabs = [];
       draft.activeBrowserTabId = null;
@@ -1454,6 +1462,7 @@ export function createWebWorkspace(
   });
   return {
     state,
+    stepLines,
     hostViews,
     profiles,
     retryPanels: loadPanels,
@@ -1462,6 +1471,7 @@ export function createWebWorkspace(
     runtime,
     preferences,
     orderedHosts,
+    duplicatingSectionIds,
     reorderHosts(hostIds: string[]) {
       setServerOrder(hostIds);
       writeWebServerOrder(props.accountId, hostIds);
@@ -1560,6 +1570,72 @@ export function createWebWorkspace(
           setState((draft) => {
             draft.duplicatingAgentIds = draft.duplicatingAgentIds.filter((id) => id !== agentId);
           });
+      }
+    },
+    /** Copies a custom section and each of its agents. The selection stays where it is. */
+    async duplicateSection(sectionId: string): Promise<void> {
+      if (
+        state.status !== "online" ||
+        !state.capabilities.includes("agent-duplication") ||
+        !state.capabilities.includes("sidebar-layout")
+      ) {
+        return;
+      }
+      const mutate = runtime.mutateSidebarLayout;
+      if (!mutate || duplicatingSectionIds().has(sectionId)) return;
+      const current = generation;
+      const isCurrent = () => !disposed && current === generation;
+      const acceptLayout = (layout: SidebarLayoutSnapshot) =>
+        setState((draft) => {
+          if (layout.revision >= draft.sidebarLayout.revision) draft.sidebarLayout = layout;
+        });
+      setDuplicatingSectionIds((ids) => new Set(ids).add(sectionId));
+      try {
+        const hidden = new Set(state.userHiddenAgents.map((entry) => entry.agentId));
+        await duplicateSectionWith(
+          {
+            layout: state.sidebarLayout,
+            agentIds: state.agents.filter((agent) => !hidden.has(agent.id)).map((agent) => agent.id),
+            // The agent's own Duplicate item waits too: the host refuses a second copy of one agent.
+            duplicateAgent: async (agentId) => {
+              if (!isCurrent()) return null;
+              setState((draft) => {
+                draft.duplicatingAgentIds = [...draft.duplicatingAgentIds, agentId];
+              });
+              try {
+                const result = await runtime.duplicateAgent(agentId);
+                if (!isCurrent()) return null;
+                setState((draft) => {
+                  draft.agents = [result.agent, ...draft.agents.filter((agent) => agent.id !== result.agent.id)];
+                });
+                acceptLayout(result.layout);
+                return { agentId: result.agent.id, layout: result.layout };
+              } finally {
+                if (isCurrent())
+                  setState((draft) => {
+                    draft.duplicatingAgentIds = draft.duplicatingAgentIds.filter((id) => id !== agentId);
+                  });
+              }
+            },
+            mutateLayout: async (action) => {
+              if (!isCurrent()) return null;
+              const layout = await mutate(action);
+              if (!isCurrent()) return null;
+              acceptLayout(layout);
+              return layout;
+            },
+          },
+          sectionId,
+        );
+      } catch (error) {
+        if (current === generation) report(error);
+        throw error;
+      } finally {
+        setDuplicatingSectionIds((ids) => {
+          const next = new Set(ids);
+          next.delete(sectionId);
+          return next;
+        });
       }
     },
     /**

@@ -3,11 +3,17 @@
  * before it is saved anywhere.
  */
 
+import {
+  applyMcpFlow,
+  type McpAuthValues,
+  type McpKeyFlow,
+  mcpFlowComplete,
+} from "@openbot/contracts/mcp-connect-flows";
 import { Button, ExternalLink, Field, Input, ShieldCheck, Text } from "@openbot/ui";
 import { createMemo, createStore, For, Show } from "solid-js";
 import { useText } from "../../text";
 import { createConnectRun, type McpConnectBaseProps, McpConnectShell } from "./McpConnectShell";
-import { applyMcpFlow, type McpAuthValues, type McpKeyFlow, mcpFlowComplete, mcpFlowError } from "./mcp-connect-auth";
+import { mcpFlowError } from "./mcp-connect-auth";
 
 export interface McpKeyDialogProps extends McpConnectBaseProps {
   /** The credentials this server asks for, as its listing declares them. */
