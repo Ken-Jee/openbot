@@ -219,7 +219,7 @@ export const messages = {
     "Workers, DNS, хранилища и логи через MCP-сервер API Cloudflare со входом в браузере.",
   "marketplace.plugin.cloudflare.prompt.workers": "Какие Workers развёрнуты в моём аккаунте Cloudflare?",
   "marketplace.plugin.cloudflare.prompt.errors": "Какие Cloudflare Workers записали ошибки за последний час?",
-  "marketplace.plugin.cloudflare.prompt.dns": "Покажи DNS-записи каждой зоны в моём аккаунте Cloudflare.",
+  "marketplace.plugin.cloudflare.prompt.dns": "Покажите DNS-записи каждой зоны в моём аккаунте Cloudflare.",
   "marketplace.plugin.context7.tagline": "Актуальная документация библиотек",
   "marketplace.plugin.context7.description":
     "Context7 получает актуальную документацию и справочники API для библиотек и фреймворков, чтобы ответы учитывали версию, которая действительно используется в проекте. Аккаунт и ключ не нужны.",

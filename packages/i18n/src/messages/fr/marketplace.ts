@@ -206,7 +206,7 @@ export const messages = {
   "marketplace.plugin.cloudflare.prompt.workers": "Quels Workers sont déployés dans mon compte Cloudflare ?",
   "marketplace.plugin.cloudflare.prompt.errors":
     "Quels Workers Cloudflare ont enregistré des erreurs au cours de la dernière heure ?",
-  "marketplace.plugin.cloudflare.prompt.dns": "Liste les enregistrements DNS de chaque zone de mon compte Cloudflare.",
+  "marketplace.plugin.cloudflare.prompt.dns": "Listez les enregistrements DNS de chaque zone de mon compte Cloudflare.",
   "marketplace.plugin.context7.tagline": "Documentation à jour des bibliothèques",
   "marketplace.plugin.context7.description":
     "Context7 récupère la documentation et les références d’API à jour des bibliothèques et des frameworks, pour que les réponses utilisent la version que le projet exécute réellement. Il ne demande ni compte ni clé.",
