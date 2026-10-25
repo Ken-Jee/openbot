@@ -150,6 +150,7 @@ const browser: AgentBrowserHost = {
   clearControls: () => {},
   endControl: () => {},
   close: () => Effect.void,
+  clearAgentSession: () => Effect.void,
 };
 
 /** The `turn/start` requests that OpenBot sent on a thread. */

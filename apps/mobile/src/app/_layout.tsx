@@ -20,6 +20,7 @@ import { installAppLock } from "@/features/app-lock/model/app-lock";
 import { DevelopmentConnectLinkHandler } from "@/features/auth/components/development-connect-link-handler";
 import { MobileSessionProvider, useMobileSession } from "@/features/auth/context/mobile-session-context";
 import { loadOnboardingProgress } from "@/features/onboarding/model/onboarding-progress";
+import { installNotificationHandler } from "@/features/push-notifications/use-notification-taps";
 import { installQuickActions, resetQuickActions } from "@/features/quick-actions/quick-actions-native";
 import { loadAppLanguage } from "@/features/settings/model/app-language";
 import { loadAppearance, useAppearance } from "@/features/settings/model/appearance";
@@ -35,7 +36,7 @@ import { AppLoadingOverlayProvider, useAppLoadingOverlay } from "@/shared/compon
 import { BloubStage } from "@/shared/components/bloub-stage/bloub-stage";
 import { BloubStageProvider, useBloubStageRequest } from "@/shared/components/bloub-stage/bloub-stage-context";
 import { BLOUB_PRIORITY } from "@/shared/components/bloub-stage/bloub-stage-store";
-import { navigationFonts } from "@/shared/lib/app-font";
+import { headerFontOptions, navigationFonts } from "@/shared/lib/app-font";
 import { useReducedMotion } from "@/shared/lib/motion";
 import { nativeSplash } from "@/shared/lib/native-splash";
 import { isAndroid, isIOS } from "@/shared/lib/platform";
@@ -45,12 +46,13 @@ import { untilForeground } from "@/shared/lib/until-foreground";
 import { SplashContentReadyContext, useSplashGate } from "@/shared/lib/use-splash-gate";
 
 export const unstable_settings = {
-  initialRouteName: "index",
+  anchor: "index",
 };
 
 installSupportLog();
 installQuickActions();
 installAppLock();
+installNotificationHandler();
 
 const UniwindGestureHandlerRootView = withUniwind(GestureHandlerRootView);
 const lightTheme = { ...DefaultTheme, fonts: navigationFonts };
@@ -127,11 +129,14 @@ function RootNavigator() {
               <Stack
                 screenOptions={{
                   headerBackButtonDisplayMode: "minimal",
+                  ...headerFontOptions,
                   headerShadowVisible: false,
                   headerTransparent: isIOS,
                 }}
               >
-                <Stack.Protected guard={!session}>
+                {/* A blocked route redirects. Without `redirectTo`, Expo Router uses the first open route, the
+                    `(app)` group, whose URL is `/`, and `/` is the blocked sign-in screen. */}
+                <Stack.Protected guard={!session} redirectTo="/connected">
                   {/* Signing out goes back, so it fades like signing in instead of sliding forward. */}
                   <Stack.Screen
                     name="index"
@@ -145,7 +150,7 @@ function RootNavigator() {
                     }}
                   />
                 </Stack.Protected>
-                <Stack.Protected guard={Boolean(session)}>
+                <Stack.Protected guard={Boolean(session)} redirectTo="/">
                   <Stack.Screen
                     name="(app)"
                     options={{

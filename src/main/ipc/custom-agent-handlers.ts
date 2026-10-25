@@ -1,6 +1,6 @@
 import { Effect, Semaphore } from "effect";
 
-// The user's own ACP agents: list, save, delete and check. This computer only: no Team API route
+// The user's own ACP agents: list, save, delete, check and the answers to their usage prompts. This computer only: no Team API route
 // reaches these. `custom-agent-changes.ts` owns the order of the writes.
 
 import { runCauseEffect } from "../../backend/effect-boundary";
@@ -18,6 +18,7 @@ export function customAgentIpcHandlers(changes: CustomAgentChanges): Pick<IpcGro
   return {
     customAgents: {
       list: handler(() => Effect.runPromise(changes.list())),
+      usage: handler(() => Effect.runPromise(changes.usage())),
       save: payloadHandler(parseSaveCustomAgent, (input) => runCauseEffect(changes.save(input))),
       delete: payloadHandler(parseDeleteCustomAgent, ({ id }) => runCauseEffect(changes.remove(id))),
       check: payloadHandler(parseCheckCustomAgent, (input) => {

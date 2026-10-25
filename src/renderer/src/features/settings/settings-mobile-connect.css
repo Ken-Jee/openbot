@@ -460,7 +460,7 @@
   width: 10px;
   height: 10px;
   flex: 0 0 auto;
-  color: var(--openbot-text-muted-on-light);
+  color: var(--openbot-paper-text-muted);
   stroke-width: 2.5;
   opacity: 0;
   transform: rotate(-45deg) scale(0.6);
@@ -573,4 +573,118 @@
   .settings-mobile-app-qr-link {
     transform: none;
   }
+}
+
+/* How devices connect: two cards with a radio dot, as in the sound theme picker. */
+.settings-mobile-route {
+  display: grid;
+  gap: var(--openbot-space-3);
+}
+
+.settings-mobile-route-heading {
+  display: grid;
+  gap: var(--openbot-space-1);
+}
+
+.settings-mobile-route-heading h3 {
+  margin: 0;
+  font-weight: var(--openbot-weight-medium);
+}
+
+.settings-mobile-route-choice {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--openbot-space-2);
+}
+
+.settings-mobile-route-option {
+  display: flex;
+  min-width: 0;
+}
+
+.settings-mobile-route-card {
+  display: flex;
+  flex: 1;
+  align-items: flex-start;
+  gap: var(--openbot-space-3);
+  min-width: 0;
+  padding: var(--openbot-space-3) var(--openbot-space-4);
+  border-radius: var(--openbot-radius-lg);
+  background: var(--openbot-bg-control);
+  box-shadow: inset 0 0 0 1px var(--openbot-border);
+  cursor: pointer;
+  transition-property: background-color, box-shadow;
+  transition-duration: var(--openbot-duration-hover), var(--openbot-duration-normal);
+  transition-timing-function: var(--openbot-ease-out);
+}
+
+.settings-mobile-route-card:hover {
+  background: var(--openbot-bg-control-hover);
+}
+
+.settings-mobile-route-card[data-disabled] {
+  cursor: default;
+}
+
+.settings-mobile-route-card[data-checked] {
+  box-shadow:
+    inset 0 0 0 1.5px var(--openbot-accent),
+    0 1px 3px var(--openbot-shadow-popover-ambient);
+}
+
+/* A ring, filled when the route is selected. */
+.settings-mobile-route-dot {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: var(--openbot-icon-md);
+  height: var(--openbot-icon-md);
+  margin-top: 1px;
+  border-radius: var(--openbot-radius-pill);
+  box-shadow: inset 0 0 0 1.5px var(--openbot-text-muted);
+  transition: box-shadow var(--openbot-duration-normal) var(--openbot-ease-out);
+}
+
+.settings-mobile-route-dot::after {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-accent);
+  content: "";
+  transform: scale(0);
+  transition: transform var(--openbot-duration-normal) var(--openbot-ease-out);
+}
+
+.settings-mobile-route-card[data-checked] .settings-mobile-route-dot {
+  box-shadow: inset 0 0 0 1.5px var(--openbot-accent);
+}
+
+.settings-mobile-route-card[data-checked] .settings-mobile-route-dot::after {
+  transform: scale(1);
+}
+
+.settings-mobile-route-option:has(:focus-visible) .settings-mobile-route-card {
+  box-shadow: var(--openbot-focus-ring);
+}
+
+.settings-mobile-route-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-1);
+  min-width: 0;
+}
+
+.settings-mobile-route-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--openbot-space-2);
+  color: var(--openbot-text-primary);
+  font-size: var(--openbot-text-md);
+  font-weight: var(--openbot-weight-medium);
+}
+
+.settings-mobile-route-hint {
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
 }

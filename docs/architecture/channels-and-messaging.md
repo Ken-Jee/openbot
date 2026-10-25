@@ -155,13 +155,34 @@ supplies the accepted result schema and the channel summary in place of the tran
 stale routing cannot broadcast a request. Routing can select an existing task, ask a question, or
 indicate that no work is needed. A selected owner or existing task adds one channel message from the
 lead, so the selection is visible and the user can correct it. Deterministic selection adds no
-message.
+message. A request that needs routing in a channel with no lead stops with the reason
+`channelLeadRequired`. A save that sets a new lead queues these requests again, and the lead routes
+them. A lead change does not move a task that already has an owner. The member packet names the lead
+(`leadAgentId`).
 
 Channel tools retrieve history, assign a child task, transfer ownership, and report results. The
 runtime supplies channel and caller identity. A child keeps its parent owner; a transfer changes it.
 Only assignments and awaited results start turns. Completed child results are combined before the
 owner returns. The limit is eight automatic assignments per root request and two active assignments
 per channel (`CHANNEL_PARALLEL_LIMIT`).
+
+A member can also change its channel when a person asks: `channel_add_member`,
+`channel_remove_member`, `channel_set_instructions`, and `channel_list_routines`,
+`channel_create_routine`, `channel_update_routine`, `channel_delete_routine` for the schedule
+routines. They act only on the channel of the running task (`channel-management.ts`). The request
+message of the root task must have a person as author. A routine run (author id `routine:<id>`)
+and a request that only an agent wrote are refused, so untrusted run input cannot change the
+channel. A member change is a `save` through the command queue, with the draft read from the stored
+channel when its turn comes. The caller cannot remove itself or an owner of a task above its own,
+and removing the lead clears the lead. An agent that a person adds must be one that person can chat
+with, and one they remove must be one they can see: main answers `personAgentLevel` with the level
+their own Team API save has (`HostService.channelPersonAgentLevel`). For a team member's request,
+the routine tools do not list, make or change a one-time routine, which the Team API does not carry
+(`HostService.channelPersonIsRemote`). A retried call finds the
+receipt of its change and changes nothing again. Each change
+writes a `channel-change` note in the same commit, with the agent as author and a source text that
+names the agent, the change and the person. Clients show it as an activity row, and it is not
+unread and not in the model packet.
 
 Channel work holds only the agent that does it. An agent runs one main-lane turn at a time: its chat,
 a channel delivery or a messaging delivery. While the agent has an active assignment,

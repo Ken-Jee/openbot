@@ -176,12 +176,27 @@ function isAccountUsageWindow(value: unknown): value is AccountUsageWindow {
   );
 }
 
+/** A quota that the provider names and that limits only some of its models, such as Gemini 4 Argon. */
+export interface AccountUsageGroup {
+  /** The provider's name for the group, such as "Gemini Models". */
+  name: string;
+  /** The model names that the provider lists for the group, such as "Gemini Flash". */
+  models: string[];
+  primary: AccountUsageWindow | null;
+  secondary: AccountUsageWindow | null;
+}
+
 export interface AccountUsageLimit {
   id: string;
   /** The provider account the reading is for. Absent for the provider's own sign-in. */
   accountId?: string;
   primary: AccountUsageWindow | null;
   secondary: AccountUsageWindow | null;
+  /**
+   * Antigravity only: each quota group of the plan. `primary` and `secondary` are then the group of
+   * the model that was read, or the "Gemini Models" group. The Team API does not send this field.
+   */
+  groups?: AccountUsageGroup[];
 }
 
 export interface AccountUsage {
@@ -198,8 +213,27 @@ export function isAccountUsage(value: unknown): value is AccountUsage {
         isBoundedString(limit.id, INPUT_LIMITS.identifier) &&
         (limit.accountId === undefined || isProviderAccountId(limit.accountId)) &&
         (limit.primary === null || isAccountUsageWindow(limit.primary)) &&
-        (limit.secondary === null || isAccountUsageWindow(limit.secondary)),
+        (limit.secondary === null || isAccountUsageWindow(limit.secondary)) &&
+        (limit.groups === undefined ||
+          (Array.isArray(limit.groups) &&
+            limit.groups.length <= MAX_USAGE_GROUPS &&
+            limit.groups.every(isAccountUsageGroup))),
     )
+  );
+}
+
+/** The most groups in one reading, and the most models in one group. */
+export const MAX_USAGE_GROUPS = 16;
+
+function isAccountUsageGroup(value: unknown): value is AccountUsageGroup {
+  return (
+    isDynamicRecord(value) &&
+    isBoundedString(value.name, INPUT_LIMITS.identifier) &&
+    Array.isArray(value.models) &&
+    value.models.length <= MAX_USAGE_GROUPS &&
+    value.models.every((model) => isBoundedString(model, INPUT_LIMITS.identifier)) &&
+    (value.primary === null || isAccountUsageWindow(value.primary)) &&
+    (value.secondary === null || isAccountUsageWindow(value.secondary))
   );
 }
 
@@ -263,6 +297,30 @@ export interface RemoveProviderAccountInput {
   provider: AgentProviderId;
   accountId: string;
 }
+
+/** Spends one usage reset credit of a provider account, which restores its spent limits now. */
+export interface ResetProviderUsageInput {
+  provider: AgentProviderId;
+  accountId: string;
+}
+
+/**
+ * The usage reset credits that a provider gave one account, as its last usage reading counted them.
+ * Codex gives them; an account of another provider has none.
+ */
+export interface ProviderUsageResets {
+  provider: AgentProviderId;
+  /** `DEFAULT_PROVIDER_ACCOUNT_ID` for the provider's own sign-in. */
+  accountId: string;
+  available: number;
+}
+
+/**
+ * What the provider did with a reset. `nothingToReset` and `alreadyRedeemed` spend no new credit;
+ * `noCredit` means the account had none left.
+ */
+export const PROVIDER_USAGE_RESET_OUTCOMES = ["reset", "nothingToReset", "noCredit", "alreadyRedeemed"] as const;
+export type ProviderUsageResetOutcome = (typeof PROVIDER_USAGE_RESET_OUTCOMES)[number];
 
 /**
  * The accounts of a joined server's host (`provider-accounts-v1`). The host's released status and

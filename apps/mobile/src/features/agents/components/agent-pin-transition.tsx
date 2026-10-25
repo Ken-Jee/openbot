@@ -9,7 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { View } from "react-native";
+import { View, type ViewInstance } from "react-native";
 import { Easing, ReduceMotion, useSharedValue, withTiming } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 import { AgentPinTransitionOverlay } from "@/features/agents/components/agent-pin-transition-overlay";
@@ -38,7 +38,7 @@ export interface AgentPinTransitionState {
 }
 
 interface AgentPinTransitionContextValue {
-  registerAvatar: (agentId: string, location: AgentAvatarLocation, node: View | null) => void;
+  registerAvatar: (agentId: string, location: AgentAvatarLocation, node: ViewInstance | null) => void;
   notifyAvatarLayout: (agentId: string, location: AgentAvatarLocation) => void;
   toggleAgentPinAnimated: (agentId: string, options?: { haptic: boolean }) => void;
   toggleChannelPinAnimated: (channel: ChannelSummary, serverId: string, options?: { haptic: boolean }) => void;
@@ -52,8 +52,8 @@ const TRANSITION_DURATION = 320;
 export function AgentPinTransitionProvider({ children }: PropsWithChildren) {
   // Read when a pin changes, so the rows that use this context do not render for every workspace update.
   const workspace = useMobileWorkspaceReader();
-  const containerRef = useRef<View>(null);
-  const avatarRefs = useRef(new Map<string, Partial<Record<AgentAvatarLocation, View>>>()).current;
+  const containerRef = useRef<ViewInstance>(null);
+  const avatarRefs = useRef(new Map<string, Partial<Record<AgentAvatarLocation, ViewInstance>>>()).current;
   const avatarRects = useRef(new Map<string, Partial<Record<AgentAvatarLocation, AvatarRect>>>()).current;
   const transitionRef = useRef<AgentPinTransitionState | null>(null);
   const animationStartedRef = useRef(false);
@@ -122,7 +122,7 @@ export function AgentPinTransitionProvider({ children }: PropsWithChildren) {
   );
 
   const registerAvatar = useCallback(
-    (agentId: string, location: AgentAvatarLocation, node: View | null) => {
+    (agentId: string, location: AgentAvatarLocation, node: ViewInstance | null) => {
       const refs = avatarRefs.get(agentId) ?? {};
       if (node) {
         refs[location] = node;

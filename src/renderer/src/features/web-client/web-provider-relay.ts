@@ -1,7 +1,8 @@
 // The relayed provider sign-ins of the browser client (`sign-in-relay-v1`). The host starts the sign-in
 // of its CLI and opens no page. This browser opens the page when the user asks, and the user pastes the
 // address that the browser shows at the end: a web page cannot listen for the callback. Only its query
-// goes to the host. A device page returns nowhere, so the user only opens it.
+// goes to the host. A device page returns nowhere, so the user only opens it. The sign-in of an account
+// after the first starts on its own route (`provider-account-relay-v1`) and then runs as the others do.
 
 import {
   type AgentProviderId,
@@ -10,6 +11,7 @@ import {
   type ProviderAdminDesktopApi,
   relayCallbackQuery,
 } from "@openbot/contracts/ipc";
+import { PROVIDER_ACCOUNT_RELAY_PROVIDERS } from "@openbot/contracts/team-protocol/provider-account-relay-v1";
 import { SIGN_IN_RELAY_PROVIDERS } from "@openbot/contracts/team-protocol/sign-in-relay-v1";
 import { sourceText } from "@openbot/i18n/source";
 import { runTeamEffect } from "@openbot/team-client";
@@ -17,6 +19,7 @@ import {
   cancelProviderSignInRelay,
   completeSignInRelay,
   signInRelayStatus,
+  startProviderAccountSignInRelay,
   startProviderSignInRelay,
   type TeamAdminRequestError,
 } from "@openbot/team-client/team-admin-requests";
@@ -38,7 +41,12 @@ interface RelayedSignIn {
 
 type RelayApi = Pick<
   ProviderAdminDesktopApi,
-  "startRelaySignIn" | "relaySignInStatus" | "openRelaySignIn" | "pasteRelaySignIn" | "cancelRelaySignIn"
+  | "startRelaySignIn"
+  | "startAccountRelaySignIn"
+  | "relaySignInStatus"
+  | "openRelaySignIn"
+  | "pasteRelaySignIn"
+  | "cancelRelaySignIn"
 >;
 
 export function webProviderRelay(request: (serverId?: string) => TeamApiRequest): RelayApi {
@@ -67,6 +75,24 @@ export function webProviderRelay(request: (serverId?: string) => TeamApiRequest)
     }
   }
 
+  /** Starts the flow that `start` opens on the host, in place of any relayed sign-in of `provider`. */
+  async function startRelay(
+    provider: AgentProviderId,
+    serverId: string,
+    start: (send: TeamApiRequest) => Effect.Effect<{ flowId: string }, TeamAdminRequestError>,
+  ): Promise<void> {
+    const key = keyOf(provider, serverId);
+    const previous = relayed.get(key);
+    if (previous) previous.stopped = true;
+    const send = request(serverId);
+    const { flowId } = await run(start(send));
+    const entry: RelayedSignIn = { flowId, page: null, url: null, state: null, result: null, stopped: false };
+    relayed.set(key, entry);
+    void follow(entry, send).catch((error: unknown) => {
+      entry.result = { error: error instanceof Error ? error.message : sourceText("error.mcp.relayEnded") };
+    });
+  }
+
   function waiting(provider: AgentProviderId, serverId: string): RelayedSignIn {
     const entry = relayed.get(keyOf(provider, serverId));
     if (!entry?.url || entry.result) throw new Error(sourceText("error.mcp.relayEnded"));
@@ -74,19 +100,17 @@ export function webProviderRelay(request: (serverId?: string) => TeamApiRequest)
   }
 
   return {
-    startRelaySignIn: async (provider, serverId) => {
+    startRelaySignIn: (provider, serverId) => {
       const relayProvider = SIGN_IN_RELAY_PROVIDERS.find((candidate) => candidate === provider);
-      if (!relayProvider) throw new Error(sourceText("error.team.providersUnsupported"));
-      const key = keyOf(provider, serverId);
-      const previous = relayed.get(key);
-      if (previous) previous.stopped = true;
-      const send = request(serverId);
-      const { flowId } = await run(startProviderSignInRelay(send, relayProvider));
-      const entry: RelayedSignIn = { flowId, page: null, url: null, state: null, result: null, stopped: false };
-      relayed.set(key, entry);
-      void follow(entry, send).catch((error: unknown) => {
-        entry.result = { error: error instanceof Error ? error.message : sourceText("error.mcp.relayEnded") };
-      });
+      if (!relayProvider) return Promise.reject(new Error(sourceText("error.team.providersUnsupported")));
+      return startRelay(provider, serverId, (send) => startProviderSignInRelay(send, relayProvider));
+    },
+    startAccountRelaySignIn: ({ provider, accountId }, serverId) => {
+      const relayProvider = PROVIDER_ACCOUNT_RELAY_PROVIDERS.find((candidate) => candidate === provider);
+      if (!relayProvider) return Promise.reject(new Error(sourceText("error.team.providersUnsupported")));
+      return startRelay(provider, serverId, (send) =>
+        startProviderAccountSignInRelay(send, { provider: relayProvider, accountId }),
+      );
     },
     relaySignInStatus: async (provider, serverId) => {
       const entry = relayed.get(keyOf(provider, serverId));

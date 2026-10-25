@@ -2,6 +2,7 @@ import type { AgentEvent, AgentSummary } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
 import type { Logger } from "@openbot/logging";
 import { Effect, Result, Schema } from "effect";
+import type { AgentApiKeys } from "../agent-api-keys";
 import type { AgentStore } from "../agent-store";
 import type { ChannelService } from "../channel-service";
 import { causeHelpers } from "../effect-boundary";
@@ -38,6 +39,8 @@ export interface AgentRemovalOptions {
   turn: TurnLifecycle;
   hostedSites: HostedSiteCoordinator;
   compaction: ContextCompaction;
+  /** The API keys that users saved for agents; null where nothing saves them. */
+  apiKeys?: AgentApiKeys | null | undefined;
   /** Runs `remove` with the agent's approvals revoked. The main process gives it. */
   deleteWithRevokedApproval: (
     agentId: string,
@@ -70,6 +73,7 @@ export class AgentRemoval {
   readonly #turn: TurnLifecycle;
   readonly #hostedSites: HostedSiteCoordinator;
   readonly #compaction: ContextCompaction;
+  readonly #apiKeys: AgentApiKeys | null;
   readonly #deleteWithRevokedApproval: AgentRemovalOptions["deleteWithRevokedApproval"];
   readonly #logger: Logger;
   readonly #hooks: AgentRemovalHooks;
@@ -88,6 +92,7 @@ export class AgentRemoval {
     this.#turn = options.turn;
     this.#hostedSites = options.hostedSites;
     this.#compaction = options.compaction;
+    this.#apiKeys = options.apiKeys ?? null;
     this.#deleteWithRevokedApproval = options.deleteWithRevokedApproval;
     this.#logger = options.logger;
     this.#hooks = options.hooks;
@@ -176,6 +181,8 @@ export class AgentRemoval {
       yield* this.#mailbox
         .deleteAgentData(agent.id, this.#channels.store.allContextThreads())
         .pipe(toAgentRemovalFailed);
+      stage = "api-keys";
+      if (this.#apiKeys) yield* this.#apiKeys.removeAgent(agent.id).pipe(toAgentRemovalFailed);
       stage = "agent-files-and-record";
       yield* this.#store.deleteAgent(agent.id).pipe(toAgentRemovalFailed);
     }).pipe(
@@ -185,7 +192,11 @@ export class AgentRemoval {
         return new AgentRemovalFailed({ cause: new Error(sourceText("error.agent.deleteIncomplete")) });
       }),
     );
-    yield* this.#closeBrowserTabsEffect(agent);
+    yield* this.closeBrowserTabs(agent);
+    // Nobody can use the sign-ins of a deleted agent again.
+    const cleared = yield* Effect.result(this.#browser.clearAgentSession(agent.id));
+    if (Result.isFailure(cleared))
+      this.#logger.warn("Could not clear a deleted agent's browser session.", removalErrorCode(cleared.failure));
     yield* removalStep(() => {
       this.#conversation.forgetAgent(agent.id);
       this.#turn.forgetAgent(agent.id);
@@ -210,8 +221,11 @@ export class AgentRemoval {
    * The owner test matches the renderer's, so a tab the user could see under this agent is a tab this
    * closes -- including a legacy tab carrying only the thread id. Runs after the agent record is
    * already gone, so a failure here must not fail the deletion the user asked for.
+   *
+   * A change of the agent's own browser session closes its tabs too: each tab keeps the session it
+   * opened in.
    */
-  readonly #closeBrowserTabsEffect = Effect.fn("AgentRemoval.closeBrowserTabs")(function* (
+  readonly closeBrowserTabs = Effect.fn("AgentRemoval.closeBrowserTabs")(function* (
     this: AgentRemoval,
     agent: Pick<AgentSummary, "id" | "threadId">,
   ) {
@@ -226,9 +240,9 @@ export class AgentRemoval {
     for (const tab of owned) {
       const result = yield* Effect.result(this.#browser.close(tab.id).pipe(toAgentRemovalFailed));
       if (Result.isSuccess(result)) closed += 1;
-      else this.#logger.warn("Could not close a deleted agent's browser tab.", removalErrorCode(result.failure));
+      else this.#logger.warn("Could not close an agent's browser tab.", removalErrorCode(result.failure));
     }
-    if (closed > 0) this.#logger.info("Closed a deleted agent's browser tabs.", { agentId: agent.id, count: closed });
+    if (closed > 0) this.#logger.info("Closed an agent's browser tabs.", { agentId: agent.id, count: closed });
   });
 }
 

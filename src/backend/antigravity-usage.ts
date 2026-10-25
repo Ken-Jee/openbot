@@ -10,12 +10,19 @@
 //     *(Models within this group: Gemini Flash, Gemini Pro)*
 //     - **Weekly Limit Remaining:** 96% remaining (resets Oct 29, 2026, 10:12 UTC)
 //   - **Claude and GPT models**
+//     *(Models within this group: Claude Opus, Claude Sonnet, GPT-OSS)*
 //     - **Weekly Limit Remaining:** 100% remaining
 //
-// An API key sign-in has no plan quota: the section then says "Not applicable for current
-// authentication method", which reads as no usage.
+// Google names the groups and can give a model a group of its own, such as Gemini 4 Argon on some
+// plans (#3055). The reading carries every group, so the usage popover shows each one. An API key sign-in has no plan quota: the section then says "Not applicable for
+// current authentication method", which reads as no usage.
 
-import type { AccountRateLimitsReadResult, AccountRateLimitWindowResult } from "./protocol";
+import { usageGroupForModel } from "@openbot/contracts/ipc";
+import type {
+  AccountRateLimitGroupResult,
+  AccountRateLimitsReadResult,
+  AccountRateLimitWindowResult,
+} from "./protocol";
 
 export const ANTIGRAVITY_USAGE_PROMPT = "/usage";
 
@@ -27,49 +34,81 @@ const NO_USAGE: AccountRateLimitsReadResult = { rateLimits: null, rateLimitsByLi
 
 const SECTION = /^#+\s*Quota Limits\s*$/iu;
 const GROUP = /^-\s+\*\*(.+?)\*\*\s*$/u;
+const GROUP_MODELS = /^\s+\*\(Models within this group:\s*(.+?)\)\*\s*$/iu;
 const BUCKET = /^\s+-\s+\*\*(.+?):\*\*\s+(\d+(?:\.\d+)?)% remaining(?:\s+\(resets ([^)]+)\))?\s*$/u;
 const RESET = /^([A-Z][a-z]{2}) (\d{1,2}), (\d{4}), (\d{1,2}):(\d{2}) UTC$/u;
 
 type UsageWindow = AccountRateLimitWindowResult & { usedPercent: number };
 
+type QuotaGroup = AccountRateLimitGroupResult & { primary: UsageWindow | null; secondary: UsageWindow | null };
+
 /**
- * The Gemini groups only: the dock row is Gemini's, and Claude and GPT models through Antigravity
- * share another limit. A five-hour bucket is the first window and a weekly one the second, as for
- * Codex. When two Gemini groups fill the same window, the one closer to its limit stops turns first.
+ * The windows of the group that limits `model`. A five-hour bucket is the first window and a weekly
+ * one the second, as for Codex. Without a model, the dock's reading, it is the "Gemini Models" group.
+ * A model that no group lists has no reading: another group's room does not say that it can run.
+ * When Google lists no models at all, the Gemini group covers every model, as one group did before.
+ * `groups` holds every group that has a window.
  */
-export function antigravityRateLimits(answer: string): AccountRateLimitsReadResult {
+export function antigravityRateLimits(answer: string, model: string | null = null): AccountRateLimitsReadResult {
+  const groups = quotaGroups(answer);
+  const listed = groups.some((group) => group.models.length > 0);
+  const group = model && listed ? usageGroupForModel(groups, model) : geminiGroup(groups);
+  if (!group || (!group.primary && !group.secondary)) return NO_USAGE;
+  return {
+    rateLimits: { limitId: "antigravity", primary: group.primary, secondary: group.secondary },
+    rateLimitsByLimitId: null,
+    groups: groups.filter((candidate) => candidate.primary || candidate.secondary),
+  };
+}
+
+function quotaGroups(answer: string): QuotaGroup[] {
+  const groups: QuotaGroup[] = [];
   let inSection = false;
-  let inGemini = false;
-  let primary: UsageWindow | null = null;
-  let secondary: UsageWindow | null = null;
   for (const line of answer.split(/\r?\n/u)) {
     if (/^#/u.test(line)) {
       inSection = SECTION.test(line);
       continue;
     }
     if (!inSection) continue;
-    const group = GROUP.exec(line);
-    if (group) {
-      inGemini = /^gemini\b/iu.test(group[1] ?? "");
+    const name = GROUP.exec(line)?.[1];
+    if (name) {
+      groups.push({ name, models: [], primary: null, secondary: null });
       continue;
     }
-    const bucket = inGemini ? BUCKET.exec(line) : null;
+    const group = groups.at(-1);
+    if (!group) continue;
+    const models = GROUP_MODELS.exec(line)?.[1];
+    if (models) {
+      group.models = models
+        .split(",")
+        .map((model) => model.trim())
+        .filter(Boolean);
+      continue;
+    }
+    const bucket = BUCKET.exec(line);
     if (!bucket) continue;
-    const name = bucket[1] ?? "";
+    const bucketName = bucket[1] ?? "";
     const window: UsageWindow = {
       usedPercent: Math.max(0, Math.min(100, 100 - Number(bucket[2]))),
-      windowDurationMins: /week/iu.test(name)
+      windowDurationMins: /week/iu.test(bucketName)
         ? WEEKLY_WINDOW_MINS
-        : /\b5\s*-?\s*h/iu.test(name)
+        : /\b5\s*-?\s*h/iu.test(bucketName)
           ? FIVE_HOUR_WINDOW_MINS
           : null,
       resetsAt: resetSeconds(bucket[3]),
     };
-    if (window.windowDurationMins === FIVE_HOUR_WINDOW_MINS) primary = bindingWindow(primary, window);
-    else secondary = bindingWindow(secondary, window);
+    if (window.windowDurationMins === FIVE_HOUR_WINDOW_MINS) group.primary = bindingWindow(group.primary, window);
+    else group.secondary = bindingWindow(group.secondary, window);
   }
-  if (!primary && !secondary) return NO_USAGE;
-  return { rateLimits: { limitId: "antigravity", primary, secondary }, rateLimitsByLimitId: null };
+  return groups;
+}
+
+/** "Gemini Models" by name, else the first group whose name starts with Gemini. */
+function geminiGroup(groups: readonly QuotaGroup[]): QuotaGroup | undefined {
+  return (
+    groups.find((group) => /^gemini models$/iu.test(group.name.trim())) ??
+    groups.find((group) => /^gemini\b/iu.test(group.name))
+  );
 }
 
 function bindingWindow(current: UsageWindow | null, next: UsageWindow): UsageWindow {

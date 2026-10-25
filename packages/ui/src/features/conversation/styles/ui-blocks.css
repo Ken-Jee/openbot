@@ -189,10 +189,10 @@
   overflow-wrap: anywhere;
 }
 
+/* A long draft scrolls, so the user can read all of it before an answer. */
 .ui-block-preview {
-  position: relative;
-  max-height: 6.5em;
-  overflow: hidden;
+  max-height: 16em;
+  overflow-y: auto;
   padding: var(--openbot-space-3);
   border: 1px solid var(--openbot-border);
   border-radius: var(--openbot-radius-lg);
@@ -202,13 +202,14 @@
   line-height: var(--openbot-leading-lg);
 }
 
-.ui-block-preview::after {
-  position: absolute;
-  inset: auto 0 0;
-  height: 2.4em;
-  background: linear-gradient(transparent, var(--openbot-bg-surface-raised));
-  content: "";
-  pointer-events: none;
+.ui-block-preview[data-expanded="true"] {
+  max-height: none;
+}
+
+/* The control that opens the rest of a long draft sits under it, at the start of the line. */
+.ui-block-preview-toggle {
+  align-self: flex-start;
+  margin-top: calc(var(--openbot-space-2) * -1);
 }
 
 .ui-block-preview-text {

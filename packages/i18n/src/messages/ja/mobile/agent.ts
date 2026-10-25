@@ -238,7 +238,6 @@ export const messages = {
   "mobile.agent.record.lateMonthDay": "{day} 日がない月はスキップされます。",
   "mobile.agent.record.cronHint":
     "5 つのフィールド: 分、時、日、月、曜日。例えば 0 9 * * 1-5 は平日の 9:00 に実行されます。",
-  "mobile.agent.record.problem.endBeforeStart": "終了時刻は開始時刻より後にしてください。",
   "mobile.agent.record.problem.invalidDate": "この月にはこの日がありません。",
   "mobile.agent.record.problem.cronRequired": "cron 式を入力してください。",
   "mobile.agent.record.problem.cronTooLong": "cron 式が長すぎます。",

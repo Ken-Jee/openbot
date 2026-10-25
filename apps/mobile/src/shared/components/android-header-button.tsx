@@ -113,7 +113,8 @@ export function androidBackOptions(
     route,
   }: {
     navigation: { getState(): { routes: readonly { key: string }[] }; goBack(): void };
-    route: { key: string };
+    // Expo Router 58 types a route key as optional.
+    route: { key?: string };
   },
   { glass = false }: { glass?: boolean } = {},
 ) {

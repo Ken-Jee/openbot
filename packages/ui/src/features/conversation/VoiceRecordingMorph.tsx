@@ -1,3 +1,4 @@
+import { VOICE_AUDIO_LIMITS } from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
 import { Button, Check, X } from "@openbot/ui";
 import type { JSX } from "@solidjs/web";
@@ -6,6 +7,11 @@ import { useText } from "../../text";
 import { prefersReducedMotion } from "../../utils";
 
 export type VoicePhase = "idle" | "preparing" | "requesting" | "recording" | "transcribing";
+
+/** The bar counts down the time left in this many last seconds of a recording. */
+export const VOICE_LIMIT_COUNTDOWN_SECONDS = 15;
+/** This many seconds before the limit, the countdown turns orange and a warning plays. */
+export const VOICE_LIMIT_WARNING_SECONDS = 10;
 
 /** The catalog key of the voice button's accessible name. */
 export function voiceButtonLabel(phase: VoicePhase): AppTextKey {
@@ -44,8 +50,15 @@ export function VoiceRecordingMorph(props: {
 }): JSX.Element {
   const { t } = useText();
   const filterId = `voice-morph-goo-${createUniqueId()}`;
+  const remainingSeconds = () => Math.max(0, VOICE_AUDIO_LIMITS.maximumSeconds - props.elapsedSeconds);
+  const countingDown = () => remainingSeconds() <= VOICE_LIMIT_COUNTDOWN_SECONDS;
+  const warning = () => remainingSeconds() <= VOICE_LIMIT_WARNING_SECONDS;
   return (
-    <div class="voice-morph" data-recording={props.recording ? "" : undefined}>
+    <div
+      class="voice-morph"
+      data-recording={props.recording ? "" : undefined}
+      data-countdown={props.recording && countingDown() ? "" : undefined}
+    >
       <svg class="voice-morph-filter" aria-hidden="true">
         <filter id={filterId} color-interpolation-filters="sRGB">
           <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur" />
@@ -61,11 +74,24 @@ export function VoiceRecordingMorph(props: {
       </span>
       <div class="voice-morph-slot">
         <Show when={props.recording} fallback={props.children}>
-          <fieldset class="voice-recording-status" aria-label={t("composer.voice.recording")}>
+          <fieldset
+            class="voice-recording-status"
+            data-tone={warning() ? "warning" : undefined}
+            aria-label={t("composer.voice.recording")}
+          >
             <VoiceWaveform levels={props.levels} />
             <time class="sr-only" datetime={`PT${props.elapsedSeconds}S`}>
               {formatVoiceDuration(props.elapsedSeconds)}
             </time>
+            <Show when={countingDown()}>
+              <span class="voice-recording-remaining" aria-hidden="true">
+                {formatVoiceDuration(remainingSeconds())}
+              </span>
+            </Show>
+            {/* Present from the start, so screen readers announce the text when it appears. */}
+            <span class="sr-only" role="status">
+              {warning() ? t("composer.voice.limitSoon", { seconds: VOICE_LIMIT_WARNING_SECONDS }) : ""}
+            </span>
             <Button
               variant="ghost"
               type="button"

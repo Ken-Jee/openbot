@@ -3,7 +3,6 @@ import { currentText } from "@openbot/ui/text";
 import { createSignal, onCleanup } from "solid-js";
 import { actionToast } from "../../action-toast";
 import { appPort } from "../../app-port";
-import { usePlatform } from "../../platform";
 import { useTurns } from "../../turns";
 import { appendVoiceTranscript } from "../../voice-recording";
 import { useAgents } from "../agents/agents-context";
@@ -11,7 +10,6 @@ import { EMPTY_DRAFT } from "../conversation/composer-draft";
 import { composerDraftKey } from "../conversation/conversation-keys";
 import type { ComposerDraft } from "../conversation/conversation-types";
 import { createVoiceStore, VOICE_LEVEL_COUNT, type VoiceStoreDeps } from "../conversation/stores/voice-store";
-import { voiceSupported } from "../conversation/voice-status";
 import { TasksView, type TasksVoiceAdapter, type TasksVoiceControls } from "./TasksView";
 import { desktopTasksSource } from "./tasks-port";
 
@@ -29,7 +27,6 @@ export interface TasksPanelProps {
 /** The Tasks page on desktop: the agents of the active server, the task IPC, and voice from this computer. */
 export function TasksPanel(props: TasksPanelProps) {
   const { agentList } = useAgents();
-  const { appInfo } = usePlatform();
   const { approvals, respondToApprovalRequest } = useTurns();
 
   function openAttachment(attachment: AttachmentSummary, action: "open" | "reveal" | "download"): void {
@@ -44,7 +41,7 @@ export function TasksPanel(props: TasksPanelProps) {
       {...props}
       source={desktopTasksSource()}
       agents={agentList()}
-      voice={voiceSupported(appInfo()?.platform) ? createTasksVoice : undefined}
+      voice={createTasksVoice}
       onOpenLink={(url) => void appPort().openUrl(url)}
       onAttachmentAction={openAttachment}
       approvals={approvals()}

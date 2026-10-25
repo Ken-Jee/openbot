@@ -315,9 +315,9 @@ function composeLayout(constants: {
   var open = ${String(openSealedLiveActivity)};
   var layout = ${String(agentLiveActivityLayout)};
   return function (props, environment) {
-    var shown = props;
+    var shown = props || {};
     var context = environment;
-    if (typeof props.sealed === "string") {
+    if (props && typeof props.sealed === "string") {
       var text = c.seal ? open(props.sealed, c.seal, c.tag) : null;
       var opened = null;
       try { opened = text === null ? null : JSON.parse(text); } catch (error) { opened = null; }
@@ -337,7 +337,7 @@ const START_FILE = "live-activity-start.json";
 
 function rememberStart(id: string, startedAt: number): void {
   try {
-    new File(Paths.document, START_FILE).write(JSON.stringify({ id, startedAt }));
+    new File(Paths.document, START_FILE).writeSync(JSON.stringify({ id, startedAt }));
   } catch {
     // Without the file the hosts use the time when they first got the token.
   }
@@ -418,7 +418,7 @@ export const agentLiveActivity: AgentLiveActivityLoader = () => {
       if (!widgetsDirectory || !match?.[2] || !extension) return null;
       const fileName = `${AVATAR_PREFIX}${name}.${extension}`;
       const file = new File(widgetsDirectory, fileName);
-      if (!file.exists) file.write(match[2], { encoding: "base64" });
+      if (!file.exists) file.writeSync(match[2], { encoding: "base64" });
       return fileName;
     },
     hasAvatar: (fileName) => Boolean(widgetsDirectory) && new File(widgetsDirectory, fileName).exists,

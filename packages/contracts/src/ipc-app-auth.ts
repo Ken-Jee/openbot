@@ -336,6 +336,15 @@ export interface ComputerUseCursorPoint {
   y: number;
 }
 
+/**
+ * One chat that is open in its own window as well as in the main window (#2964). The main window
+ * keeps the chat; closing the extra window closes only the window.
+ */
+export interface ChatWindowTarget {
+  serverId: string;
+  agentId: string;
+}
+
 export type ExternalDestination =
   | "opencode-install"
   | "opencode-auth"

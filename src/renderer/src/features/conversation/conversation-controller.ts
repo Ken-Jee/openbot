@@ -6,6 +6,7 @@ import type {
   BrowserTab,
   MarketplaceSkillDetail,
 } from "@openbot/contracts/ipc";
+import { SETTINGS_PANEL_DEFAULT } from "@openbot/ui/components/SettingsPanel";
 import type { AgentActivityLabel } from "@openbot/ui/features/conversation/AgentActivity";
 import { currentText } from "@openbot/ui/text";
 import type { UserErrorDetails } from "@openbot/user-errors";
@@ -26,6 +27,7 @@ import { releaseFilePreviewPage } from "./conversation-port";
 import type {
   ComposerDraft,
   ConversationProps,
+  ConversationTarget,
   RightPanelMode,
   SidebarFilePreview,
   VoiceLiveTranscript,
@@ -36,7 +38,6 @@ import { createPendingSendStore } from "./stores/pending-send-store";
 import type { SideQuestionState } from "./stores/side-question-store";
 import type { VoiceCloudStream } from "./stores/voice-store";
 
-const SETTINGS_PANEL_DEFAULT = 296;
 const BROWSER_PANEL_DEFAULT = 380;
 const BROWSER_PIP_STORAGE_KEY = "openbot:browser-pip-native-bounds";
 
@@ -145,6 +146,10 @@ export function createStableConversationState(
   // A send in flight belongs to the server it was sent to, so it outlives a server switch.
   const pendingSends = createPendingSendStore();
   const [conversationErrors, setConversationErrors] = createSignal<Record<string, string>>({});
+  /** The provider and model of the run behind each conversation error, keyed like `conversationErrors`. */
+  const [conversationErrorRuns, setConversationErrorRuns] = createSignal<
+    Record<string, { message: string; run: string }>
+  >({});
   createEffect(
     () => {
       const agentId = editingAgentId();
@@ -200,7 +205,7 @@ export function createStableConversationState(
       };
     },
   );
-  if (storedDrafts)
+  if (storedDrafts && persistDrafts)
     writeComposerDraftsOnChange({
       drafts,
       channelDrafts,
@@ -219,6 +224,8 @@ export function createStableConversationState(
   const [voiceElapsedSeconds, setVoiceElapsedSeconds] = createSignal(0);
   const [voiceLiveTranscript, setVoiceLiveTranscript] = createSignal<VoiceLiveTranscript | null>(null);
   const [voiceLevels, setVoiceLevels] = createSignal<number[]>([]);
+  /** The conversation whose last recording stopped at the time limit. */
+  const [voiceLimitReached, setVoiceLimitReached] = createSignal<ConversationTarget | null>(null);
   const [browserPipBounds, setBrowserPipBounds] = createSignal<BrowserBounds | null>(readBrowserPipBounds());
   const [settingsPanelWidth, setSettingsPanelWidth] = createSignal(SETTINGS_PANEL_DEFAULT);
   const [browserPanelWidth, setBrowserPanelWidth] = createSignal(BROWSER_PANEL_DEFAULT);
@@ -314,11 +321,14 @@ export function createStableConversationState(
     setEditingOriginalAttachmentIds,
     editingPendingSave,
     setEditingPendingSave,
+    persistDrafts,
     composerFocusRequest,
     setComposerFocusRequest,
     pendingSends,
     conversationErrors,
     setConversationErrors,
+    conversationErrorRuns,
+    setConversationErrorRuns,
     composerErrors,
     setComposerErrors,
     composerErrorReferences,
@@ -333,6 +343,8 @@ export function createStableConversationState(
     setVoiceLiveTranscript,
     voiceLevels,
     setVoiceLevels,
+    voiceLimitReached,
+    setVoiceLimitReached,
     browserPipBounds,
     setBrowserPipBounds,
     settingsPanelWidth,

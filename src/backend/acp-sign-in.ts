@@ -9,9 +9,9 @@ import { type ProviderClientOperationError, ProviderSignInError, providerFailure
 import { type ProviderTempOptions, spawnWithProviderTemp } from "./provider-temp";
 import { stopProcessTree } from "./windows-process-tree";
 
-/** The messages this client sends: two requests, and a refusal for each request the server makes. */
+/** The messages this client sends: its requests, and a refusal for each request the server makes. */
 type AcpMessage =
-  | { id: number; method: "initialize" | "authenticate"; params: DynamicRecord }
+  | { id: number; method: "initialize" | "logout" | "authenticate"; params: DynamicRecord }
   | { id: unknown; error: { code: number; message: string } };
 
 /** The most characters of the server's own reason that a failed sign-in shows. */
@@ -36,6 +36,9 @@ function serverReason(error: unknown): string | null {
  * browser and waits there until the user finishes, and a status probe must never wait on that. The
  * server keeps what it signed in with, so the next process it starts is signed in already.
  *
+ * With `logout`, a server that advertises ACP `logout` first removes what it kept. Its `authenticate`
+ * then opens the browser, so a Reconnect is a new sign-in, not a check of the saved one.
+ *
  * `done` settles when the call answers, and the process is stopped then. It rejects when the call
  * fails, the process ends first, or `timeoutMs` passes.
  */
@@ -45,6 +48,10 @@ export const startAcpAuthentication = Effect.fnUntraced(function* (options: {
   env: Record<string, string>;
   methodId: string;
   timeoutMs: number;
+  /** Signs the server out before `authenticate`, when it advertises ACP `logout`. */
+  logout?: boolean;
+  /** Called when the server answered `logout`: what it kept is gone, whether the sign-in ends or not. */
+  onLoggedOut?: () => void;
   /** Linux Gemini delegates its browser launch to the desktop so failure is visible. */
   openGoogleSignIn?: (url: string) => Promise<void>;
   /** A temporary folder of its own for the process (`provider-temp.ts`). */
@@ -136,7 +143,7 @@ export const startAcpAuthentication = Effect.fnUntraced(function* (options: {
           send({ id: message.id, error: { code: -32601, message: "Method not found" } });
           return;
         }
-        if (message.error !== undefined && (message.id === 1 || message.id === 2)) {
+        if (message.error !== undefined && (message.id === 1 || message.id === 2 || message.id === 3)) {
           const reason = serverReason(message.error);
           signInFailed(
             reason
@@ -145,12 +152,20 @@ export const startAcpAuthentication = Effect.fnUntraced(function* (options: {
           );
         } else if (message.id === 1) {
           // A server without the method would refuse it with a reason that the user cannot act on.
-          const methods = isDynamicRecord(message.result) ? message.result.authMethods : undefined;
+          const result = isDynamicRecord(message.result) ? message.result : undefined;
+          const methods = result?.authMethods;
           if (
             Array.isArray(methods) &&
             !methods.some((method) => isDynamicRecord(method) && method.id === options.methodId)
           )
             return signInFailed(sourceText("error.provider.acpSignInMethodMissing"));
+          // A client must not call `logout` unless the server advertises it.
+          const capabilities = isDynamicRecord(result?.agentCapabilities) ? result.agentCapabilities : undefined;
+          const auth = isDynamicRecord(capabilities?.auth) ? capabilities.auth : undefined;
+          if (options.logout && isDynamicRecord(auth?.logout)) send({ id: 3, method: "logout", params: {} });
+          else send({ id: 2, method: "authenticate", params: { methodId: options.methodId } });
+        } else if (message.id === 3) {
+          options.onLoggedOut?.();
           send({ id: 2, method: "authenticate", params: { methodId: options.methodId } });
         } else if (message.id === 2) {
           settle(null);

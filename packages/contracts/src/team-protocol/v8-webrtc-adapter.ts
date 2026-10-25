@@ -73,6 +73,7 @@ export function createTeamProtocolV8Event(
   options: {
     preserveSemanticTags?: boolean;
     preserveBrowserSecrets?: boolean;
+    browserSignIn?: boolean;
     uiBlocks?: boolean;
     subagents?: boolean;
     promptMultiSelect?: boolean;

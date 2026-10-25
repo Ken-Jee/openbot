@@ -29,7 +29,7 @@ export const messages = {
   "agentSettings.backupModels.intro":
     "Gdy {model} osiągnie limit użycia, zanim {name} zacznie pisać, {name} zapyta cię, którego modelu użyć.",
   "agentSettings.backupModels.introAutomatic":
-    "Gdy {model} osiągnie limit użycia, zanim {name} zacznie pisać, {name} przełączy się na pierwszy dostępny model w kolejności.",
+    "Gdy {model} osiągnie limit użycia lub zawiedzie z powodu błędu dostawcy, zanim {name} zacznie pisać, {name} przełączy się na pierwszy dostępny model w kolejności.",
   "agentSettings.backupModels.ask": "Pytaj przed przełączeniem",
   "agentSettings.backupModels.order": "Kolejność",
   "agentSettings.backupModels.listLabel": "Modele zapasowe w kolejności",
@@ -42,7 +42,7 @@ export const messages = {
   "agentSettings.backupModels.unavailable": "Chwilowo niedostępny · pominięto",
   "agentSettings.backupModels.withAccount": "{model} · {account}",
   "agentSettings.backupModels.note":
-    "{name} nigdy się nie przełącza po tym, jak zacznie pisać. Wraca do modelu {model}, gdy limit się skończy.",
+    "{name} nigdy się nie przełącza po tym, jak zacznie pisać. Wraca do modelu {model}, gdy limit się skończy, lub 10 minut po błędzie dostawcy.",
   "agentSettings.groups.brain": "Mózg",
   "agentSettings.groups.knows": "Wie",
   "agentSettings.groups.does": "Robi",
@@ -174,6 +174,15 @@ export const messages = {
   "agentSettings.quickAcknowledgement.title": "Pokaż plan przed długimi zadaniami",
   "agentSettings.quickAcknowledgement.description":
     "Przed długim zadaniem agent pokazuje swój plan. Zaczyna po 10 s lub po naciśnięciu Start.",
+  "agentSettings.browserProfile.label": "Profil przeglądarki",
+  "agentSettings.browserProfile.shared": "Wspólny",
+  "agentSettings.browserProfile.agent": "Tylko ten agent",
+  "agentSettings.browserProfile.missing": "Usunięty profil",
+  "agentSettings.browserProfile.new": "Nowy profil",
+  "agentSettings.browserProfile.manageTitle": "Profile przeglądarki",
+  "agentSettings.browserProfile.manageDescription":
+    "Każdy profil ma własne logowania i pliki cookie. Zmiana zamyka otwarte karty agenta.",
+  "agentSettings.browserProfile.manage": "Zarządzaj",
   "agentSettings.runtime.workspaceEnforcedProcess":
     "Cały proces {provider} działa w piaskownicy, więc zapis poza tymi folderami się nie powiedzie. Dostępne tylko w macOS.",
 } as const satisfies PartialTranslation<typeof source>;

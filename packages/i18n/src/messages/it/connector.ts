@@ -396,4 +396,17 @@ export const messages = {
   "connector.bitwarden.connected": "Connesso",
   "connector.bitwarden.disconnected": "Non connesso",
   "connector.bitwarden.actionFailed": "OpenBot non è riuscito a cambiare la connessione a Bitwarden.",
+  "connector.bitwarden.descriptionHost": "Compila gli accessi del browser su {host} da Bitwarden o Vaultwarden.",
+  "connector.bitwarden.setupHost":
+    "{host} accede con la propria CLI di Bitwarden. Nella tua cassaforte, crea una cartella chiamata Shared with OpenBot e mettici solo gli accessi che gli agenti possono usare. Nella cassaforte web, apri Impostazioni › Sicurezza › Chiavi e mostra la tua chiave API. Inserisci qui sotto l’indirizzo del server, client_id, client_secret e la tua password principale.",
+  "connector.bitwarden.scopeHost":
+    "Tutti gli agenti su {host} possono usare gli accessi corrispondenti in Shared with OpenBot. OpenBot usa origini HTTPS esatte. Non usa elementi che chiedono la password principale o che hanno una regola di corrispondenza URI personalizzata.",
+  "connector.bitwarden.sessionHost":
+    "{host} conserva la chiave API e la password principale cifrate, così può sbloccare di nuovo dopo un riavvio. Questo computer non le conserva. Disconnetti le rimuove da {host}. {host} deve raggiungere l’indirizzo del server tramite HTTPS.",
+  "connector.bitwarden.serverUrl": "Indirizzo del server",
+  "connector.bitwarden.clientId": "client_id della chiave API",
+  "connector.bitwarden.clientSecret": "client_secret della chiave API",
+  "connector.bitwarden.masterPassword": "Password principale",
+  "connector.bitwarden.connecting": "Connessione",
+  "connector.bitwarden.connectedServer": "Connesso a {server}.",
 } as const satisfies PartialTranslation<typeof source>;

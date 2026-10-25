@@ -2,12 +2,13 @@
 // store and the direct-message store are the real ones on temporary files. The agent service, the
 // mailbox and the browser are small in-memory stand-ins that record each call, so a check can show
 // that a refused request did not reach them. The checks cover the protocol and auth gates, sign-in
-// and account tickets, the admin-only routes, direct-message isolation, agents hidden from an older
+// and account tickets, the admin-only routes, the host's Bitwarden connection over a fake `bw`,
+// direct-message isolation, agents hidden from an older
 // protocol, the queue routes, the attachment and file routes with their size limits, and the error
 // codes. Writes .openbot-build/team-api-routes-e2e/report.json.
 // Run: `bun run test:team-api-routes` (the preload gives the server's import graph an `electron`).
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { request as httpRequest } from "node:http";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -18,7 +19,9 @@ import {
   type AgentProviderId,
   type AgentSummary,
   type AttachmentDataInput,
+  type BitwardenConnectorStatus,
   type CentralAuthUser,
+  DEFAULT_AGENT_DEFAULTS,
   type HiddenAgentsSnapshot,
   type QueueSnapshot,
   type RoutineResultConnectionOption,
@@ -30,12 +33,29 @@ import {
   AGENT_BACKUP_MODELS_ROUTES,
 } from "@openbot/contracts/team-protocol/agent-backup-models-v1";
 import { AGENT_HIDDEN_CAPABILITY, AGENT_HIDDEN_ROUTES } from "@openbot/contracts/team-protocol/agent-hidden-v1";
+import {
+  AGENT_TASK_LIMIT_CAPABILITY,
+  AGENT_TASK_LIMIT_ROUTES,
+} from "@openbot/contracts/team-protocol/agent-task-limit-v1";
+import {
+  BITWARDEN_CONNECTOR_CAPABILITY,
+  BITWARDEN_CONNECTOR_ROUTES,
+} from "@openbot/contracts/team-protocol/bitwarden-connector-v1";
+import {
+  BROWSER_PROFILES_CAPABILITY,
+  BROWSER_PROFILES_ROUTES,
+} from "@openbot/contracts/team-protocol/browser-profiles-v1";
+import {
+  PROVIDER_USAGE_RESET_CAPABILITY,
+  PROVIDER_USAGE_RESET_ROUTES,
+} from "@openbot/contracts/team-protocol/provider-usage-reset-v1";
 import { QueueEditRejectedError, TEAM_QUEUE_EDIT_CAPABILITY } from "@openbot/contracts/team-protocol/queue-edit-v1";
 import {
   ROUTINE_RESULTS_CAPABILITY,
   ROUTINE_RESULTS_ROUTES,
 } from "@openbot/contracts/team-protocol/routine-results-v1";
 import { SIDE_QUESTION_CAPABILITY, SIDE_QUESTION_ROUTES } from "@openbot/contracts/team-protocol/side-question-v1";
+import { STORAGE_DISK_CAPABILITY, STORAGE_DISK_ROUTES } from "@openbot/contracts/team-protocol/storage-disk-v1";
 import {
   TEAM_APP_VERSION_HEADER,
   TEAM_CAPABILITIES_HEADER,
@@ -46,11 +66,16 @@ import { createOpenBotLogger } from "@openbot/logging";
 import { Effect } from "effect";
 import { SteerUnsupportedError } from "../src/backend/agent/queue-controls";
 import { AgentLifecycleFailed } from "../src/backend/agent-service";
+import { BrowserProfileStore } from "../src/backend/browser-profiles/browser-profile-store";
+import type { BrowserTabSession } from "../src/backend/browser-state";
 import { runCauseEffect } from "../src/backend/effect-boundary";
 import { OpenBotDatabase } from "../src/backend/openbot-database";
 import { RoutineResultError } from "../src/backend/routine-results/routine-results";
 import { TeamChatStore } from "../src/backend/team-chat-store";
 import { createAgentHostSettings } from "../src/main/agent-host-settings";
+import { type BitwardenCliRunner, BitwardenConnectorService } from "../src/main/bitwarden-connector-service";
+import { BitwardenConnectorStore } from "../src/main/bitwarden-connector-store";
+import { createBrowserProfileService } from "../src/main/browser-profile-service";
 import type { TeamApiAgents, TeamApiBrowser, TeamApiMailbox } from "../src/main/team-api/dependencies";
 import { isPeerHiddenProvider } from "../src/main/team-api/provider-visibility";
 import { TeamApiServer } from "../src/main/team-api-server";
@@ -387,10 +412,12 @@ const browser: TeamApiBrowser = {
   setVisible: unused("setVisible"),
   getDisplayState: unused("getDisplayState"),
   loadUrl: unused("loadUrl"),
-  isPrivate: unused("isPrivate"),
+  // Only the browser-profiles tab route asks. `tab-private` holds an administrator's MCP sign-in.
+  isPrivate: (tabId) => tabId === "tab-private",
   startView: unused("startView"),
   dispatchViewInput: unused("dispatchViewInput"),
   copyViewSelection: unused("copyViewSelection"),
+  importSignIn: unused("importSignIn"),
 };
 
 // Account tickets that the fake account service redeems. Anything else is a ticket it refuses.
@@ -399,6 +426,102 @@ const accountUsers: Record<string, CentralAuthUser> = {
   "ticket-stranger": { id: "account-stranger", email: "stranger@example.com", name: null, avatarUrl: null },
 };
 const redeemedServerIds: string[] = [];
+
+// The host's Bitwarden connection: the real service and store, over a fake `bw` that keeps the state
+// that the real CLI keeps in its data folder (the server and the sign-in) and records each call.
+const BW_ITEM_ID = "12345678-1234-1234-1234-123456789abc";
+const BW_CLIENT_ID = "user.e2e-client";
+const BW_CLIENT_SECRET = ["bw", "e2e", "client", "secret"].join("-");
+const BW_MASTER_PASSWORD = ["bw", "e2e", "master", "password"].join("-");
+const BW_SESSION_KEY = ["bw", "e2e", "session"].join("-");
+const BW_LOGIN_PASSWORD = ["bw", "e2e", "login", "password"].join("-");
+const BW_SECRETS = [BW_CLIENT_SECRET, BW_MASTER_PASSWORD, BW_SESSION_KEY, BW_LOGIN_PASSWORD];
+const bitwardenData = join(root, "bitwarden-host");
+const bitwardenFile = join(root, "openbot-bitwarden-connector-v1.json");
+const bitwardenCalls: { args: string[]; env: Record<string, string> }[] = [];
+/** While set, `unlock` reports that it started and waits for `released`. */
+let bitwardenUnlockGate: { started: () => void; released: Promise<void> } | null = null;
+/** The CLI's own state lives in its data folder, so removing the folder signs it out. */
+function bitwardenCliState(): { server: string | null; signedIn: boolean } {
+  const path = join(bitwardenData, "data.json");
+  return existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : { server: null, signedIn: false };
+}
+function saveBitwardenCliState(change: Partial<{ server: string | null; signedIn: boolean }>): void {
+  mkdirSync(bitwardenData, { recursive: true });
+  writeFileSync(join(bitwardenData, "data.json"), JSON.stringify({ ...bitwardenCliState(), ...change }));
+}
+const fakeBitwardenCli: BitwardenCliRunner = async (_executable, args, env) => {
+  bitwardenCalls.push({ args, env: { ...env } });
+  if (env.BITWARDENCLI_APPDATA_DIR !== bitwardenData) throw new Error("bw ran outside the host data folder.");
+  const [command, target] = args;
+  const state = bitwardenCliState();
+  if (command === "status")
+    return JSON.stringify({ status: state.signedIn ? "locked" : "unauthenticated", serverUrl: state.server });
+  if (command === "logout") {
+    saveBitwardenCliState({ signedIn: false });
+    return "";
+  }
+  if (command === "config") {
+    if (state.signedIn) throw new Error("Logout required before server config update.");
+    saveBitwardenCliState({ server: args[2] ?? null });
+    return "Saved setting `config`.";
+  }
+  if (command === "login") {
+    if (env.BW_CLIENTID !== BW_CLIENT_ID || env.BW_CLIENTSECRET !== BW_CLIENT_SECRET) throw new Error("bad key");
+    saveBitwardenCliState({ signedIn: true });
+    return "You are logged in!";
+  }
+  if (command === "unlock") {
+    if (bitwardenUnlockGate) {
+      bitwardenUnlockGate.started();
+      await bitwardenUnlockGate.released;
+    }
+    if (!state.signedIn || env.BW_PASSWORD !== BW_MASTER_PASSWORD) throw new Error("bad password");
+    return `${BW_SESSION_KEY}\n`;
+  }
+  if (env.BW_SESSION !== BW_SESSION_KEY) throw new Error("locked");
+  const item = {
+    id: BW_ITEM_ID,
+    name: "Example",
+    type: 1,
+    folderId: "shared",
+    login: { username: "ada", password: BW_LOGIN_PASSWORD, uris: [{ uri: "https://example.com/login", match: null }] },
+  };
+  if (command === "sync") return "Syncing complete.";
+  if (command === "list" && target === "folders")
+    return JSON.stringify([{ id: "shared", name: "Shared with OpenBot" }]);
+  if (command === "list" && target === "items") return JSON.stringify([item]);
+  if (command === "get" && target === "item") return JSON.stringify(item);
+  throw new Error(`Unexpected bw call: ${command}`);
+};
+/** Reversible, and the stored file holds no secret in plain text. */
+const fakeCipher = {
+  encrypt: (value: string) => Buffer.from(Buffer.from(value, "utf8").toString("hex"), "utf8"),
+  decrypt: (value: Buffer) => Buffer.from(value.toString("utf8"), "hex").toString("utf8"),
+};
+const createBitwardenHost = () =>
+  new BitwardenConnectorService({
+    runCli: fakeBitwardenCli,
+    findCli: async () => "/fixture/bw",
+    host: {
+      store: new BitwardenConnectorStore(bitwardenFile, fakeCipher),
+      dataDirectory: bitwardenData,
+      installCli: null,
+    },
+  });
+const bitwardenConnector = createBitwardenHost();
+/** Resolves with the first status after a host sign-in started (`connecting`) and then ended. */
+function bitwardenSettled(connector: BitwardenConnectorService): Promise<BitwardenConnectorStatus> {
+  return new Promise((resolveStatus) => {
+    let started = false;
+    const stop = connector.onChanged((status) => {
+      if (status.connecting) started = true;
+      if (!started || status.connecting) return;
+      stop();
+      resolveStatus(status);
+    });
+  });
+}
 
 const store = new TeamStore(join(root, "team.json"));
 const database = new OpenBotDatabase(join(root, "user-data"));
@@ -412,6 +535,45 @@ try {
   const owner = await runCauseEffect(store.login("owner", OWNER_PASSWORD));
   const serverId = store.getIdentity()?.serverId;
   assert.ok(serverId, "The team store has no identity after configure.");
+
+  // The real profile service over the test database. The host's open profile tabs are one list.
+  const profileTabs: { tabId: string; tabSession: BrowserTabSession }[] = [];
+  const inSession = (left: BrowserTabSession, right: BrowserTabSession) =>
+    left.kind === "profile" && right.kind === "profile"
+      ? left.profileId === right.profileId
+      : left.kind === "agent" && right.kind === "agent" && left.key === right.key;
+  const browserProfiles = createBrowserProfileService({
+    store: new BrowserProfileStore(database),
+    agents: {
+      listAgents: () => agents,
+      updateAgent: (input) =>
+        Effect.sync(() => {
+          record("updateAgentBrowserProfile", input);
+          const target = agents.find((item) => item.id === input.agentId);
+          if (!target) throw new Error("Agent not found.");
+          if (typeof input.browserProfileId === "string") target.browserProfileId = input.browserProfileId;
+          else if (input.ownBrowserSession !== undefined) {
+            delete target.browserProfileId;
+            target.ownBrowserSession = input.ownBrowserSession;
+          }
+          return target;
+        }),
+    },
+    browser: {
+      tabIdsInSession: (tabSession) =>
+        profileTabs.filter((tab) => inSession(tab.tabSession, tabSession)).map((tab) => tab.tabId),
+      listTabSessions: () => profileTabs.map((tab) => ({ ...tab })),
+      close: (tabId) =>
+        Effect.sync(() => {
+          record("closeProfileTab", tabId);
+          profileTabs.splice(
+            profileTabs.findIndex((tab) => tab.tabId === tabId),
+            1,
+          );
+        }),
+      clearTabSession: (tabSession) => Effect.sync(() => record("clearTabSession", tabSession)),
+    },
+  });
 
   server = new TeamApiServer({
     appVersion: APP_VERSION,
@@ -432,10 +594,13 @@ try {
               if (!target) throw new Error("Agent not found.");
               if (input.backupModels === null) delete target.backupModels;
               else if (input.backupModels) target.backupModels = input.backupModels;
+              if (input.taskLimit === null) delete target.taskLimit;
+              else if (input.taskLimit !== undefined) target.taskLimit = input.taskLimit;
               return target;
             }),
         },
         busyMessageMode: { get: () => ({ mode: "queue" }) },
+        agentDefaults: { get: () => DEFAULT_AGENT_DEFAULTS },
       }),
       // A routine results service over one agent routine. The host's own name of the connection wins.
       routineResults: {
@@ -455,6 +620,32 @@ try {
             return Effect.succeed(routineDestination);
           }),
       },
+    },
+    bitwardenConnector,
+    browserProfiles,
+    // Only the disk of the host answers here; the storage-v1 routes are not part of this run.
+    storage: {
+      usage: unused("storage.usage"),
+      deleteFile: unused("storage.deleteFile"),
+      clear: unused("storage.clear"),
+      disk: () =>
+        Effect.sync(() => {
+          record("disk");
+          return { freeBytes: 2 * 1024 ** 3, totalBytes: 64 * 1024 ** 3 };
+        }),
+    },
+    // The host's own sign-in has two usage reset credits; a reset spends one.
+    providerUsageResets: {
+      providerUsageResets: (provider) =>
+        Effect.sync(() => {
+          record("providerUsageResets", provider);
+          return [{ provider, accountId: "default", available: 2 }];
+        }),
+      resetProviderUsage: (provider, accountId) =>
+        Effect.sync(() => {
+          record("resetProviderUsage", { provider, accountId });
+          return "reset" as const;
+        }),
     },
     hiddenAgents: {
       listHiddenAgents: () => hidden,
@@ -1186,6 +1377,532 @@ try {
         isDeepStrictEqual(adminClear.body, { backupModels: null, usageLimitReturn: null }) &&
         errorIs(missing, 404, sourceText("error.team.agentNotFound")),
       [summary(adminClear), summary(missing)],
+    );
+  }
+
+  // ---- Task limit (agent-task-limit-v1) ----
+  {
+    const limitCapabilities = [AGENT_HIDDEN_CAPABILITY, TEAM_QUEUE_EDIT_CAPABILITY, AGENT_TASK_LIMIT_CAPABILITY];
+    const writes = callsOf("updateAgent").length;
+    const adminRead = await call("POST", AGENT_TASK_LIMIT_ROUTES.settings, {
+      token: adaToken,
+      json: { agentId: "agent-ada" },
+      capabilities: limitCapabilities,
+    });
+    check(
+      "an admin reads a null task limit for an agent on the default",
+      adminRead.status === 200 && isDeepStrictEqual(adminRead.body, { taskLimit: null }),
+      summary(adminRead),
+    );
+    const unsupported = await call("POST", AGENT_TASK_LIMIT_ROUTES.settings, {
+      token: adaToken,
+      json: { agentId: "agent-ada" },
+    });
+    check(
+      "the task-limit routes without the capability get 400 agentSettingsUnsupported",
+      errorIs(unsupported, 400, sourceText("error.team.agentSettingsUnsupported")),
+      summary(unsupported),
+    );
+    const memberRead = await call("POST", AGENT_TASK_LIMIT_ROUTES.settings, {
+      token: bobToken,
+      json: { agentId: "agent-ada" },
+      capabilities: limitCapabilities,
+    });
+    const memberSet = await call("POST", AGENT_TASK_LIMIT_ROUTES.update, {
+      token: bobToken,
+      json: { agentId: "agent-ada", taskLimit: 3 },
+      capabilities: limitCapabilities,
+    });
+    check(
+      "a member cannot read or set the task limit",
+      errorIs(memberRead, 403, sourceText("error.team.adminRequired")) &&
+        errorIs(memberSet, 403, sourceText("error.team.adminRequired")) &&
+        callsOf("updateAgent").length === writes,
+      [summary(memberRead), summary(memberSet)],
+    );
+    const tooHigh = await call("POST", AGENT_TASK_LIMIT_ROUTES.update, {
+      token: adaToken,
+      json: { agentId: "agent-ada", taskLimit: 5 },
+      capabilities: limitCapabilities,
+    });
+    const zero = await call("POST", AGENT_TASK_LIMIT_ROUTES.update, {
+      token: adaToken,
+      json: { agentId: "agent-ada", taskLimit: 0 },
+      capabilities: limitCapabilities,
+    });
+    check(
+      "the host refuses a task limit outside 1 to 4, and writes nothing",
+      tooHigh.status === 400 && zero.status === 400 && callsOf("updateAgent").length === writes,
+      [summary(tooHigh), summary(zero)],
+    );
+    const adminSet = await call("POST", AGENT_TASK_LIMIT_ROUTES.update, {
+      token: adaToken,
+      json: { agentId: "agent-ada", taskLimit: 3 },
+      capabilities: limitCapabilities,
+    });
+    const readBack = await call("POST", AGENT_TASK_LIMIT_ROUTES.settings, {
+      token: adaToken,
+      json: { agentId: "agent-ada" },
+      capabilities: limitCapabilities,
+    });
+    check(
+      "an admin sets the task limit through the agent writer and reads it back",
+      adminSet.status === 200 &&
+        isDeepStrictEqual(adminSet.body, { taskLimit: 3 }) &&
+        isDeepStrictEqual(readBack.body, { taskLimit: 3 }) &&
+        isDeepStrictEqual(callsOf("updateAgent").at(-1), [{ agentId: "agent-ada", taskLimit: 3 }]),
+      [summary(adminSet), summary(readBack)],
+    );
+    const adminClear = await call("POST", AGENT_TASK_LIMIT_ROUTES.update, {
+      token: adaToken,
+      json: { agentId: "agent-ada", taskLimit: null },
+      capabilities: limitCapabilities,
+    });
+    const missing = await call("POST", AGENT_TASK_LIMIT_ROUTES.settings, {
+      token: adaToken,
+      json: { agentId: "agent-none" },
+      capabilities: limitCapabilities,
+    });
+    check(
+      "an admin returns the agent to the default task limit, and an unknown agent gets 404",
+      adminClear.status === 200 &&
+        isDeepStrictEqual(adminClear.body, { taskLimit: null }) &&
+        errorIs(missing, 404, sourceText("error.team.agentNotFound")),
+      [summary(adminClear), summary(missing)],
+    );
+    const hiddenRead = await call("POST", AGENT_TASK_LIMIT_ROUTES.settings, {
+      token: adaToken,
+      json: { agentId: "agent-pi" },
+      capabilities: limitCapabilities,
+      protocol: 6,
+    });
+    const hiddenSet = await call("POST", AGENT_TASK_LIMIT_ROUTES.update, {
+      token: adaToken,
+      json: { agentId: "agent-pi", taskLimit: 3 },
+      capabilities: limitCapabilities,
+      protocol: 6,
+    });
+    check(
+      "an admin cannot read or set the task limit of an agent that the client protocol does not show",
+      errorIs(hiddenRead, 404, sourceText("error.team.agentNotFound")) &&
+        errorIs(hiddenSet, 404, sourceText("error.team.agentNotFound")) &&
+        callsOf("updateAgent").length === writes + 2,
+      [summary(hiddenRead), summary(hiddenSet)],
+    );
+  }
+
+  // ---- Browser profiles (browser-profiles-v1) ----
+  {
+    const profileCapabilities = [AGENT_HIDDEN_CAPABILITY, TEAM_QUEUE_EDIT_CAPABILITY, BROWSER_PROFILES_CAPABILITY];
+    const admin = (path: string, json: Json = {}, protocol?: number) =>
+      call("POST", path, {
+        token: adaToken,
+        json,
+        capabilities: profileCapabilities,
+        ...(protocol === undefined ? {} : { protocol }),
+      });
+    const unsupported = await call("POST", BROWSER_PROFILES_ROUTES.list, { token: adaToken, json: {} });
+    const unsupportedTabs = await call("POST", BROWSER_PROFILES_ROUTES.tabs, { token: bobToken, json: {} });
+    check(
+      "the browser-profiles routes without the capability get 400 agentSettingsUnsupported",
+      errorIs(unsupported, 400, sourceText("error.team.agentSettingsUnsupported")) &&
+        errorIs(unsupportedTabs, 400, sourceText("error.team.agentSettingsUnsupported")),
+      [summary(unsupported), summary(unsupportedTabs)],
+    );
+    const memberList = await call("POST", BROWSER_PROFILES_ROUTES.list, {
+      token: bobToken,
+      json: {},
+      capabilities: profileCapabilities,
+    });
+    const memberCreate = await call("POST", BROWSER_PROFILES_ROUTES.create, {
+      token: bobToken,
+      json: { name: "Member profile" },
+      capabilities: profileCapabilities,
+    });
+    const memberAssign = await call("POST", BROWSER_PROFILES_ROUTES.updateAgent, {
+      token: bobToken,
+      json: { agentId: "agent-ada", profile: { kind: "agent" } },
+      capabilities: profileCapabilities,
+    });
+    check(
+      "a member cannot list, create or assign browser profiles",
+      errorIs(memberList, 403, sourceText("error.team.adminRequired")) &&
+        errorIs(memberCreate, 403, sourceText("error.team.adminRequired")) &&
+        errorIs(memberAssign, 403, sourceText("error.team.adminRequired")) &&
+        callsOf("updateAgentBrowserProfile").length === 0,
+      [summary(memberList), summary(memberCreate), summary(memberAssign)],
+    );
+    const empty = await admin(BROWSER_PROFILES_ROUTES.list);
+    check(
+      "an admin lists no profile, and every agent in the shared profile",
+      empty.status === 200 &&
+        isDeepStrictEqual(empty.body, { profiles: [], sharedAgentIds: ["agent-ada", "agent-oc", "agent-pi"] }),
+      summary(empty),
+    );
+    const created = await admin(BROWSER_PROFILES_ROUTES.create, { name: "Client A" });
+    const profileId = field(created.body, "id");
+    const taken = await admin(BROWSER_PROFILES_ROUTES.create, { name: "client a" });
+    const longName = await admin(BROWSER_PROFILES_ROUTES.create, { name: "x".repeat(61) });
+    check(
+      "an admin creates a profile; a used name gets 409 and a long name 400",
+      created.status === 200 &&
+        typeof profileId === "string" &&
+        /^[0-9a-f]{32}$/.test(profileId) &&
+        field(created.body, "name") === "Client A" &&
+        isDeepStrictEqual(field(created.body, "agentIds"), []) &&
+        errorIs(taken, 409, sourceText("error.backend.browserProfileNameTaken")) &&
+        longName.status === 400,
+      [summary(created), summary(taken), summary(longName)],
+    );
+    assert.ok(typeof profileId === "string", "The browser profile was not created.");
+    const assigned = await admin(BROWSER_PROFILES_ROUTES.updateAgent, {
+      agentId: "agent-ada",
+      profile: { kind: "profile", profileId },
+    });
+    const readBack = await admin(BROWSER_PROFILES_ROUTES.agent, { agentId: "agent-ada" });
+    const listed = await admin(BROWSER_PROFILES_ROUTES.list);
+    check(
+      "an admin moves an agent into the profile, and the list shows it there",
+      assigned.status === 200 &&
+        isDeepStrictEqual(assigned.body, { kind: "profile", profileId }) &&
+        isDeepStrictEqual(readBack.body, { kind: "profile", profileId }) &&
+        isDeepStrictEqual(field(listed.body, "profiles", 0, "agentIds"), ["agent-ada"]) &&
+        isDeepStrictEqual(field(listed.body, "sharedAgentIds"), ["agent-oc", "agent-pi"]),
+      [summary(assigned), summary(readBack), summary(listed)],
+    );
+    const unknownProfile = await admin(BROWSER_PROFILES_ROUTES.updateAgent, {
+      agentId: "agent-oc",
+      profile: { kind: "profile", profileId: "0".repeat(32) },
+    });
+    const unknownAgent = await admin(BROWSER_PROFILES_ROUTES.agent, { agentId: "agent-none" });
+    const hiddenRead = await admin(BROWSER_PROFILES_ROUTES.agent, { agentId: "agent-pi" }, 6);
+    const hiddenAssign = await admin(
+      BROWSER_PROFILES_ROUTES.updateAgent,
+      { agentId: "agent-pi", profile: { kind: "agent" } },
+      6,
+    );
+    const olderList = await admin(BROWSER_PROFILES_ROUTES.list, {}, 6);
+    check(
+      "an unknown profile gets 409; an unknown agent, or one that the client protocol does not show, gets 404",
+      errorIs(unknownProfile, 409, sourceText("error.backend.browserProfileNotFound")) &&
+        errorIs(unknownAgent, 404, sourceText("error.team.agentNotFound")) &&
+        errorIs(hiddenRead, 404, sourceText("error.team.agentNotFound")) &&
+        errorIs(hiddenAssign, 404, sourceText("error.team.agentNotFound")) &&
+        isDeepStrictEqual(field(olderList.body, "sharedAgentIds"), ["agent-oc"]) &&
+        callsOf("updateAgentBrowserProfile").length === 1,
+      [summary(unknownProfile), summary(unknownAgent), summary(hiddenRead), summary(hiddenAssign), summary(olderList)],
+    );
+    profileTabs.push(
+      { tabId: "tab-open", tabSession: { kind: "profile", profileId } },
+      { tabId: "tab-private", tabSession: { kind: "profile", profileId } },
+    );
+    const hue = field(created.body, "hue");
+    const memberTabs = await call("POST", BROWSER_PROFILES_ROUTES.tabs, {
+      token: bobToken,
+      json: {},
+      capabilities: profileCapabilities,
+    });
+    const adminTabs = await admin(BROWSER_PROFILES_ROUTES.tabs);
+    check(
+      "a member reads the profile label of the tabs they can see, and nothing of a private tab",
+      memberTabs.status === 200 &&
+        isDeepStrictEqual(memberTabs.body, { tabs: [{ tabId: "tab-open", name: "Client A", hue }] }) &&
+        isDeepStrictEqual(
+          list(field(adminTabs.body, "tabs")).map((tab) => field(tab, "tabId")),
+          ["tab-open", "tab-private"],
+        ),
+      [summary(memberTabs), summary(adminTabs)],
+    );
+    const renamed = await admin(BROWSER_PROFILES_ROUTES.update, { profileId, name: "Client B", hue: 150 });
+    const badHue = await admin(BROWSER_PROFILES_ROUTES.update, { profileId, hue: 7 });
+    check(
+      "an admin renames and recolors a profile; a color outside the list gets 400",
+      renamed.status === 200 &&
+        field(renamed.body, "name") === "Client B" &&
+        field(renamed.body, "hue") === 150 &&
+        field(renamed.body, "tabCount") === 2 &&
+        badHue.status === 400,
+      [summary(renamed), summary(badHue)],
+    );
+    const bothTargets = await admin(BROWSER_PROFILES_ROUTES.clear, { profileId, agentId: "agent-ada" });
+    const cleared = await admin(BROWSER_PROFILES_ROUTES.clear, { profileId });
+    check(
+      "a clear closes the tabs of the profile and clears its session; a clear of two targets gets 400",
+      bothTargets.status === 400 &&
+        cleared.status === 200 &&
+        isDeepStrictEqual(cleared.body, {}) &&
+        profileTabs.length === 0 &&
+        isDeepStrictEqual(callsOf("clearTabSession").at(-1), [{ kind: "profile", profileId }]),
+      [summary(bothTargets), summary(cleared)],
+    );
+    const deleted = await admin(BROWSER_PROFILES_ROUTES.delete, { profileId });
+    const afterDelete = await admin(BROWSER_PROFILES_ROUTES.list);
+    const adaAfter = await admin(BROWSER_PROFILES_ROUTES.agent, { agentId: "agent-ada" });
+    check(
+      "a delete moves the agents of the profile to the shared profile",
+      deleted.status === 200 &&
+        isDeepStrictEqual(afterDelete.body, {
+          profiles: [],
+          sharedAgentIds: ["agent-ada", "agent-oc", "agent-pi"],
+        }) &&
+        isDeepStrictEqual(adaAfter.body, { kind: "shared" }),
+      [summary(deleted), summary(afterDelete), summary(adaAfter)],
+    );
+    check(
+      "the host logs no profile name",
+      !logged.some((line) => line.includes("Client A") || line.includes("Client B")),
+      null,
+    );
+  }
+
+  // ---- Disk space (storage-disk-v1) ----
+  {
+    const unsupported = await call("POST", STORAGE_DISK_ROUTES.disk, { token: bobToken, json: {} });
+    check(
+      "the disk route without the capability gets 400 storageUnsupported",
+      errorIs(unsupported, 400, sourceText("error.team.storageUnsupported")) && callsOf("disk").length === 0,
+      summary(unsupported),
+    );
+    const diskCapabilities = [AGENT_HIDDEN_CAPABILITY, TEAM_QUEUE_EDIT_CAPABILITY, STORAGE_DISK_CAPABILITY];
+    // Every signed-in member reads the disk, as the frozen contract says; the client shows the card to admins.
+    const member = await call("POST", STORAGE_DISK_ROUTES.disk, {
+      token: bobToken,
+      json: {},
+      capabilities: diskCapabilities,
+    });
+    const owner = await call("POST", STORAGE_DISK_ROUTES.disk, {
+      token: adaToken,
+      json: {},
+      capabilities: diskCapabilities,
+    });
+    const expected = { freeBytes: 2 * 1024 ** 3, totalBytes: 64 * 1024 ** 3 };
+    check(
+      "a member and the owner read the free and total bytes of the host disk",
+      member.status === 200 &&
+        owner.status === 200 &&
+        isDeepStrictEqual(member.body, expected) &&
+        isDeepStrictEqual(owner.body, expected) &&
+        callsOf("disk").length === 2,
+      [summary(member), summary(owner)],
+    );
+    const withBody = await call("POST", STORAGE_DISK_ROUTES.disk, {
+      token: bobToken,
+      json: { path: "/" },
+      capabilities: diskCapabilities,
+    });
+    check(
+      "the disk route ignores a path in the body and reads the disk of the OpenBot data",
+      withBody.status === 200 && isDeepStrictEqual(withBody.body, expected) && callsOf("disk").length === 3,
+      summary(withBody),
+    );
+  }
+
+  // ---- Usage reset credits (provider-usage-reset-v1) ----
+  {
+    const resetCapabilities = [PROVIDER_USAGE_RESET_CAPABILITY];
+    const unsupported = await call("POST", PROVIDER_USAGE_RESET_ROUTES.list, {
+      token: adaToken,
+      json: { provider: "codex" },
+    });
+    check(
+      "the usage reset routes without the capability get 400 providersUnsupported",
+      errorIs(unsupported, 400, sourceText("error.team.providersUnsupported")),
+      summary(unsupported),
+    );
+    const memberList = await call("POST", PROVIDER_USAGE_RESET_ROUTES.list, {
+      token: bobToken,
+      json: { provider: "codex" },
+      capabilities: resetCapabilities,
+    });
+    const memberReset = await call("POST", PROVIDER_USAGE_RESET_ROUTES.consume, {
+      token: bobToken,
+      json: { provider: "codex", accountId: "default" },
+      capabilities: resetCapabilities,
+    });
+    check(
+      "a member cannot read or spend usage reset credits",
+      errorIs(memberList, 403, sourceText("error.team.adminRequired")) &&
+        errorIs(memberReset, 403, sourceText("error.team.adminRequired")) &&
+        callsOf("resetProviderUsage").length === 0,
+      [summary(memberList), summary(memberReset)],
+    );
+    const adminList = await call("POST", PROVIDER_USAGE_RESET_ROUTES.list, {
+      token: adaToken,
+      json: { provider: "codex" },
+      capabilities: resetCapabilities,
+    });
+    check(
+      "an admin reads the usage reset credits of the host's accounts",
+      adminList.status === 200 &&
+        isDeepStrictEqual(adminList.body, { accounts: [{ provider: "codex", accountId: "default", available: 2 }] }),
+      summary(adminList),
+    );
+    const badAccount = await call("POST", PROVIDER_USAGE_RESET_ROUTES.consume, {
+      token: adaToken,
+      json: { provider: "codex", accountId: "../default" },
+      capabilities: resetCapabilities,
+    });
+    const adminReset = await call("POST", PROVIDER_USAGE_RESET_ROUTES.consume, {
+      token: adaToken,
+      json: { provider: "codex", accountId: "default" },
+      capabilities: resetCapabilities,
+    });
+    check(
+      "an admin spends one credit, and an invalid account gets 400",
+      badAccount.status === 400 &&
+        adminReset.status === 200 &&
+        isDeepStrictEqual(adminReset.body, { outcome: "reset" }) &&
+        isDeepStrictEqual(callsOf("resetProviderUsage"), [[{ provider: "codex", accountId: "default" }]]),
+      [summary(badAccount), summary(adminReset)],
+    );
+  }
+
+  // ---- Bitwarden on the host (bitwarden-connector-v1) ----
+  {
+    const bitwardenCapabilities = [BITWARDEN_CONNECTOR_CAPABILITY];
+    const input = {
+      serverUrl: "https://vault.example.com/",
+      clientId: BW_CLIENT_ID,
+      clientSecret: BW_CLIENT_SECRET,
+      masterPassword: BW_MASTER_PASSWORD,
+    };
+    const connectAs = (token: string, json: unknown) =>
+      call("POST", BITWARDEN_CONNECTOR_ROUTES.connect, { token, json, capabilities: bitwardenCapabilities });
+    const unsupported = await call("POST", BITWARDEN_CONNECTOR_ROUTES.status, { token: adaToken, json: {} });
+    check(
+      "the Bitwarden routes without the capability get 400 connectorsUnsupported",
+      errorIs(unsupported, 400, sourceText("error.team.connectorsUnsupported")),
+      summary(unsupported),
+    );
+    const memberConnect = await connectAs(bobToken, input);
+    const memberDisconnect = await call("POST", BITWARDEN_CONNECTOR_ROUTES.disconnect, {
+      token: bobToken,
+      json: {},
+      capabilities: bitwardenCapabilities,
+    });
+    check(
+      "a member cannot connect or disconnect the host's Bitwarden",
+      errorIs(memberConnect, 403, sourceText("error.team.adminRequired")) &&
+        errorIs(memberDisconnect, 403, sourceText("error.team.adminRequired")) &&
+        bitwardenCalls.length === 0,
+      [summary(memberConnect), summary(memberDisconnect)],
+    );
+    const plainHttp = await connectAs(adaToken, { ...input, serverUrl: "http://vault.example.com" });
+    check(
+      "a server address that is not https is refused before bw runs",
+      plainHttp.status === 200 &&
+        isDeepStrictEqual(plainHttp.body, {
+          state: "disconnected",
+          serverUrl: null,
+          error: sourceText("error.connector.bitwardenHostInput"),
+        }) &&
+        bitwardenCalls.length === 0,
+      summary(plainHttp),
+    );
+    const wrongSettled = bitwardenSettled(bitwardenConnector);
+    const wrong = await connectAs(adaToken, { ...input, masterPassword: "wrong-master-password" });
+    const wrongStatus = await wrongSettled;
+    check(
+      "a wrong master password leaves no connection, no stored file and no signed-in CLI data",
+      field(wrong.body, "state") === "connecting" &&
+        !wrongStatus.connected &&
+        wrongStatus.error === sourceText("error.connector.bitwardenHostFailed") &&
+        bitwardenCalls.some((entry) => entry.args[0] === "login") &&
+        !existsSync(bitwardenFile) &&
+        !existsSync(bitwardenData),
+      { wrong: summary(wrong), wrongStatus },
+    );
+    bitwardenCalls.length = 0;
+    const settled = bitwardenSettled(bitwardenConnector);
+    const connect = await connectAs(adaToken, input);
+    const connected = await settled;
+    const status = await call("POST", BITWARDEN_CONNECTOR_ROUTES.status, {
+      token: adaToken,
+      json: {},
+      capabilities: bitwardenCapabilities,
+    });
+    check(
+      "an admin connects: the host answers connecting at once, then reports connected",
+      isDeepStrictEqual(connect.body, { state: "connecting", serverUrl: "https://vault.example.com", error: null }) &&
+        connected.connected &&
+        isDeepStrictEqual(status.body, { state: "connected", serverUrl: "https://vault.example.com", error: null }),
+      { connect: summary(connect), connected, status: summary(status) },
+    );
+    const commands = bitwardenCalls.map((entry) => entry.args.join(" "));
+    const envOf = (prefix: string) => bitwardenCalls.find((entry) => entry.args.join(" ").startsWith(prefix))?.env;
+    check(
+      "the host signs in with the API key and unlocks with the master password, only through the environment",
+      commands.includes("config server https://vault.example.com") &&
+        commands.includes("login --apikey") &&
+        commands.includes("unlock --passwordenv BW_PASSWORD --raw") &&
+        envOf("login")?.BW_CLIENTSECRET === BW_CLIENT_SECRET &&
+        envOf("unlock")?.BW_PASSWORD === BW_MASTER_PASSWORD &&
+        bitwardenCalls.every(
+          (entry) =>
+            !entry.args.some((arg) => BW_SECRETS.includes(arg)) &&
+            (entry.args[0] === "unlock" || entry.env.BW_PASSWORD === undefined) &&
+            (entry.args[0] === "login" || entry.env.BW_CLIENTSECRET === undefined),
+        ),
+      commands,
+    );
+    const stored = existsSync(bitwardenFile) ? readFileSync(bitwardenFile, "utf8") : "";
+    const replies = [plainHttp, wrong, connect, status].map((reply) => reply.text).join("\n");
+    check(
+      "the stored file, the answers and the logs carry no secret in plain text",
+      stored !== "" && ![stored, replies, ...logged].some((text) => BW_SECRETS.some((secret) => text.includes(secret))),
+      { storedBytes: stored.length },
+    );
+    const restarted = createBitwardenHost();
+    await runCauseEffect(restarted.load());
+    const before = bitwardenCalls.length;
+    const logins = await runCauseEffect(restarted.loginsFor("https://example.com"));
+    const password = await runCauseEffect(restarted.secretFor(BW_ITEM_ID, "https://example.com", "password"));
+    const afterRestart = bitwardenCalls.slice(before).map((entry) => entry.args.join(" "));
+    check(
+      "after a restart the host unlocks again from the stored connection, with no new sign-in",
+      restarted.connected() &&
+        logins?.[0]?.username === "ada" &&
+        password === BW_LOGIN_PASSWORD &&
+        afterRestart.includes("unlock --passwordenv BW_PASSWORD --raw") &&
+        !afterRestart.some((command) => command.startsWith("login") || command.startsWith("config")),
+      { afterRestart, logins },
+    );
+    await runCauseEffect(restarted.dispose());
+    // A disconnect while an agent's vault call unlocks from the stored record: the stopped unlock
+    // must not put an error back into the status that the disconnect cleared.
+    const racing = createBitwardenHost();
+    await runCauseEffect(racing.load());
+    let release = () => {};
+    const unlockStarted = new Promise<void>((started) => {
+      bitwardenUnlockGate = { started, released: new Promise<void>((done) => (release = done)) };
+    });
+    const pendingLogins = runCauseEffect(racing.loginsFor("https://example.com")).then(
+      (value) => ({ value }),
+      () => ({ value: "failed" as const }),
+    );
+    await unlockStarted;
+    const pendingDisconnect = runCauseEffect(racing.disconnect());
+    bitwardenUnlockGate = null;
+    release();
+    const [raced] = await Promise.all([pendingLogins, pendingDisconnect]);
+    check(
+      "a disconnect during an unlock from the stored connection leaves no error and no access",
+      racing.status().error === null && !racing.connected() && (raced.value === "failed" || raced.value === null),
+      { status: racing.status(), raced },
+    );
+    await runCauseEffect(racing.dispose());
+    const disconnect = await call("POST", BITWARDEN_CONNECTOR_ROUTES.disconnect, {
+      token: adaToken,
+      json: {},
+      capabilities: bitwardenCapabilities,
+    });
+    check(
+      "disconnect removes the stored connection and the host's CLI data",
+      isDeepStrictEqual(disconnect.body, { state: "disconnected", serverUrl: null, error: null }) &&
+        !existsSync(bitwardenFile) &&
+        !existsSync(bitwardenData) &&
+        !bitwardenConnector.connected(),
+      summary(disconnect),
     );
   }
 

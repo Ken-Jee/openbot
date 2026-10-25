@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/solid-router";
 import { For, Show } from "solid-js";
 import { OPENBOT_PLANS, type OpenBotPlan } from "../../content/compare/comparison";
-import { OPENBOT_ADDS, type ProviderPage } from "../../content/providers/provider-page";
+import { OPENBOT_ADDS, OPENBOT_PHONE_ADD, type ProviderPage } from "../../content/providers/provider-page";
 import { COMPARE_COLLECTION } from "../../lib/compare";
 import {
   type CollectionArticle,
@@ -31,7 +31,10 @@ export function ProviderArticlePage(props: ProviderArticlePageProps) {
     ...OPENBOT_PLANS.filter(isThisProvider),
     ...OPENBOT_PLANS.filter((plan) => !isThisProvider(plan)),
   ];
-  const adds = () => [...props.page.adds, ...OPENBOT_ADDS];
+  const adds = () => [
+    ...props.page.adds,
+    ...OPENBOT_ADDS.filter((add) => !(props.page.localOnly && add === OPENBOT_PHONE_ADD)),
+  ];
   const comparisons = () =>
     props.page.comparisons.flatMap((slug) => {
       const article = findArticle(COMPARE_COLLECTION, slug);

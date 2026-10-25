@@ -56,7 +56,6 @@ export const messages = defineMessages("billing", {
   "billing.lifecycle.automatic": "Automatic renewal resumes",
   "billing.lifecycle.noRefund": "No refund for unused time",
   "billing.lifecycle.noRenewal": "No further renewals",
-  "billing.lifecycle.open": "Open design preview",
   "billing.lifecycle.dateUtc": "{date} UTC",
   "billing.lifecycle.renews": "Automatic renewal is on.",
   "billing.lifecycle.schedule": "Delete at period end",

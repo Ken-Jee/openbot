@@ -1,5 +1,5 @@
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
-import { Button, CircleDot, Clock3, Globe2, Input, Listbox, Search, TriangleAlert } from "@openbot/ui";
+import { Button, CircleDot, Clock3, Globe2, Input, Listbox, Search, TriangleAlert, UserRound } from "@openbot/ui";
 import { AgentAvatar } from "@openbot/ui/features/agents/AgentAvatar";
 import {
   BrowserBackIcon,
@@ -10,9 +10,10 @@ import {
 import { useText } from "@openbot/ui/text";
 import { createMemo, createStore, createUniqueId, flush, Show } from "solid-js";
 import { BrowserPageMenu } from "./BrowserPageMenu";
+import { BrowserProfileDot } from "./BrowserProfileColor";
 import { BrowserOwnerIcon } from "./BrowserTabIcon";
 import { browserActionLabel } from "./browser-action-labels";
-import { type BrowserFullViewProps, browserTabStoppable } from "./browser-full-view-types";
+import { type BrowserFullViewProps, browserTabProfileLabel, browserTabStoppable } from "./browser-full-view-types";
 import { useBrowserPageCover } from "./browser-page-cover";
 import {
   type BrowserSuggestion,
@@ -74,6 +75,10 @@ export function BrowserAddressRow(props: {
   let selectOnPointerUp = false;
 
   const tab = () => props.view.activeTab;
+  const profile = () => {
+    const current = tab();
+    return current ? props.view.profileForTab?.(current) : undefined;
+  };
   const acting = () => {
     const current = tab();
     const session = current ? props.view.controlForTab(current) : undefined;
@@ -331,6 +336,16 @@ export function BrowserAddressRow(props: {
           />
         </Show>
       </form>
+      <Show when={profile()}>
+        {(current) => (
+          <span class="browser-profile-status" title={browserTabProfileLabel(t, current())}>
+            <Show when={current().hue} fallback={<UserRound aria-hidden="true" />}>
+              {(hue) => <BrowserProfileDot hue={hue()} />}
+            </Show>
+            <span class="browser-profile-status-name">{current().name ?? browserTabProfileLabel(t, current())}</span>
+          </span>
+        )}
+      </Show>
       <Show when={tab()?.recording}>
         <span class="browser-recording-status" role="status" aria-label={t("browser.recording.label")}>
           <CircleDot /> {t("browser.recording.badge")}

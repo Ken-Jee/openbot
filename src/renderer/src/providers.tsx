@@ -4,7 +4,12 @@ import {
   agentProviderDescriptor,
   LOCAL_SERVER_ID,
 } from "@openbot/contracts/ipc";
+import {
+  PROVIDER_ACCOUNT_RELAY_CAPABILITY,
+  PROVIDER_ACCOUNT_RELAY_PROVIDERS,
+} from "@openbot/contracts/team-protocol/provider-account-relay-v1";
 import { PROVIDER_ACCOUNTS_CAPABILITY } from "@openbot/contracts/team-protocol/provider-accounts-v1";
+import { PROVIDER_USAGE_RESET_CAPABILITY } from "@openbot/contracts/team-protocol/provider-usage-reset-v1";
 import { classifyFailure } from "@openbot/telemetry";
 import { toast } from "@openbot/ui";
 import type { ProviderAccountActions } from "@openbot/ui/components/provider-accounts";
@@ -37,7 +42,7 @@ type ProviderConnectMethod = Extract<DesktopAnalyticsProperties<"provider_action
 const Providers = createSimpleContext({
   name: "Providers",
   init: () => {
-    const { agentStatus, setAgentStatus, refreshHostAccounts } = useAgents();
+    const { agentStatus, setAgentStatus, refreshHostAccounts, refreshHostAccountUsage } = useAgents();
     const { activeServer } = useServers();
     const { appInfo } = usePlatform();
     const [refreshingProviders, setRefreshingProviders] = createSignal(false);
@@ -245,6 +250,8 @@ const Providers = createSimpleContext({
 
     /** The joined server whose host's provider accounts this window manages (`provider-accounts-v1`). */
     const accountsAdminServerId = createMemo(() => remoteAdminServer(activeServer(), PROVIDER_ACCOUNTS_CAPABILITY)?.id);
+    /** The joined server whose host spends the usage reset credits of its accounts (`provider-usage-reset-v1`). */
+    const usageResetServerId = createMemo(() => remoteAdminServer(activeServer(), PROVIDER_USAGE_RESET_CAPABILITY)?.id);
 
     /**
      * The accounts of the providers of this computer, or of a joined server's host that serves
@@ -267,6 +274,17 @@ const Providers = createSimpleContext({
             changed(providerAdmin().renameAccount({ provider, accountId, label }, hostServerId)),
           remove: (provider, accountId) =>
             changed(providerAdmin().removeAccount({ provider, accountId }, hostServerId)),
+          ...(usageResetServerId() === hostServerId
+            ? {
+                usageResets: (provider: AgentProviderId) => providerAdmin().usageResets(provider, hostServerId),
+                resetUsage: async (provider: AgentProviderId, accountId: string) => {
+                  const outcome = await providerAdmin().resetUsage({ provider, accountId }, hostServerId);
+                  // The host sends the reading of its own sign-in; the accounts after the first are read here.
+                  await refreshHostAccountUsage().catch(() => undefined);
+                  return outcome;
+                },
+              }
+            : {}),
         };
       }
       if (activeServer()?.kind !== "local") return undefined;
@@ -287,6 +305,8 @@ const Providers = createSimpleContext({
         rename: (provider, accountId, label) =>
           apply(providersPort().renameProviderAccount({ provider, accountId, label })),
         remove: (provider, accountId) => apply(providersPort().removeProviderAccount({ provider, accountId })),
+        usageResets: (provider) => providersPort().providerUsageResets(provider),
+        resetUsage: (provider, accountId) => providersPort().resetProviderUsage({ provider, accountId }),
       };
     });
 
@@ -347,6 +367,32 @@ const Providers = createSimpleContext({
     }
 
     /**
+     * An account sign-in that the host relays to this computer's browser (`provider-account-relay-v1`).
+     * The other relay requests run it by its provider, and the accounts are read again when it ends.
+     */
+    function accountRelay(serverId: string) {
+      return {
+        providers: PROVIDER_ACCOUNT_RELAY_PROVIDERS,
+        hostName: activeServer()?.name ?? "",
+        start: (provider: AgentProviderId, accountId: string | null) =>
+          providerAdmin().startAccountRelaySignIn({ provider, accountId }, serverId),
+        status: async (provider: AgentProviderId) => {
+          const status = await providerAdmin().relaySignInStatus(provider, serverId);
+          if (status.result) await refreshHostAccounts().catch(() => undefined);
+          return status;
+        },
+        open: (provider: AgentProviderId) => providerAdmin().openRelaySignIn(provider, serverId),
+        paste: (provider: AgentProviderId, address: string) =>
+          providerAdmin().pasteRelaySignIn({ provider, address }, serverId),
+        cancel: async (provider: AgentProviderId) => {
+          const status = await providerAdmin().cancelRelaySignIn(provider, serverId);
+          await refreshHostAccounts().catch(() => undefined);
+          return status;
+        },
+      };
+    }
+
+    /**
      * The provider sign-in as the one object its surfaces take. Onboarding, Settings, the composer
      * and the model picker all offer it, so each offers the same ways in.
      */
@@ -369,6 +415,10 @@ const Providers = createSimpleContext({
                 cancel: (provider) => providerAdmin().cancelHostSignIn(provider, serverId),
               },
               ...(accountsAdminServerId() === serverId ? { accountSignIn: accountSignIn(serverId) } : {}),
+              ...(accountsAdminServerId() === serverId &&
+              serverSupportsCapability(activeServer(), PROVIDER_ACCOUNT_RELAY_CAPABILITY)
+                ? { accountRelay: accountRelay(serverId) }
+                : {}),
               relay: {
                 hostName: activeServer()?.name ?? "",
                 start: (provider) => providerAdmin().startRelaySignIn(provider, serverId),

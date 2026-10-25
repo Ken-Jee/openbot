@@ -338,6 +338,26 @@
     both;
 }
 
+/* The last seconds before the time limit: the bar widens for the time left. */
+.voice-morph[data-countdown] {
+  --voice-bar-width: 188px;
+}
+
+.voice-recording-status[data-tone="warning"] {
+  color: var(--openbot-warning-text);
+}
+
+.voice-recording-remaining {
+  flex: 0 0 auto;
+  color: var(--openbot-text-primary);
+  font-size: var(--openbot-text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.voice-recording-status[data-tone="warning"] .voice-recording-remaining {
+  color: var(--openbot-warning-text);
+}
+
 .voice-waveform {
   display: flex;
   min-width: 0;

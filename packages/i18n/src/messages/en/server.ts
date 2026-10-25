@@ -229,6 +229,9 @@ export const messages = defineMessages("server", {
   "server.role.owner": "Owner",
   "server.settings.generalTitle": "General",
   "server.settings.generalDescription": "Manage this server’s name, logo, and preferences.",
+  "server.settings.vaultTitle": "Vault",
+  "server.settings.vaultDescription":
+    "Save logins, cards and contact info that every agent on this server can fill in.",
   "server.settings.membersTitle": "Members",
   "server.settings.membersDescription": "Publish this server, invite people, and manage access.",
   "server.settings.desktopTitle": "Remote desktop",
@@ -326,6 +329,16 @@ export const messages = defineMessages("server", {
   "server.settings.notPublished": "Not reachable online.",
   // A name for a server that the user publishes before naming it. {name} is the first word of the account name.
   "server.settings.generatedName": "{name}’s server",
+  "server.settings.hostKeyTitle": "Server key",
+  "server.settings.hostKeyRotate": "Change the server key",
+  "server.settings.hostKeyDescription":
+    "Make a new identity key for this server. Paired computers and phones, and webhook routes, stay connected.",
+  "server.settings.hostKeyRotateAction": "Change key",
+  "server.settings.hostKeyConfirmTitle": "Change the server key?",
+  "server.settings.hostKeyConfirmDescription":
+    "The current key and the new key both sign a handover. Apps of members change to the new key when they connect again. Do this if the key file was copied or exposed.",
+  "server.settings.hostKeyRotated": "Server key changed",
+  "server.settings.hostKeyLocalOnly": "Only the server on this computer can change its key here.",
   "server.settings.removeTitle": "Remove server",
   "server.settings.removeDescription":
     "Remove this server from the account service for all members. Use this when its computer is no longer available.",
@@ -395,6 +408,8 @@ export const messages = defineMessages("server", {
   "server.roles.memberCount": { one: "{count} member", other: "{count} members" },
   "server.roles.agentList": "Agents: {names}",
   "server.roles.agentLevel": "Access of {role} to {agent}",
+  "server.roles.setAll": "Set all",
+  "server.roles.setAllLabel": "Set all: access of {role} to all agents",
   "server.roles.loadFailed": "Could not load the roles of this server.",
   "server.agentAccess.level.none": "No access",
   "server.agentAccess.level.view": "Can view",
@@ -436,6 +451,9 @@ export const messages = defineMessages("server", {
   "server.invite.pendingTitle": "Pending invitations",
   "server.invite.pendingCount": "{total} pending",
   "server.invite.noPending": "No pending invitations.",
+  // The empty pending list. {word} is the one handwritten word of the title.
+  "server.invite.emptyTitle": "Send the first {word}.",
+  "server.invite.emptyWord": "one",
   "server.invite.neverExpires": { one: "Never expires · {count} join", other: "Never expires · {count} joins" },
   "server.invite.expires": "Expires {date}",
   "server.invite.revoke": "Revoke",

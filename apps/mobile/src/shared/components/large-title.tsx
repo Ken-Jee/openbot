@@ -53,12 +53,9 @@ export function useLargeTitleScroll(): LargeTitleScroll {
   // iOS insets the content under the transparent header, so the content rests at minus the header
   // height. Android pads the content by the header height and rests at zero.
   const rest = isIOS ? -headerHeight : 0;
-  const onScroll = useAnimatedScrollHandler(
-    (event) => {
-      scrolled.set(event.contentOffset.y - rest);
-    },
-    [rest],
-  );
+  const onScroll = useAnimatedScrollHandler((event) => {
+    scrolled.set(event.contentOffset.y - rest);
+  });
   return { onScroll, scrolled, titleHeight, headerHeight };
 }
 

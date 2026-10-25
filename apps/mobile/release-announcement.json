@@ -1,10 +1,10 @@
 {
-  "version": "1.4.0",
+  "version": "1.4.1",
   "highlights": [
-    "Redesigned app layout.",
-    "Improved chat experience with smoother scrolling.",
-    "You can now give agents tasks from the mobile app and create tasks with the new action search.",
-    "Providers, MCP servers, Connectors, Roles, Storage, Sites and Updates in Server settings.",
-    "App lock with a PIN, Face ID or Touch ID."
+    "Channels are back: see them in the home list, open them as chats, and answer questions and approvals from your phone.",
+    "Audio files play in the chat with a waveform and speed control, and Markdown files open in a formatted preview.",
+    "Swipe through all the images of a loaded chat, and see multiple images from one reply in a compact grid.",
+    "Provider plan limits show as rings in the home header.",
+    "Android stability fixes for large images, text fields and app start."
   ]
 }

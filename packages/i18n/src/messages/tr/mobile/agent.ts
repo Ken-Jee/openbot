@@ -249,7 +249,6 @@ export const messages = {
   "mobile.agent.record.lateMonthDay": "{day}. günü olmayan aylar atlanır.",
   "mobile.agent.record.cronHint":
     "Beş alan: dakika, saat, ayın günü, ay ve haftanın günü. Örneğin 0 9 * * 1-5 hafta içi 9:00'da çalışır.",
-  "mobile.agent.record.problem.endBeforeStart": "Bitiş saati başlangıç saatinden sonra olmalıdır.",
   "mobile.agent.record.problem.invalidDate": "Bu ayda bu gün yok.",
   "mobile.agent.record.problem.cronRequired": "Bir cron ifadesi girin.",
   "mobile.agent.record.problem.cronTooLong": "Cron ifadesi çok uzun.",

@@ -5,7 +5,13 @@ import { useI18n } from "../../i18n-context";
 import { usePlatform } from "../../platform";
 import { useServerSettings } from "../servers/server-settings";
 import { useSettings } from "../settings/settings-context";
-import { navItem, navItems, type SettingsTab, settingsTabShown } from "../settings/settings-tabs";
+import {
+  dynamicIslandSettingsShown,
+  navItem,
+  navItems,
+  type SettingsTab,
+  settingsTabShown,
+} from "../settings/settings-tabs";
 import { ServerSettingsPageTitle, SettingsPageFrame } from "./SettingsPageFrame";
 import { type SettingsKind, useWindowPage } from "./window-page-context";
 
@@ -53,7 +59,8 @@ export function SettingsPage(props: { kind: SettingsKind }) {
   const serverSettings = useServerSettings();
   const platform = usePlatform();
   const [query, setQuery] = createSignal("");
-  const tabShown = (tab: SettingsTab) => settingsTabShown(tab, platform.appInfo()?.platform);
+  const tabShown = (tab: SettingsTab) =>
+    settingsTabShown(tab, dynamicIslandSettingsShown(platform.appInfo()?.platform, platform.chatWindow !== null));
   const results = () => (query().trim() ? rankRows(query().trim(), (key) => i18n.t(key), tabShown) : null);
   /** What a screen reader hears while the user types a query. */
   const resultStatus = () => {

@@ -1,12 +1,14 @@
 // Runs custom ACP agents end to end on the real modules: the encrypted agent store, Check agent, and
 // the `acp` provider driver with its router over real agent processes. Two fake agents speak ACP over
-// stdio and give the same session id, so the router must keep them apart. A fake cipher replaces the
+// stdio and give the same session id, so the router must keep them apart. A usage prompt goes to the
+// model list process of its agent, and its answer comes back redacted. A fake cipher replaces the
 // operating system's secret storage, which exists only in Electron.
 // `bun scripts/custom-acp-agent-e2e.ts`. Writes .openbot-build/custom-acp-agent-e2e/report.json.
 import assert from "node:assert/strict";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { CUSTOM_AGENT_DEFAULT_MODEL } from "@openbot/contracts/ipc";
 import { Effect } from "effect";
 import { checkAcpAgent } from "../src/backend/acp-agent-check";
 import { isMissingProviderSessionError } from "../src/backend/agent/thread-items";
@@ -36,6 +38,7 @@ interface Report {
   checkModels?: { models: string[]; requests: string[]; stopped: boolean; signInModels: string[] };
   crashMasked?: { message: string };
   turns?: { models: string[]; alphaThread: string; betaThread: string; alphaReply: string; betaReply: string };
+  usage?: { answer: string | null; threadProcesses: number; usageProcess: number };
   restart?: { processesStopped: number; loadedSession: string | null | undefined; resumedReply: string };
   switch?: { missingSession: boolean };
   delete?: { refused: string };
@@ -89,6 +92,7 @@ try {
         { name: "FAKE_MODELS", value: "1" },
         { name: "FAKE_TOKEN", value: SECRET },
       ],
+      usagePrompt: "/usage",
     }),
   );
   await runCauseEffect(
@@ -101,6 +105,7 @@ try {
         { name: "FAKE_LOG", value: betaLog },
         { name: "FAKE_TITLE", value: "Beta" },
       ],
+      usagePrompt: null,
     }),
   );
   const file = await readFile(join(root, "custom-agents.json"), "utf8");
@@ -113,6 +118,12 @@ try {
     "FAKE_MODELS",
     "FAKE_TOKEN",
   ]);
+  assert.equal(summaries.find((agent) => agent.id === "alpha")?.usagePrompt, "/usage", "The usage prompt is saved.");
+  assert.equal(
+    store.configs().find((agent) => agent.id === "beta")?.usagePrompt,
+    null,
+    "An agent with no usage prompt has none.",
+  );
   report.save = { agents: summaries.map((agent) => agent.id), secretOnDisk: false, secretInSummary: false };
 
   // 2. An install check: `initialize` only, then the process is gone.
@@ -218,6 +229,21 @@ try {
     alphaReply,
     betaReply,
   };
+
+  // 3b. Usage: the prompt runs in a session that no thread owns, on the model list process, and the
+  // answer hides the env value that the agent echoes.
+  assert.ok(client.readUsageText, "The router reads usage text.");
+  const promptPids = (entries: LogEntry[]) =>
+    new Set(entries.filter((entry) => entry.method === "session/prompt").map((entry) => entry.pid));
+  const threadPids = promptPids(await readJsonl<LogEntry>(alphaLog));
+  const usageAnswer = await runCauseEffect(
+    client.readUsageText(`alpha/${CUSTOM_AGENT_DEFAULT_MODEL}`, `/usage ${SECRET}`),
+  );
+  // Each env value is redacted, so the title in `FAKE_TITLE` is too.
+  assert.equal(usageAnswer, "[redacted] heard: /usage [redacted]", "The answer is the agent's, redacted.");
+  const usagePids = [...promptPids(await readJsonl<LogEntry>(alphaLog))].filter((pid) => !threadPids.has(pid));
+  assert.equal(usagePids.length, 1, "The usage prompt runs on a process that serves no thread.");
+  report.usage = { answer: usageAnswer, threadProcesses: threadPids.size, usageProcess: usagePids.length };
 
   // 4. Restart: a new router loads the saved session on a new process and runs a turn on it.
   const pidsBefore = [...new Set([...alphaEntries, ...(await readJsonl<LogEntry>(betaLog))].map((entry) => entry.pid))];

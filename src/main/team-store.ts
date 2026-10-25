@@ -12,6 +12,7 @@ import { copyFile, mkdir, readFile, rm } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { promisify } from "node:util";
 import { avatarFileExtension, isAvatarMimeType, isValidAvatarImage } from "@openbot/contracts/avatar-images";
+import { type HostKeyHandover, hostKeyHandoverStatement } from "@openbot/contracts/host-key-handover";
 import { DEFAULT_TEAM_MEMBER_LIMIT, INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import { permanentInviteExpiresAt } from "@openbot/contracts/invite-links";
 import type {
@@ -118,6 +119,17 @@ interface StoredTeam {
   members: StoredMember[];
   invites: StoredInvite[];
   sessions: StoredSession[];
+  /**
+   * A new key that the host signed a handover to, but that the account service has not accepted
+   * yet. The host keeps signing with the current key until the account service accepts it.
+   */
+  pendingKeyRotation?: StoredKeyRotation | undefined;
+}
+
+interface StoredKeyRotation {
+  publicKey: string;
+  privateKey: string;
+  handover: HostKeyHandover;
 }
 
 /**
@@ -693,6 +705,109 @@ export class TeamStore {
     Effect.provide(TeamStoreFiles.layer),
     Effect.uninterruptible,
   ).bind(this);
+
+  /** The handover that the account service has not accepted yet, so a restart can send it again. */
+  getPendingKeyHandover(): HostKeyHandover | null {
+    return this.#state?.pendingKeyRotation?.handover ?? null;
+  }
+
+  /**
+   * Makes a new key and a handover that the current key and the new key both sign. The current
+   * key stays in use until `completeKeyRotation`. A rotation that is already pending is returned
+   * again, so a second request cannot make a second key.
+   */
+  readonly beginKeyRotation = Effect.fn("TeamStore.beginKeyRotation")(
+    function* (this: TeamStore): Effect.fn.Return<HostKeyHandover, RemoteWorkflowError, TeamStoreFiles> {
+      const state = yield* remoteDecode(() => this.#requireState());
+      if (state.pendingKeyRotation) return state.pendingKeyRotation.handover;
+      const { publicKey, privateKey } = yield* remoteDecode(() =>
+        generateKeyPairSync("ed25519", {
+          publicKeyEncoding: { type: "spki", format: "pem" },
+          privateKeyEncoding: { type: "pkcs8", format: "pem" },
+        }),
+      );
+      const statement = {
+        hostId: state.serverId,
+        issuedAt: Date.now(),
+        previousPublicKey: state.publicKey,
+        publicKey,
+      };
+      const message = Buffer.from(hostKeyHandoverStatement(statement));
+      const handover: HostKeyHandover = {
+        ...statement,
+        previousSignature: sign(null, message, state.privateKey).toString("base64url"),
+        signature: sign(null, message, privateKey).toString("base64url"),
+      };
+      state.pendingKeyRotation = { publicKey, privateKey, handover };
+      const attempt = yield* this.#persistStateEffect(state).pipe(Effect.result);
+      if (Result.isFailure(attempt)) {
+        delete state.pendingKeyRotation;
+        return yield* attempt.failure;
+      }
+      return handover;
+    },
+    Effect.provide(TeamStoreFiles.layer),
+    Effect.uninterruptible,
+  ).bind(this);
+
+  /** Uses the new key after the account service accepted `handover`. The previous key is deleted. */
+  readonly completeKeyRotation = Effect.fn("TeamStore.completeKeyRotation")(
+    function* (
+      this: TeamStore,
+      handover: HostKeyHandover,
+    ): Effect.fn.Return<TeamIdentity, RemoteWorkflowError, TeamStoreFiles> {
+      const state = yield* remoteDecode(() => this.#requireState());
+      const pending = state.pendingKeyRotation;
+      if (!pending || pending.handover.publicKey !== handover.publicKey)
+        return yield* new RemoteWorkflowError({
+          cause: new TeamStoreError(sourceText("error.team.keyRotationMissing")),
+        });
+      const previous = { publicKey: state.publicKey, privateKey: state.privateKey };
+      state.publicKey = pending.publicKey;
+      state.privateKey = pending.privateKey;
+      delete state.pendingKeyRotation;
+      const attempt = yield* this.#persistStateEffect(state).pipe(Effect.result);
+      if (Result.isFailure(attempt)) {
+        state.publicKey = previous.publicKey;
+        state.privateKey = previous.privateKey;
+        state.pendingKeyRotation = pending;
+        return yield* attempt.failure;
+      }
+      return identityOf(state);
+    },
+    Effect.provide(TeamStoreFiles.layer),
+    Effect.uninterruptible,
+  ).bind(this);
+
+  /** Deletes a rotation that the account service refused. The current key stays in use. */
+  readonly discardKeyRotation = Effect.fn("TeamStore.discardKeyRotation")(
+    function* (
+      this: TeamStore,
+      handover: HostKeyHandover,
+    ): Effect.fn.Return<void, RemoteWorkflowError, TeamStoreFiles> {
+      const state = yield* remoteDecode(() => this.#requireState());
+      const pending = state.pendingKeyRotation;
+      if (!pending || pending.handover.publicKey !== handover.publicKey) return;
+      delete state.pendingKeyRotation;
+      const attempt = yield* this.#persistStateEffect(state).pipe(Effect.result);
+      if (Result.isFailure(attempt)) {
+        state.pendingKeyRotation = pending;
+        return yield* attempt.failure;
+      }
+    },
+    Effect.provide(TeamStoreFiles.layer),
+    Effect.uninterruptible,
+  ).bind(this);
+
+  /** Writes the file only while `state` is still the active host. */
+  readonly #persistStateEffect = Effect.fn("TeamStore.persistState")(function* (
+    this: TeamStore,
+    state: StoredTeam,
+  ): Effect.fn.Return<void, RemoteWorkflowError, TeamStoreFiles> {
+    if (this.#state !== state)
+      return yield* new RemoteWorkflowError({ cause: new TeamStoreError(sourceText("error.team.serverNotActive")) });
+    yield* this.#persistFileEffect();
+  });
 
   /** The record a build without accounts owns, with the fingerprint that dates it. */
   readonly #readLegacyRecordEffect = Effect.fn("TeamStore.readLegacyRecord")(function* (
@@ -1722,6 +1837,11 @@ function isStoredTeam(value: unknown): value is StoredTeam {
     Array.isArray(record.members) &&
     Array.isArray(record.invites) &&
     Array.isArray(record.sessions) &&
-    validLogo
+    validLogo &&
+    (record.pendingKeyRotation === undefined ||
+      (isDynamicRecord(record.pendingKeyRotation) &&
+        isString(record.pendingKeyRotation.publicKey) &&
+        isString(record.pendingKeyRotation.privateKey) &&
+        isDynamicRecord(record.pendingKeyRotation.handover)))
   );
 }

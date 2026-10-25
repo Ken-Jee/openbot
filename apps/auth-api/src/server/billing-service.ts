@@ -80,6 +80,9 @@ export { BillingError } from "./billing-errors";
 /** Where the Stripe page sends the user back: the desktop return page or the web client. */
 export type BillingReturnTarget = "desktop" | "web";
 
+/** The plans that no new server can take. Servers that have one keep it. */
+export const SOLD_OUT_PLANS: ReadonlySet<BillingPlanId> = new Set(["starter"]);
+
 export const BILLING_UNAVAILABLE_STATE: BillingState = { available: false, hasCustomer: false, servers: [] };
 
 interface ServerPlanRow {
@@ -232,13 +235,14 @@ export class BillingService {
         }
         const { eur, usd, pln } = amounts;
         if (!eur || !usd || !pln) return [];
-        const entry = {
+        const entry: HostedServerCatalogPlan = {
           id: plan.id,
           diskGb: plan.storageGb,
           memberLimit: plan.memberLimit,
           relativeSpeed: plan.relativeSpeed,
           prices: { eur, usd, pln },
         };
+        if (SOLD_OUT_PLANS.has(plan.id)) entry.soldOut = true;
         return [entry];
       });
       if (plans.length === 0) return yield* plansUnavailable();

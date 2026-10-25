@@ -4,6 +4,9 @@ import type { messages as source } from "../en/composer";
 export const messages = {
   "composer.queueEdit.body": "キュー内のメッセージを編集中です。実行するには編集を保存するかキャンセルしてください。",
   "composer.queueEdit.cancel": "編集をキャンセル",
+  "composer.providerWait.offlineTitle": "インターネットに接続されていません",
+  "composer.providerWait.offline": "このコンピューターがオンラインに戻るまで、{provider} は返信できません。",
+  "composer.providerWait.silent": "{provider} からの更新が {duration} ありません。",
   "composer.notice.dismiss": "エラーを閉じる",
   "composer.signIn.title": "サインインが必要です",
   "composer.signIn.body": "メッセージを送信するには {provider} にサインインしてください。",
@@ -73,6 +76,8 @@ export const messages = {
   "composer.upload.cancel": "アップロードをキャンセル",
   "composer.voice.progress": "音声モデルをダウンロード中 {progress}%",
   "composer.voice.recording": "音声の録音",
+  "composer.voice.limitSoon": "あと {seconds} 秒で録音が止まります。",
+  "composer.voice.limitReached": "2 分の上限に達したため録音を停止しました。話した内容はメッセージに入っています。",
   "composer.send.saveQueued": "キューのメッセージを保存",
   "composer.send.voice": "音声メッセージを送信",
   "composer.send.message": "メッセージを送信",

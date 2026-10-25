@@ -9,6 +9,7 @@ import type { AppFormat, AppMessages, AppTextKey, AppTranslate } from "@openbot/
 import { createSignal } from "solid-js";
 import { providerUpdateAvailable, providerVersionLabel } from "../features/provider-updates/provider-update";
 import { useText } from "../text";
+import { toast } from "../toast";
 import { createCodeSignInFallback } from "./createCodeSignInFallback";
 import type { ProviderAlternativeSignIn, ProviderConnection, ProviderPickerOption } from "./ProviderPicker";
 import type { ProviderAccountActions } from "./provider-accounts";
@@ -295,6 +296,20 @@ export function providerStatusLabel(
   if (runtimeStatus?.phase === "ready") return translate("provider.status.ready");
   if (state === "not-installed") return translate("provider.status.notInstalled");
   return translate("provider.status.checking");
+}
+
+/**
+ * Says why the provider's switch stays on. One agent is named; more are counted, because a list of
+ * names makes a long line. All providers share one id, so a new try replaces the old toast and the
+ * newest text is always in front.
+ */
+export function showProviderInUse(translate: AppTranslate, agents: readonly string[], name: string): void {
+  const [agent, ...others] = agents;
+  const text =
+    agent !== undefined && others.length === 0
+      ? translate("provider.use.inUseOne", { agent, name })
+      : translate("provider.use.inUse", { count: agents.length, name });
+  toast(text, { id: "provider-in-use" });
 }
 
 export function providerVisualState(

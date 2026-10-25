@@ -33,18 +33,24 @@ export function serverSupportsCapability(
       capability === "browser-view" ||
       capability === "browser-view-clipboard" ||
       capability === "browser-user-control" ||
+      capability === "browser-sign-in" ||
       capability === "mcp-servers-v1" ||
       capability === "mcp-sign-in-v1" ||
       capability === "mcp-sign-in-app-v1" ||
       capability === "sign-in-relay-v1" ||
       capability === "connectors-v1" ||
       capability === "onepassword-connector-v1" ||
+      capability === "bitwarden-connector-v1" ||
       capability === "provider-host-sign-in-v1" ||
       capability === "storage-v1" ||
+      capability === "storage-disk-v1" ||
       capability === "hosted-sites-v1" ||
       capability === "agent-admin-v1" ||
       capability === "agent-host-settings-v1" ||
       capability === "agent-backup-models-v1" ||
+      capability === "agent-task-limit-v1" ||
+      capability === "browser-profiles-v1" ||
+      capability === "provider-usage-reset-v1" ||
       capability === "skills-admin-v1" ||
       capability === "shared-tables-v1" ||
       capability === "agent-install-v1" ||
@@ -62,12 +68,14 @@ export function serverSupportsCapability(
       capability === "host-release-v1" ||
       capability === "host-timezone-v1" ||
       capability === "agent-memory-limit-v1" ||
+      capability === "prompt-cache-ttl-v1" ||
       capability === "agent-access-v1" ||
       capability === "discord-access-v1" ||
       capability === "events-v1" ||
       capability === "context-reset-v1" ||
       capability === "routine-flows-v1" ||
       capability === "routine-recovery-v1" ||
+      capability === "webhook-tests-v1" ||
       capability === "agent-import-v1" ||
       capability === "instance-transfer-v1" ||
       capability === "agent-hidden-v1" ||
@@ -86,6 +94,11 @@ export function serverSupportsCapability(
  */
 export function remoteRoutineRecovery(server: ServerSummary | undefined): boolean {
   return server?.kind === "remote" && serverCanAdminister(server, "routine-recovery-v1");
+}
+
+/** Whether the routine editor can ask the host for a test event: this computer, or a joined server with `webhook-tests-v1`. */
+export function serverSendsWebhookTests(server: ServerSummary | undefined): boolean {
+  return serverCanAdminister(server, "webhook-tests-v1");
 }
 
 /**

@@ -6,8 +6,8 @@
  * server accepts; anything else is refused, so a refusal is a state the dialog reached.
  */
 
+import type { McpKeyFlow } from "@openbot/contracts/mcp-connect-flows";
 import { McpKeyDialog } from "@openbot/ui/features/settings/McpKeyDialog";
-import type { McpKeyFlow } from "@openbot/ui/features/settings/mcp-connect-auth";
 import { fn } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { MARKETPLACE_PLUGINS } from "../src/features/settings/marketplace-plugin-catalog";

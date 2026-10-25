@@ -1839,6 +1839,11 @@ export const WaitingForReplies: Story = {
   },
 };
 
+/** Every card above the input at once: one card with a line between each part, and no gaps. */
+export const WaitingForRepliesWithUsageLimit: Story = {
+  args: { ...WaitingForReplies.args, accountUsage: UsageLimitReached.args?.accountUsage },
+};
+
 /** The plan of the turn that runs: the block is open and the running step shimmers. */
 export const PlanInProgress: Story = {
   args: {
@@ -2228,7 +2233,7 @@ function agentExchangeMessage(
   direction: "incoming" | "outgoing",
   otherAgentId: string,
   time: string,
-  expectsReply = true,
+  options: { body?: string; replyTo?: string; expectsReply?: boolean } = {},
 ): RendererAgentMessage {
   const timestamp = `2026-08-19T${time}:00.000Z`;
   const sourceAgentId = direction === "outgoing" ? "chief" : otherAgentId;
@@ -2236,7 +2241,7 @@ function agentExchangeMessage(
   return {
     id,
     author: "agent",
-    body: "",
+    body: options.body ?? "",
     time,
     createdAt: timestamp,
     kind: "exchange",
@@ -2245,7 +2250,7 @@ function agentExchangeMessage(
       messageId: id,
       senderAgentId: sourceAgentId,
       recipientAgentIds: [targetAgentId],
-      replyToMessageId: null,
+      replyToMessageId: options.replyTo ?? null,
       deliveries: [],
     },
     actionMarker: {
@@ -2256,13 +2261,13 @@ function agentExchangeMessage(
       status: "completed",
       timestamp,
       messageId: id,
-      replyToMessageId: null,
-      expectsReply,
+      replyToMessageId: options.replyTo ?? null,
+      expectsReply: options.expectsReply ?? true,
     },
   };
 }
 
-/* Consecutive messages with other agents show as one row in the chat. */
+/* Consecutive messages with other agents show as one row in the chat. Each message opens its text under its marker. */
 export const AgentMessageGroupInChat: Story = {
   name: "Agent message group in chat",
   args: {
@@ -2275,11 +2280,25 @@ export const AgentMessageGroupInChat: Story = {
         createdAt: "2026-08-19T09:00:00.000Z",
         kind: "text",
       },
-      agentExchangeMessage("group-1", "outgoing", "research", "09:01"),
-      agentExchangeMessage("group-2", "outgoing", "sales", "09:01"),
-      agentExchangeMessage("group-3", "incoming", "research", "09:03"),
-      agentExchangeMessage("group-4", "incoming", "sales", "09:04"),
-      agentExchangeMessage("group-5", "outgoing", "research", "09:05", false),
+      agentExchangeMessage("group-1", "outgoing", "research", "09:01", {
+        body: "Which launch sources are still not confirmed?",
+      }),
+      agentExchangeMessage("group-2", "outgoing", "sales", "09:01", {
+        body: "How many accounts are ready for the launch email?",
+      }),
+      agentExchangeMessage("group-3", "incoming", "research", "09:03", {
+        body: "Two sources are left: the pricing page archive and the analyst note from June.",
+        replyTo: "group-1",
+      }),
+      agentExchangeMessage("group-4", "incoming", "sales", "09:04", {
+        body: "14 accounts are ready. Three more wait for a contact name.",
+        replyTo: "group-2",
+      }),
+      agentExchangeMessage("group-5", "outgoing", "research", "09:05", {
+        body: "Thanks. I will tell the user that two sources are still open.",
+        replyTo: "group-3",
+        expectsReply: false,
+      }),
       {
         id: "group-agent",
         author: "agent",

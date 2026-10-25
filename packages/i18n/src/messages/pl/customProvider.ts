@@ -160,6 +160,9 @@ export const messages = {
   "customProvider.acp.commandHint": "Program do uruchomienia. OpenBot szuka go w twojej zmiennej PATH.",
   "customProvider.acp.args": "Argumenty",
   "customProvider.acp.argsHint": "Oddziel argumenty spacjami. Argument ze spacjami ujmij w cudzysłów.",
+  "customProvider.acp.usagePrompt": "Polecenie użycia",
+  "customProvider.acp.usagePromptHint":
+    "OpenBot wysyła je najwyżej co 5 minut i pokazuje ostatnią odpowiedź. Użyj polecenia, na które agent odpowiada sam, np. /usage.",
   "customProvider.acp.env": "Zmienne środowiskowe",
   "customProvider.acp.env.name": "Nazwa zmiennej {number}",
   "customProvider.acp.env.value": "Wartość zmiennej {number}",
@@ -193,6 +196,7 @@ export const messages = {
   "customProvider.acp.error.envDuplicate": "Ten agent już ustawia {name}.",
   "customProvider.acp.error.envValueRequired": "Wpisz wartość tej zmiennej.",
   "customProvider.acp.error.envValueLength": "Liczba znaków w wartości musi być mniejsza niż {max}.",
+  "customProvider.acp.error.usagePromptInvalid": "Użyj jednego wiersza o długości maksymalnie {max} znaków.",
   "customProvider.acp.error.agentIdPattern":
     "Użyj małych liter, cyfr lub łączników; zacznij od litery lub cyfry. Maksymalnie 40 znaków.",
   "customProvider.agents.title": "Własni agenci",

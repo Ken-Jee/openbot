@@ -16,7 +16,7 @@ import {
 } from "@openbot/contracts/ipc";
 import type { AgentMessage, AgentProfile } from "@openbot/ui/data";
 import type { ChannelWorker } from "@openbot/ui/features/channels/ChannelActivityIndicator";
-import { toAgentMessage } from "../../app-message-projection";
+import { toAgentMessage, toAgentMessages } from "../../app-message-projection";
 
 /** A row with no text, no attachment and no question has nothing to draw. */
 export function channelMessageHasContent(entry: ChannelMessage): boolean {
@@ -29,7 +29,7 @@ export function channelMessageHasContent(entry: ChannelMessage): boolean {
  * the coordinator's message names its author by `senderAgentId`. A routing receipt is an activity
  * row, like the "Messaged" marker of an agent chat: it has no bubble and does not count as new.
  */
-export function channelConversationMessage(entry: ChannelMessage): AgentMessage {
+function channelConversationMessage(entry: ChannelMessage): AgentMessage {
   const member = entry.author.kind === "member";
   const row = toAgentMessage(entry.message, member ? undefined : entry.author.id);
   const routing = channelRoutingConversationEvent(entry.message);
@@ -45,29 +45,77 @@ export function channelConversationMessage(entry: ChannelMessage): AgentMessage 
   return { ...row, id: entry.id, author: "agent", senderAgentId: entry.author.id };
 }
 
+/** The thinking and the narration of a turn, which fold into the steps above its answer. */
+function foldedEntry(entry: ChannelMessage): boolean {
+  return entry.message.author === "assistant" && entry.message.itemType === "commentary";
+}
+
+/**
+ * The rows of a channel page. The thinking and narration of a member's turn fold into one thinking
+ * row, as in an agent chat, and show as the steps above the member's answer. Before, each part showed
+ * as a message, and a model that streams its whole reasoning (DeepSeek through OpenCode) showed a
+ * very long one.
+ */
+export function channelConversationRows(entries: readonly ChannelMessage[]): AgentMessage[] {
+  return toAgentMessages(
+    entries.map((entry) => ({ ...entry.message, id: entry.id })),
+    undefined,
+    (message, index) => {
+      const entry = entries[index];
+      return entry ? channelConversationMessage(entry) : toAgentMessage(message);
+    },
+  );
+}
+
+/**
+ * The turns whose steps show under the activity line: the newest thinking turn of each member whose
+ * task runs. A stop or a resume keeps the task id, so a turn whose task this view saw stop goes into
+ * `stopped` and does not show again when the task starts a new turn. The set keeps only the turns of
+ * the page.
+ */
+export function channelWorkingTurns(page: ChannelPage, stopped: Set<string>): string[] {
+  const tasks = new Map(page.tasks.map((task) => [task.id, task] as const));
+  const turns = new Set<string>();
+  const newest = new Map<string, string>();
+  for (const entry of page.messages) {
+    const turnId = entry.message.turnId;
+    if (!turnId || !foldedEntry(entry)) continue;
+    turns.add(turnId);
+    const task = entry.taskId ? tasks.get(entry.taskId) : undefined;
+    if (task?.state !== "running" || task.ownerAgentId !== entry.author.id) stopped.add(turnId);
+    else if (!stopped.has(turnId)) newest.set(entry.author.id, turnId);
+  }
+  for (const turnId of stopped) if (!turns.has(turnId)) stopped.delete(turnId);
+  return [...newest.values()];
+}
+
 /**
  * The row the unread divider stands on, or `null` when the reader has seen everything.
  *
  * The count comes from the channel list, and it leaves out what the reader wrote, activity rows,
- * plans and subagents, so the walk back leaves them out too. The page has no read pointer of its
- * own: its `throughSequence` is the newest message of the channel, not the newest the reader saw.
+ * plans, subagents and the folded thinking, so the walk back leaves them out too. The page has no
+ * read pointer of its own: its `throughSequence` is the newest message of the channel, not the
+ * newest the reader saw. The walk goes over the stored entries, because a thinking row stands where
+ * the first item of its turn is.
  */
 export function firstUnreadChannelMessageId(
-  messages: readonly AgentMessage[],
+  entries: readonly ChannelMessage[],
   unreadCount: number,
   isOwnSender: (memberId: string) => boolean,
 ): string | null {
   if (unreadCount <= 0) return null;
+  const shown = entries.filter((entry) => !foldedEntry(entry));
   let remaining = unreadCount;
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index];
-    if (!message) continue;
+  for (let index = shown.length - 1; index >= 0; index -= 1) {
+    const entry = shown[index];
+    if (!entry) continue;
+    const message = channelConversationMessage(entry);
     const own = message.author === "you" && (!message.senderMember || isOwnSender(message.senderMember.id));
     if (own || message.actionMarker || message.kind === "plan" || message.itemType === "subagents") continue;
     remaining -= 1;
-    if (remaining === 0) return message.id;
+    if (remaining === 0) return entry.id;
   }
-  return messages[0]?.id ?? null;
+  return shown[0]?.id ?? null;
 }
 
 /**

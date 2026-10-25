@@ -103,7 +103,9 @@ async function driverSetup(
   if (driver.provider === "acp") {
     const store = new CustomAgentStore({ path: join(root, name, "custom-agents.json"), cipher: xorCipher });
     await runCauseEffect(store.load());
-    await runCauseEffect(store.save({ id: name, name, command: executable, args: ["acp"], env: [] }));
+    await runCauseEffect(
+      store.save({ id: name, name, command: executable, args: ["acp"], env: [], usagePrompt: null }),
+    );
     context = { ...NO_PROVIDER_CREDENTIALS, customAgents: () => store.configs() };
     cli = await runCauseEffect(provider.resolveCli());
     agentModel = (raw) => `${name}/${raw}`;

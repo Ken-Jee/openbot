@@ -302,6 +302,16 @@ export const messages = {
   "server.settings.notReachable": "Inaccessible en ligne. Les membres et les invitations existants restent.",
   "server.settings.notPublished": "Inaccessible en ligne.",
   "server.settings.generatedName": "Serveur de {name}",
+  "server.settings.hostKeyTitle": "Clé du serveur",
+  "server.settings.hostKeyRotate": "Changer la clé du serveur",
+  "server.settings.hostKeyDescription":
+    "Crée une nouvelle clé d’identité pour ce serveur. Les ordinateurs et téléphones associés et les routes webhook restent connectés.",
+  "server.settings.hostKeyRotateAction": "Changer",
+  "server.settings.hostKeyConfirmTitle": "Changer la clé du serveur ?",
+  "server.settings.hostKeyConfirmDescription":
+    "La clé actuelle et la nouvelle clé signent une passation. Les apps des membres passent à la nouvelle clé à leur prochaine connexion. Faites-le si le fichier de clé a été copié ou exposé.",
+  "server.settings.hostKeyRotated": "Clé du serveur changée",
+  "server.settings.hostKeyLocalOnly": "Ici, seul le serveur de cet ordinateur peut changer sa clé.",
   "server.settings.removeTitle": "Supprimer le serveur",
   "server.settings.removeDescription":
     "Supprimez ce serveur du service de comptes pour tous les membres. Utilisez cette action quand son ordinateur n’est plus disponible.",
@@ -392,6 +402,8 @@ export const messages = {
   "server.invite.pendingTitle": "Invitations en attente",
   "server.invite.pendingCount": "{total} en attente",
   "server.invite.noPending": "Aucune invitation en attente.",
+  "server.invite.emptyTitle": "Envoyez la première {word}.",
+  "server.invite.emptyWord": "invitation",
   "server.invite.neverExpires": {
     one: "N’expire jamais · {count} adhésion",
     other: "N’expire jamais · {count} adhésions",

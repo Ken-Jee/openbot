@@ -12,7 +12,9 @@ import type { MobileTranslate } from "@openbot/i18n/mobile";
 import * as Linking from "expo-linking";
 import { Typography } from "heroui-native";
 import { useThemeColor } from "heroui-native/hooks";
+import Blocks from "lucide-react-native/icons/blocks";
 import FileText from "lucide-react-native/icons/file-text";
+import Sparkles from "lucide-react-native/icons/sparkles";
 import type { Token, Tokens } from "marked";
 import { Fragment, memo, type ReactNode, useEffect, useId, useMemo, useRef } from "react";
 import {
@@ -121,8 +123,9 @@ function textSize(presentation: TextPresentation): number {
 // same space in the owning text view so its last line does not clip the capsule.
 function textContainerStyle(source: string, presentation: TextPresentation): TextStyle {
   const hasMention =
-    chatTagReferences(source).some((reference) => reference.kind === "agent") ||
-    plainMentionParts(source, presentation.agents).some((part) => part.agent);
+    chatTagReferences(source).some(
+      (reference) => reference.kind === "agent" || reference.kind === "skill" || reference.kind === "mcp",
+    ) || plainMentionParts(source, presentation.agents).some((part) => part.agent);
   // Inline math is moved down to the math axis in the same way.
   const hasMath = chatMathStart(source) !== undefined;
   // Android moves code chips down as well; see `inlineChipStyle`.
@@ -267,25 +270,71 @@ function CodeSpan({ text, presentation }: { text: string; presentation: TextPres
   ));
 }
 
+/**
+ * The size of a mention chip: as tall as its letters, not as the line, so it does not push the line
+ * apart. The label is one point smaller than the text. Native inline views sit on the baseline with
+ * their bottom edge, so the chip moves down until it is centred on the letters around it.
+ */
+function mentionChip(presentation: TextPresentation) {
+  const size = TEXT_SIZES[presentation.type] - 1;
+  const lineHeight = Math.round(size * 1.25);
+  const padding = 1;
+  // The chip's middle goes on the middle of the letters around it, a little under half the text size
+  // above their baseline (set on a device); the chip's bottom edge starts on that baseline.
+  const below = (lineHeight + padding * 2) / 2 - TEXT_SIZES[presentation.type] * 0.45;
+  return {
+    label: { ...presentation.style, fontSize: size, lineHeight },
+    mark: (size + 1) * presentation.fontScale,
+    style: {
+      paddingVertical: padding * presentation.fontScale,
+      transform: [{ translateY: below * presentation.fontScale }],
+      borderCurve: "circular" as const,
+    },
+  };
+}
+
 function AgentMention({ agent, presentation }: { agent: MobileAgent; presentation: TextPresentation }) {
-  const { fontScale } = useWindowDimensions();
+  const chip = mentionChip(presentation);
   return (
     <View
       collapsable={false}
-      className="max-w-full flex-row items-center gap-1 rounded-full bg-control/30 px-1.5"
-      // Native inline views sit on the text baseline. Offset the text descender
-      // so the name aligns with the surrounding text instead of sitting above it.
-      style={{ transform: [{ translateY: presentation.mentionOffset }], borderCurve: "circular" }}
+      className="max-w-full flex-row items-center gap-1 rounded-full bg-control/30 pr-1.5 pl-1"
+      style={chip.style}
     >
       <BloubAvatarThumbnail
         agentId={agent.id}
         serverId={agent.serverId}
         hue={agent.avatarHue}
         seed={agent.avatarSeed}
-        size={(presentation.type === "body-sm" ? 16 : 18) * fontScale}
+        size={chip.mark}
       />
-      <Typography type={presentation.type} style={presentation.style} className="shrink">
+      <Typography type={presentation.type} style={chip.label} className="shrink">
         {agent.name}
+      </Typography>
+    </View>
+  );
+}
+
+/**
+ * A skill or an app that a message names: the same chip as an agent mention, with the skill or app mark
+ * for the avatar, as the desktop chip has.
+ */
+function SkillMention({ name, app, presentation }: { name: string; app: boolean; presentation: TextPresentation }) {
+  const Mark = app ? Blocks : Sparkles;
+  const chip = mentionChip(presentation);
+  return (
+    <View
+      collapsable={false}
+      className="max-w-full flex-row items-center gap-1 rounded-full bg-control/30 pr-1.5 pl-1"
+      style={chip.style}
+    >
+      <Mark
+        color={presentation.style.color === undefined ? undefined : String(presentation.style.color)}
+        size={chip.mark - 2 * presentation.fontScale}
+        strokeWidth={2}
+      />
+      <Typography type={presentation.type} style={chip.label} className="shrink">
+        {name}
       </Typography>
     </View>
   );
@@ -319,6 +368,17 @@ function inline(tokens: Token[], parentPresentation: TextPresentation): ReactNod
       const agent = presentation.agents.find((candidate) => candidate.id === reference?.id);
       if (!agent) return <Text key={offset} style={presentation.style}>{`@${reference?.name ?? "Agent"}`}</Text>;
       return <AgentMention key={offset} agent={agent} presentation={presentation} />;
+    }
+    if (token.type === "skillMention") {
+      const reference = chatTagReferences(token.raw)[0];
+      return (
+        <SkillMention
+          key={offset}
+          name={reference?.name ?? ""}
+          app={reference?.kind === "mcp"}
+          presentation={presentation}
+        />
+      );
     }
     if (token.type === "br") return "\n";
     // The list row draws the task mark, so the checkbox token adds nothing.
@@ -462,6 +522,13 @@ function selectableInline(tokens: Token[], presentation: TextPresentation, segme
       const agent = presentation.agents.find((candidate) => candidate.id === reference?.id);
       if (agent) inlineView(<AgentMention key={offset} agent={agent} presentation={presentation} />, `@${agent.name}`);
       else text(`@${reference?.name ?? "Agent"}`);
+    } else if (token.type === "skillMention") {
+      const reference = chatTagReferences(token.raw)[0];
+      const name = reference?.name ?? "";
+      inlineView(
+        <SkillMention key={offset} name={name} app={reference?.kind === "mcp"} presentation={presentation} />,
+        `@${name}`,
+      );
     } else if (token.type === "br") {
       text("\n");
     } else if (token.type === "checkbox") {

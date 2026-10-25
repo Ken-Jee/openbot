@@ -1,6 +1,6 @@
 import { isOpenBillingStatus } from "@openbot/contracts/billing";
 import { DEFAULT_TEAM_MEMBER_LIMIT, INPUT_LIMITS } from "@openbot/contracts/input-limits";
-import type { InviteSummary, TeamPresenceMember, TeamRole } from "@openbot/contracts/ipc";
+import type { InviteSummary, TeamInviteSummary, TeamPresenceMember, TeamRole } from "@openbot/contracts/ipc";
 import { LICENSE_MAX_USERS, type License, licenseAmount } from "@openbot/contracts/license";
 import { normalizeEmailAddress } from "@openbot/contracts/validation";
 import type { AppTextKey } from "@openbot/i18n";
@@ -51,6 +51,7 @@ import { prefersReducedMotion } from "@openbot/ui/utils";
 import type { JSX } from "@solidjs/web";
 import { createEffect, createMemo, createSignal, createStore, For, onCleanup, Show, untrack } from "solid-js";
 import { desktopAnalytics } from "../../analytics";
+import { ServerInvitesEmpty } from "./ServerInvitesEmpty";
 import type { ServerRolesSection } from "./ServerRolesSection";
 import { serverRoleCanAdminister } from "./server-capabilities";
 import type { ServerSettingsSectionHost } from "./server-settings-section";
@@ -65,6 +66,8 @@ const ROLE_LABELS = {
   member: "server.role.member",
 } as const satisfies Record<TeamRole, AppTextKey>;
 const EMAIL_PLACEHOLDER = "person@company.com";
+/** How long the account service keeps a single-use invite. Every server but a local development host uses it. */
+const INVITE_LIFETIME_MS = 7 * 24 * 60 * 60 * 1_000;
 
 /** The invite composer. `mode` picks which of `email` and `link` the panel is filling in. */
 interface InvitePanel {
@@ -133,6 +136,7 @@ export function createServerMembersSection(
     null,
   );
   let inviteLinkInput: HTMLInputElement | undefined;
+  let inviteEmailInput: HTMLInputElement | undefined;
   let expiryTimer: ReturnType<typeof setTimeout> | undefined;
   let inviteLinkSwapTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -148,6 +152,19 @@ export function createServerMembersSection(
       (item) => (item.permanent || item.usedAt === null) && (item.permanent || Date.parse(item.expiresAt) > now()),
     ),
   );
+  /** The invites the empty pending list shows as a faint example: the kinds this server can make. */
+  const sampleInvites = createMemo((): TeamInviteSummary[] => {
+    const expiresAt = new Date(now() + INVITE_LIFETIME_MS).toISOString();
+    const sample = { expiresAt, usedAt: null, email: null, permanent: false, useCount: 0 } as const;
+    return [
+      { ...sample, id: "sample-email", role: "member", email: EMAIL_PLACEHOLDER },
+      { ...sample, id: "sample-link", role: "member" },
+      ...(permanentSupported()
+        ? [{ ...sample, id: "sample-permanent", role: "member" as const, permanent: true }]
+        : []),
+      { ...sample, id: "sample-admin", role: "admin" },
+    ];
+  });
   const inviteUsed = () =>
     Boolean(
       panels.invite.result &&
@@ -359,6 +376,16 @@ export function createServerMembersSection(
     resetInviteLink();
   }
 
+  /** The empty pending list's action: the composer above, on its email field. */
+  function startEmailInvite(): void {
+    if (panels.invite.mode !== "email") inviteTabsProps.onChange("email");
+    // A hidden tab panel is inert, so the email field takes focus only after the tab change renders.
+    requestAnimationFrame(() => {
+      inviteEmailInput?.scrollIntoView({ block: "center", behavior: prefersReducedMotion() ? "auto" : "smooth" });
+      inviteEmailInput?.focus({ preventScroll: true });
+    });
+  }
+
   const inviteTabsProps = {
     get value() {
       return panels.invite.mode;
@@ -510,6 +537,7 @@ export function createServerMembersSection(
                     error={panels.invite.emailError}
                   >
                     <Input
+                      ref={(element) => (inviteEmailInput = element)}
                       size="md"
                       type="email"
                       autocomplete="email"
@@ -759,6 +787,32 @@ export function createServerMembersSection(
     );
   }
 
+  function inviteRow(invite: TeamInviteSummary, action: JSX.Element) {
+    return (
+      <Item class="server-settings-invite-row">
+        <ItemContent>
+          <ItemTitle>
+            {invite.email ?? (invite.permanent ? t("server.invite.permanentLink") : t("server.invite.privateLink"))}
+          </ItemTitle>
+          <ItemDescription>
+            {t(ROLE_LABELS[invite.role])} ·{" "}
+            {invite.permanent
+              ? t("server.invite.neverExpires", { count: invite.useCount })
+              : t("server.invite.expires", {
+                  date: format.date(new Date(invite.expiresAt), {
+                    month: "short",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  }),
+                })}
+          </ItemDescription>
+        </ItemContent>
+        <ItemActions>{action}</ItemActions>
+      </Item>
+    );
+  }
+
   function pendingInvites() {
     return (
       <SettingsSection
@@ -773,52 +827,40 @@ export function createServerMembersSection(
           <Show
             when={activeInvites().length > 0}
             fallback={
-              <Item class="server-settings-empty-row">
-                <ItemContent>
-                  <ItemDescription>{t("server.invite.noPending")}</ItemDescription>
-                </ItemContent>
-              </Item>
+              <ServerInvitesEmpty
+                samples={sampleInvites()}
+                row={(invite) =>
+                  inviteRow(
+                    invite,
+                    <span class={buttonVariants({ size: "sm", variant: "destructive-ghost" })}>
+                      {t("server.invite.revoke")}
+                    </span>,
+                  )
+                }
+                disabled={!published() || membersFull()}
+                onInvite={startEmailInvite}
+              />
             }
           >
             <For each={activeInvites()}>
-              {(invite) => (
-                <Item class="server-settings-invite-row">
-                  <ItemContent>
-                    <ItemTitle>
-                      {invite.email ??
-                        (invite.permanent ? t("server.invite.permanentLink") : t("server.invite.privateLink"))}
-                    </ItemTitle>
-                    <ItemDescription>
-                      {t(ROLE_LABELS[invite.role])} ·{" "}
-                      {invite.permanent
-                        ? t("server.invite.neverExpires", { count: invite.useCount })
-                        : t("server.invite.expires", {
-                            date: format.date(new Date(invite.expiresAt), {
-                              month: "short",
-                              day: "numeric",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            }),
-                          })}
-                    </ItemDescription>
-                  </ItemContent>
-                  <ItemActions>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="destructive-ghost"
-                      disabled={!actionsAvailable() || Boolean(busy())}
-                      onClick={() =>
-                        setPanels((state) => {
-                          state.members.revokeInviteId = invite.id;
-                        })
-                      }
-                    >
-                      {t("server.invite.revoke")}
-                    </Button>
-                  </ItemActions>
-                </Item>
-              )}
+              {(invite) =>
+                inviteRow(
+                  invite,
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="destructive-ghost"
+                    disabled={!actionsAvailable() || Boolean(busy())}
+                    onClick={() =>
+                      setPanels((state) => {
+                        state.members.revokeInviteId = invite.id;
+                      })
+                    }
+                  >
+                    {t("server.invite.revoke")}
+                  </Button>,
+                )
+              }
             </For>
           </Show>
         </ItemGroup>

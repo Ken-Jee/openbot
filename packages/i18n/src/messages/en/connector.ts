@@ -432,4 +432,17 @@ export const messages = defineMessages("connector", {
   "connector.bitwarden.connected": "Connected",
   "connector.bitwarden.disconnected": "Not connected",
   "connector.bitwarden.actionFailed": "OpenBot could not change the Bitwarden connection.",
+  "connector.bitwarden.descriptionHost": "Fill browser logins on {host} from Bitwarden or Vaultwarden.",
+  "connector.bitwarden.setupHost":
+    "{host} signs in with its own Bitwarden CLI. In your vault, create a folder named Shared with OpenBot and put only the logins that agents may use in it. In the web vault, open Settings › Security › Keys and view your API key. Enter the server address, client_id, client_secret and your master password below.",
+  "connector.bitwarden.scopeHost":
+    "All agents on {host} can use matching logins in Shared with OpenBot. OpenBot uses exact HTTPS origins. It does not use items that require a master password prompt or a custom URI match rule.",
+  "connector.bitwarden.sessionHost":
+    "{host} keeps the API key and the master password encrypted, so it can unlock again after a restart. This computer does not keep them. Disconnect removes them from {host}. {host} must reach the server address over HTTPS.",
+  "connector.bitwarden.serverUrl": "Server address",
+  "connector.bitwarden.clientId": "API key client_id",
+  "connector.bitwarden.clientSecret": "API key client_secret",
+  "connector.bitwarden.masterPassword": "Master password",
+  "connector.bitwarden.connecting": "Connecting",
+  "connector.bitwarden.connectedServer": "Connected to {server}.",
 });

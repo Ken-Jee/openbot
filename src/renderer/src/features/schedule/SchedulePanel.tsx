@@ -35,6 +35,8 @@ interface ScheduleViewProps extends SchedulePanelProps {
   channelsSupported: boolean;
   onOpenAgent: (agentId: string) => void;
   onOpenRoutine: (routine: ScheduleRoutine) => void;
+  /** Opens the routine settings of the agent on a new routine. */
+  onCreateRoutine: (agentId: string) => void;
 }
 
 /**
@@ -85,6 +87,12 @@ export function SchedulePanel(props: SchedulePanelProps) {
     setSettingsRequest({ agentId, nonce: Date.now(), routine: { routineId: routine.id, name: routine.name } });
   }
 
+  function createRoutine(agentId: string): void {
+    if (agentSetupOpen() && creatingAgent()) return;
+    selectAgent(agentId);
+    setSettingsRequest({ agentId, nonce: Date.now(), routine: "new" });
+  }
+
   return (
     <ScheduleView
       {...props}
@@ -94,6 +102,7 @@ export function SchedulePanel(props: SchedulePanelProps) {
       channelsSupported={channels.supported()}
       onOpenAgent={selectAgent}
       onOpenRoutine={openRoutine}
+      onCreateRoutine={createRoutine}
     />
   );
 }
@@ -207,6 +216,7 @@ export function ScheduleView(props: ScheduleViewProps) {
         onOpenRoutine={openRoutine}
         onOpenAgent={props.onOpenAgent}
         onRetry={() => void load()}
+        onCreateRoutine={props.onCreateRoutine}
         onBack={props.onBack}
       />
     </div>

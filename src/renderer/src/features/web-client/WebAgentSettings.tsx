@@ -22,6 +22,14 @@ export function WebAgentSettings(props: {
   preference?: CreationPreference | null | undefined;
   /** The host's endpoints, so the picker lists their models on its Custom tab. */
   customProviders?: readonly CustomProviderSummary[] | undefined;
+  /** Opens the host's provider settings from a plus button in the model picker. */
+  onManageProviders?: ((trigger: HTMLElement) => void) | undefined;
+  /**
+   * The workspace's live catalog. A provider that the user connects while the form is open, such as
+   * from the picker's plus button, comes in here; the form's own read only starts it.
+   */
+  liveModels?: ClientAgentModelOption[] | undefined;
+  liveStatus?: AgentStatus | undefined;
   /** The draft the form starts from. */
   initialDraft?: FirstAgentDraft;
   onDraftChange?: (draft: FirstAgentDraft) => void;
@@ -59,6 +67,34 @@ export function WebAgentSettings(props: {
     };
   });
 
+  function showCatalog(models: ClientAgentModelOption[], status: AgentStatus): void {
+    setState((draft) => {
+      draft.models = models;
+      draft.status = status;
+      const selected = models.find(
+        (model) => model.provider === draft.draft.provider && model.id === draft.draft.model,
+      );
+      if (draft.modelTouched && selected) return;
+      // As in the desktop app. The web client does not know the host's saved setup choice, so
+      // only the server's provider step names a provider.
+      const resolved = resolveCreationModel(props.preference ?? null, models);
+      if (resolved) {
+        draft.draft.provider = resolved.provider;
+        draft.draft.model = resolved.model;
+      }
+    });
+  }
+
+  createEffect(
+    () => ({ models: props.liveModels, status: props.liveStatus }),
+    ({ models, status }) => {
+      if (!supportsModelSelection() || !models?.length || status?.phase !== "ready") return;
+      // A newer read wins, so the form's own read that is still in flight does not replace it.
+      modelRequestGeneration += 1;
+      showCatalog(models, status);
+    },
+  );
+
   createEffect(supportsModelSelection, (supported) => {
     const requestGeneration = ++modelRequestGeneration;
     if (!supported) {
@@ -81,21 +117,7 @@ export function WebAgentSettings(props: {
       try {
         const [models, status] = await Promise.all([props.runtime.models(), props.runtime.status()]);
         if (disposed || requestGeneration !== modelRequestGeneration) return;
-        setState((draft) => {
-          draft.models = models;
-          draft.status = status;
-          const selected = models.find(
-            (model) => model.provider === draft.draft.provider && model.id === draft.draft.model,
-          );
-          if (draft.modelTouched && selected) return;
-          // As in the desktop app. The web client does not know the host's saved setup choice, so
-          // only the server's provider step names a provider.
-          const resolved = resolveCreationModel(props.preference ?? null, models);
-          if (resolved) {
-            draft.draft.provider = resolved.provider;
-            draft.draft.model = resolved.model;
-          }
-        });
+        showCatalog(models, status);
       } catch {
         if (disposed || requestGeneration !== modelRequestGeneration) return;
         setState((draft) => {
@@ -155,6 +177,7 @@ export function WebAgentSettings(props: {
       modelOptions={supportsModelSelection() && state.models.length > 0 ? state.models : undefined}
       agentStatus={state.status ?? undefined}
       customProviders={props.customProviders}
+      onManageProviders={props.onManageProviders}
       onChange={(value) => {
         setState((draft) => {
           if (value.provider !== draft.draft.provider || value.model !== draft.draft.model) draft.modelTouched = true;

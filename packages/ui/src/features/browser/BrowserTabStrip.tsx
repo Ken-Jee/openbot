@@ -1,10 +1,12 @@
+import type { BrowserTabProfile } from "@openbot/contracts/ipc";
 import { Button, buttonVariants, ChevronDown, ContextMenu, DropdownMenu, Tabs, X } from "@openbot/ui";
 import { useText } from "@openbot/ui/text";
 import { clamp, motionDuration, prefersReducedMotion } from "@openbot/ui/utils";
 import { createEffect, createSignal, createStore, For, onSettled, Show } from "solid-js";
+import { browserProfileColor } from "./BrowserProfileColor";
 import { BrowserTabIcon, useBrowserTabTitle } from "./BrowserTabIcon";
 import { BrowserTabMenu } from "./BrowserTabMenu";
-import type { BrowserFullViewProps } from "./browser-full-view-types";
+import { type BrowserFullViewProps, browserTabProfileLabel } from "./browser-full-view-types";
 import { useBrowserPageCover } from "./browser-page-cover";
 
 /** A press that travels this far becomes a drag; a shorter one stays a click on the tab or its X. */
@@ -42,6 +44,11 @@ interface TabDrag {
  * from the host, so the row keeps the places of its last layout rather than measuring before a change.
  * A new chip fades in.
  */
+/** A tab of a named profile has a line in the profile's color, as its toolbar label has a dot. */
+function tabProfileColor(profile: BrowserTabProfile | undefined): string | undefined {
+  return profile?.hue == null ? undefined : browserProfileColor(profile.hue);
+}
+
 function createChipMotion(chips: () => HTMLElement[]) {
   let places = new Map<string, number>();
   const read = () => new Map(chips().map((el) => [el.dataset.tabId ?? "", el.offsetLeft]));
@@ -380,6 +387,11 @@ export function BrowserTabStrip(props: {
         <For each={props.view.tabs} keyed={(tab) => tab.id}>
           {(tab) => {
             const title = () => tabTitle(tab());
+            const profile = () => props.view.profileForTab?.(tab());
+            const titleWithProfile = () => {
+              const current = profile();
+              return current ? `${title()}\n${browserTabProfileLabel(t, current)}` : title();
+            };
             const selected = () => activeId() === tab().id;
             const acting = () => props.view.controlForTab(tab())?.phase === "acting";
             const [menuOpen, setMenuOpen] = createSignal(false);
@@ -391,6 +403,8 @@ export function BrowserTabStrip(props: {
                   class="side-panel-tab browser-full-chip"
                   data-tab-id={tab().id}
                   data-selected={selected() ? "true" : undefined}
+                  data-profile-color={tabProfileColor(profile()) ? "" : undefined}
+                  style={{ "--browser-profile-color": tabProfileColor(profile()) }}
                   onPointerDown={(event: PointerEvent) => onChipPointerDown(event, tab().id)}
                   onAuxClick={(event: MouseEvent) => {
                     if (event.button !== 1) return;
@@ -434,11 +448,11 @@ export function BrowserTabStrip(props: {
                             title: title(),
                             name: props.view.controllerForTab(tab())?.name ?? t("browser.tab.controllerFallback"),
                           })
-                        : title()
+                        : titleWithProfile()
                     }
                     aria-description={canClose() ? t("browser.tab.closeHint") : undefined}
                     aria-busy={tab().loading ? "true" : undefined}
-                    title={title()}
+                    title={titleWithProfile()}
                     onKeyDown={(event: KeyboardEvent) => {
                       if (event.key !== "Delete" || !canClose()) return;
                       event.preventDefault();

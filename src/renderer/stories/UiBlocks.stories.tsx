@@ -196,6 +196,19 @@ export const ConfirmExpired: Story = {
   render: (args) => <LiveConfirm spec={confirmSpec} state={{ status: "expired" }} onRespond={args.onRespond} />,
 };
 
+/** A draft taller than the preview box scrolls inside it, and "Show all" under it opens the rest. */
+export const ConfirmLongPreview: Story = {
+  render: (args) => (
+    <LiveConfirm
+      spec={{
+        ...confirmSpec,
+        preview: Array.from({ length: 6 }, () => confirmSpec.preview).join("\n\n"),
+      }}
+      onRespond={args.onRespond}
+    />
+  ),
+};
+
 /** Start counts down to the time the host answers. Cancel sits at the far end, and there is no Skip. */
 export const PlanCountdown: Story = {
   render: (args) => (

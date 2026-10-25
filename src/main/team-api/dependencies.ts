@@ -7,10 +7,12 @@ import type { AgentHostSettingsService } from "../agent-host-settings";
 import type { AgentMarketplaceService } from "../agent-marketplace-service";
 import type { AgentMemoryLimitSetting } from "../agent-memory-limit-preference-store";
 import type { AgentTemplateService } from "../agent-template-service";
+import type { BrowserProfileService } from "../browser-profile-service";
 import type { PeerCustomProviderChanges } from "../custom-provider-changes";
 import type { HostEventsApi } from "../host-events-api";
 import type { HostReleaseService } from "../host-release-service";
 import type { HostService } from "../host-service";
+import type { PromptCacheTtlPreferenceStore } from "../prompt-cache-ttl-preference-store";
 import type { ProviderCredentialStore } from "../provider-credential-store";
 import type { ProviderRuntimeManager } from "../provider-runtime-manager";
 import type { RemoteWorkflowError } from "../remote-service-effects";
@@ -48,6 +50,7 @@ import type { SidebarLayoutStore } from "../../backend/sidebar-layout-store";
 import type { StorageUsageService } from "../../backend/storage-usage";
 import type { TeamChatStore } from "../../backend/team-chat-store";
 import type { AgentImportService } from "../agent-import-service";
+import type { BitwardenConnectorService } from "../bitwarden-connector-service";
 import type { BrowserViewGateway } from "../browser-view-gateway";
 import type { GitHubConnectorService } from "../github-connector-service";
 import type { HostedSiteDesktopService } from "../hosted-site-service";
@@ -187,10 +190,13 @@ export interface TeamApiConnectors {
   >;
 }
 
-/** Its presence, beside `mcpServers`, is what `#protocolSupport` advertises `sign-in-relay-v1` on. */
+/**
+ * Its presence, beside `mcpServers`, is what `#protocolSupport` advertises `sign-in-relay-v1` on, and
+ * beside `providerAccounts` too, `provider-account-relay-v1`.
+ */
 export type TeamApiSignInRelay = Pick<
   SignInRelayHost,
-  "startMcp" | "startProvider" | "startLink" | "status" | "complete" | "cancel"
+  "startMcp" | "startProvider" | "startProviderAccount" | "startLink" | "status" | "complete" | "cancel"
 >;
 
 /**
@@ -205,8 +211,11 @@ export type TeamApiProviderAccounts = Pick<
   "list" | "usage" | "startSignIn" | "signInStatus" | "cancelSignIn" | "rename" | "remove" | "setAgentAccount"
 >;
 
-/** Its presence is what `#protocolSupport` advertises `storage-v1` on. */
-export type TeamApiStorage = Pick<StorageUsageService, "usage" | "deleteFile" | "clear">;
+/** Its presence is what `#protocolSupport` advertises `provider-usage-reset-v1` on. The routes are admin-only. */
+export type TeamApiProviderUsageResets = Pick<AgentService, "providerUsageResets" | "resetProviderUsage">;
+
+/** Its presence is what `#protocolSupport` advertises `storage-v1` and `storage-disk-v1` on. */
+export type TeamApiStorage = Pick<StorageUsageService, "usage" | "deleteFile" | "clear" | "disk">;
 /** `hosted-sites-v1`: the openbot.site sites of this server. Members list; only admins delete. */
 export type TeamApiHostedSites = Pick<HostedSiteDesktopService, "listServerSites" | "deleteServerSite">;
 
@@ -221,6 +230,12 @@ export type TeamApiAgentTasks = Pick<
   AgentService,
   "listAgents" | "listTasks" | "readTask" | "startTask" | "sendMessage" | "stopTask" | "closeTask" | "reopenTask"
 >;
+
+/**
+ * Its presence is what `#protocolSupport` advertises `browser-profiles-v1` on. Only admins change
+ * profiles; any member reads the profile labels of the tabs they can see.
+ */
+export type TeamApiBrowserProfiles = BrowserProfileService;
 
 /** Its presence is what `#protocolSupport` advertises `agent-import-v1` on. Any member can use it. */
 export type TeamApiAgentImport = Pick<AgentImportService, "stageUpload" | "apply" | "discard">;
@@ -257,6 +272,7 @@ export interface TeamApiAdmin {
   /**
    * `agent-host-settings-v1`: Computer Use, local scripts and the busy-message mode of one agent.
    * `agent-backup-models-v1`: its backup models.
+   * `agent-task-limit-v1`: how many of its tasks run at the same time.
    */
   agentHost?: AgentHostSettingsService;
   sessionSettings?: Pick<
@@ -284,6 +300,8 @@ export interface TeamApiAdmin {
   timezone?: Pick<ServerTimezonePreferenceStore, "get" | "set">;
   /** `agent-memory-limit-v1`: how many memories each agent of this computer can keep. */
   memoryLimit?: AgentMemoryLimitSetting;
+  /** `prompt-cache-ttl-v1`: how long the provider keeps the prompt cache of this computer's agents. */
+  promptCacheTtl?: Pick<PromptCacheTtlPreferenceStore, "get" | "set">;
   /** `routine-results-v1`: the place where an agent routine sends its answers. */
   routineResults?: TeamApiRoutineResults;
 }
@@ -346,6 +364,8 @@ export type TeamApiBrowser = Pick<
   | "releaseUserControlHeldBy"
   // Behind `browser-page-state`.
   | "stop"
+  // Behind `browser-sign-in`.
+  | "importSignIn"
   // The live view, behind `browser-view`. `browser-view-gateway.ts` is what reaches these; a route
   // cannot, because frames outlive the request that asked for them.
   | "startView"
@@ -378,6 +398,9 @@ export type TeamApiOnePasswordConnector = Pick<
   "status" | "refreshLogins" | "connectWithToken" | "disconnect"
 >;
 
+/** `bitwarden-connector-v1`: the Bitwarden connection of this host, by an API key and the master password. */
+export type TeamApiBitwardenConnector = Pick<BitwardenConnectorService, "status" | "connectWithApiKey" | "disconnect">;
+
 export type TeamApiAgentAccess = Pick<AgentAccessStore, "copyAgent" | "get" | "levels" | "set" | "subscribe">;
 
 export interface TeamApiOptions {
@@ -389,8 +412,10 @@ export interface TeamApiOptions {
   signInRelay?: TeamApiSignInRelay | undefined;
   connectors?: TeamApiConnectors | undefined;
   onePasswordConnector?: TeamApiOnePasswordConnector | undefined;
+  bitwardenConnector?: TeamApiBitwardenConnector | undefined;
   providerHostSignIns?: TeamApiProviderHostSignIns | undefined;
   providerAccounts?: TeamApiProviderAccounts | undefined;
+  providerUsageResets?: TeamApiProviderUsageResets | undefined;
   /** Starts and waits for the managed tool runtimes behind the MCP save, enable, and test routes. */
   mcpToolRuntimePreparation?: McpToolRuntimePreparation;
   storage?: TeamApiStorage;
@@ -402,6 +427,7 @@ export interface TeamApiOptions {
   /** `agent-access-v1`: the roles that limit what a member can do with each agent. */
   agentAccess?: TeamApiAgentAccess;
   agentTasks?: TeamApiAgentTasks;
+  browserProfiles?: TeamApiBrowserProfiles;
   admin?: TeamApiAdmin;
   appVersion?: string;
   store: TeamStore;

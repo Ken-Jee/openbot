@@ -82,9 +82,19 @@ export interface ComposerActionsDeps {
   setStickToLatest: (value: boolean) => void;
   pendingSends: PendingSendStore;
   attachmentPicker: () => HTMLInputElement | undefined;
+  /** False in a chat window (#2964): the stored queue edit is one slot, and the main window owns it. */
+  persistQueueEdit: boolean;
 }
 
 export function createComposerActions(deps: ComposerActionsDeps) {
+  function storeQueueEdit(edit: StoredQueueEdit): void {
+    if (deps.persistQueueEdit) window.localStorage.setItem(QUEUE_EDIT_STORAGE_KEY, JSON.stringify(edit));
+  }
+
+  function clearStoredQueueEdit(): void {
+    if (deps.persistQueueEdit) window.localStorage.removeItem(QUEUE_EDIT_STORAGE_KEY);
+  }
+
   function updateTeamTyping(text: string): void {
     const agentId = deps.props.agent?.id;
     if (deps.typing.idleTimer) clearTimeout(deps.typing.idleTimer);
@@ -215,22 +225,19 @@ export function createComposerActions(deps: ComposerActionsDeps) {
     deps.setSubmitting(true);
     try {
       if (editId)
-        window.localStorage.setItem(
-          QUEUE_EDIT_STORAGE_KEY,
-          JSON.stringify({
-            agentId,
-            serverId,
-            deliveryId: delivery.id,
-            editId,
-            originalAttachmentIds: delivery.attachments.map((item) => item.id),
-            backup,
-            draft: {
-              text: delivery.text,
-              attachments: delivery.attachments,
-              replyToMessageId: delivery.replyToMessageId,
-            },
-          }),
-        );
+        storeQueueEdit({
+          agentId,
+          serverId,
+          deliveryId: delivery.id,
+          editId,
+          originalAttachmentIds: delivery.attachments.map((item) => item.id),
+          backup,
+          draft: {
+            text: delivery.text,
+            attachments: delivery.attachments,
+            replyToMessageId: delivery.replyToMessageId,
+          },
+        });
       // Record ownership before the request: a lost response must not free this editor slot.
       setEditingDraft(delivery);
       if (editId) {
@@ -324,7 +331,7 @@ export function createComposerActions(deps: ComposerActionsDeps) {
     deps.setEditingDeliveryId(null);
     deps.setEditingEditId(null);
     deps.setEditingPendingSave(null);
-    window.localStorage.removeItem(QUEUE_EDIT_STORAGE_KEY);
+    clearStoredQueueEdit();
     deps.setEditingDraftBackup(null);
     deps.setEditingOriginalAttachmentIds([]);
     return true;
@@ -423,19 +430,16 @@ export function createComposerActions(deps: ComposerActionsDeps) {
       // Persist the exact request before sending: a lost response must stay retryable.
       deps.setEditingPendingSave(pendingSave);
       try {
-        window.localStorage.setItem(
-          QUEUE_EDIT_STORAGE_KEY,
-          JSON.stringify({
-            agentId,
-            serverId,
-            deliveryId,
-            editId,
-            originalAttachmentIds: target?.originalAttachmentIds ?? deps.editingOriginalAttachmentIds(),
-            backup: deps.editingDraftBackup() ?? EMPTY_DRAFT,
-            draft,
-            pendingSave,
-          }),
-        );
+        storeQueueEdit({
+          agentId,
+          serverId,
+          deliveryId,
+          editId,
+          originalAttachmentIds: target?.originalAttachmentIds ?? deps.editingOriginalAttachmentIds(),
+          backup: deps.editingDraftBackup() ?? EMPTY_DRAFT,
+          draft,
+          pendingSave,
+        });
       } catch (error) {
         deps.setEditingPendingSave(null);
         deps.setSubmitting(false);
@@ -490,7 +494,7 @@ export function createComposerActions(deps: ComposerActionsDeps) {
       deps.setEditingDeliveryId(null);
       deps.setEditingEditId(null);
       deps.setEditingPendingSave(null);
-      window.localStorage.removeItem(QUEUE_EDIT_STORAGE_KEY);
+      clearStoredQueueEdit();
       deps.setEditingDraftBackup(null);
       deps.setEditingOriginalAttachmentIds([]);
     }

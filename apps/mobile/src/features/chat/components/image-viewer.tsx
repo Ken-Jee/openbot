@@ -83,6 +83,8 @@ const MODE_NONE = 0;
 const MODE_PAN = 1;
 const MODE_DISMISS = 2;
 const MODE_PAGE = 3;
+// A one-finger drag on an unzoomed photo whose direction is not known yet.
+const MODE_UNDECIDED = 4;
 
 const AnimatedBlurView = Animated.createAnimatedComponent(BlurView);
 
@@ -400,6 +402,28 @@ export function ImageViewer({
       settleZoom();
     });
 
+  /**
+   * Turns an unzoomed drag into a page swipe or a drag away, from the way it has moved. Android
+   * starts the pan before it reports a translation, so a drag that has no direction yet waits for
+   * the next update.
+   */
+  function decideDrag(translationX: number, translationY: number) {
+    "worklet";
+    if (!(Math.abs(translationX) + Math.abs(translationY) > 0)) {
+      gestureMode.set(MODE_UNDECIDED);
+      return;
+    }
+    if (count > 1 && Math.abs(translationX) > Math.abs(translationY)) {
+      gestureMode.set(MODE_PAGE);
+      cancelAnimation(pageOffset);
+      startX.set(pageOffset.get());
+      return;
+    }
+    gestureMode.set(MODE_DISMISS);
+    chrome.set(withTiming(0, { duration: 120 }));
+    scheduleOnRN(tick);
+  }
+
   const pan = Gesture.Pan()
     .maxPointers(1)
     .minDistance(8)
@@ -416,17 +440,10 @@ export function ImageViewer({
         startY.set(ty.get());
         return;
       }
-      if (count > 1 && Math.abs(event.translationX) > Math.abs(event.translationY)) {
-        gestureMode.set(MODE_PAGE);
-        cancelAnimation(pageOffset);
-        startX.set(pageOffset.get());
-        return;
-      }
-      gestureMode.set(MODE_DISMISS);
-      chrome.set(withTiming(0, { duration: 120 }));
-      scheduleOnRN(tick);
+      decideDrag(event.translationX, event.translationY);
     })
     .onUpdate((event) => {
+      if (gestureMode.get() === MODE_UNDECIDED) decideDrag(event.translationX, event.translationY);
       const mode = gestureMode.get();
       if (mode === MODE_PAN) {
         const fit = currentFit();

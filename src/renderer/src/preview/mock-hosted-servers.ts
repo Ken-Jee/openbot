@@ -36,6 +36,7 @@ export const MOCK_HOSTED_SERVER_CATALOG: HostedServerCatalog = {
     memberLimit: plan.memberLimit,
     relativeSpeed: plan.relativeSpeed,
     prices: prices(MONTHLY_PRICES[plan.id]),
+    soldOut: plan.id === "starter",
   })),
 };
 

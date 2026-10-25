@@ -10,6 +10,7 @@ export const messages = {
   "error.team.accountChangedDuringCreate":
     "L'account con cui hai effettuato l'accesso è cambiato durante la creazione del server.",
   "error.team.notConfigured": "Questo OpenBot non è stato configurato.",
+  "error.team.keyRotationMissing": "Nessun cambio della chiave del server è in attesa.",
   "error.team.serverNotActive": "Questo server non è più quello attivo per l'account con cui hai effettuato l'accesso.",
   "error.team.logoInvalid": "Scegli un'immagine PNG, JPEG o WebP valida, fino a 512 KB.",
   "error.team.ownerMembershipConflict":
@@ -93,6 +94,7 @@ export const messages = {
   "error.team.hostTimezoneUnsupported": "Questa connessione non supporta il fuso orario del server.",
   "error.team.routineResultsUnsupported": "Questa connessione non supporta le destinazioni delle routine.",
   "error.team.agentMemoryLimitUnsupported": "Questa connessione non supporta il limite di memorie degli agenti.",
+  "error.team.promptCacheTtlUnsupported": "Questa connessione non supporta la durata della cache dei prompt.",
   "error.team.attachmentNameRequired": "Serve un nome di allegato sicuro.",
   "error.team.attachmentNotFound": "Allegato non trovato.",
   "error.team.sharedFileTooLarge": "Il file condiviso supera il limite di 100 MB.",

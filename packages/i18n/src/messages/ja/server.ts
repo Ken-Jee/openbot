@@ -295,6 +295,16 @@ export const messages = {
   "server.settings.notReachable": "オンラインでアクセスできません。既存のメンバーと招待はそのまま残ります。",
   "server.settings.notPublished": "オンラインでアクセスできません。",
   "server.settings.generatedName": "{name} のサーバー",
+  "server.settings.hostKeyTitle": "サーバーキー",
+  "server.settings.hostKeyRotate": "サーバーキーを変更",
+  "server.settings.hostKeyDescription":
+    "このサーバーの新しい ID キーを作成します。ペアリング済みのコンピューターとスマートフォン、Webhook ルートは接続されたままです。",
+  "server.settings.hostKeyRotateAction": "変更",
+  "server.settings.hostKeyConfirmTitle": "サーバーキーを変更しますか？",
+  "server.settings.hostKeyConfirmDescription":
+    "現在のキーと新しいキーの両方が引き継ぎに署名します。メンバーのアプリは次回の接続時に新しいキーに切り替わります。キーファイルがコピーまたは漏えいした場合に実行してください。",
+  "server.settings.hostKeyRotated": "サーバーキーを変更しました",
+  "server.settings.hostKeyLocalOnly": "ここでキーを変更できるのは、このコンピューターのサーバーだけです。",
   "server.settings.removeTitle": "サーバーを削除",
   "server.settings.removeDescription":
     "すべてのメンバーについて、このサーバーをアカウントサービスから削除します。サーバーのコンピューターが使えなくなったときに使います。",
@@ -384,6 +394,8 @@ export const messages = {
   "server.invite.pendingTitle": "保留中の招待",
   "server.invite.pendingCount": "保留中 {total} 件",
   "server.invite.noPending": "保留中の招待はありません。",
+  "server.invite.emptyTitle": "最初の{word}を送りましょう。",
+  "server.invite.emptyWord": "招待",
   "server.invite.neverExpires": { other: "期限なし · 参加 {count} 件" },
   "server.invite.expires": "有効期限 {date}",
   "server.invite.revoke": "取り消す",

@@ -37,6 +37,8 @@ export type DetectedProvider =
       version?: string | undefined;
       /** For a saved agent: the names of its values, which Edit keeps unless the user types new ones. */
       envNames?: readonly string[] | undefined;
+      /** For a saved agent: its usage prompt, which Edit keeps. */
+      usagePrompt?: string | null | undefined;
     });
 
 /** `found` can grow while `scanning` is true. */
@@ -105,5 +107,6 @@ export function detectedAgentDraft(provider: Extract<DetectedProvider, { kind: "
     command: provider.command,
     args: provider.args,
     env: names.length > 0 ? names.map((name) => ({ name, value: "", savedName: name })) : [{ name: "", value: "" }],
+    usagePrompt: (provider.added && provider.usagePrompt) || "",
   };
 }

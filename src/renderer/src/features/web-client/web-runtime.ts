@@ -95,6 +95,7 @@ import {
 import { runTeamEffect } from "@openbot/team-client";
 import { bytesToBase64 } from "@openbot/team-client/base64";
 import { createRemoteBrowserView, type RemoteBrowserView } from "@openbot/team-client/browser-view";
+import { verifyEd25519Base64Url } from "@openbot/team-client/ed25519";
 import {
   RemoteDirectoryError,
   RemoteTeamDirectoryClient,
@@ -337,6 +338,7 @@ export function createWebWorkspaceRuntime(
     fetch: accountFetch,
     // `bun run dev:api` serves this page and the account service from `http://localhost:<port>`.
     inviteLinks: { allowLocalDevelopmentApiUrl: import.meta.env.DEV },
+    verifyHostKeySignature: verifyEd25519Base64Url,
     hostKeys: {
       get: async (id) => localStorage.getItem(`openbot.web.host-key:${accountId}:${id}`),
       set: async (id, key) => localStorage.setItem(`openbot.web.host-key:${accountId}:${id}`, key),

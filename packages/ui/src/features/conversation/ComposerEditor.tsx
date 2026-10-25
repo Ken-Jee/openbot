@@ -1,3 +1,4 @@
+import { rankAgentMentions } from "@openbot/contracts/agent-mention-rank";
 import { attachmentReferenceIds } from "@openbot/contracts/attachment-references";
 import { serializeChatTagReference } from "@openbot/contracts/chat-tag-references";
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
@@ -148,12 +149,8 @@ export function ComposerEditor(props: ComposerEditorProps) {
     { equals: (previous, next) => previous.mount === next.mount && previous.bottom === next.bottom },
   );
   const matchingAgents = createMemo(() => {
-    const query = mention()?.query.trim().toLocaleLowerCase() ?? "";
-    return props.agents.filter(
-      (agent) =>
-        agent.id !== props.agentId &&
-        (!query || `${agent.name} ${agent.title} ${agent.description}`.toLocaleLowerCase().includes(query)),
-    );
+    const others = props.agents.filter((agent) => agent.id !== props.agentId);
+    return rankAgentMentions(others, mention()?.query ?? "");
   });
   const matchingAttachments = createMemo(() => {
     const query = mention()?.query.trim().toLocaleLowerCase() ?? "";

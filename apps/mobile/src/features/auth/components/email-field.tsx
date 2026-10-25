@@ -1,13 +1,13 @@
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import { type Ref, useState } from "react";
-import { StyleSheet, TextInput, View } from "react-native";
+import { StyleSheet, TextInput, type TextInputInstance, View } from "react-native";
 import Animated from "react-native-reanimated";
 
 import { SIGN_IN_CONTROL_HEIGHT, useSignInColors } from "@/features/auth/components/sign-in-colors";
 import { useShake } from "@/features/auth/components/use-shake";
 
 interface EmailFieldProps {
-  ref?: Ref<TextInput>;
+  ref?: Ref<TextInputInstance>;
   value: string;
   onChangeText: (value: string) => void;
   onSubmit: () => void;

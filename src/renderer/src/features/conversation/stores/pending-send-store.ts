@@ -78,8 +78,11 @@ export function createPendingSendStore() {
     publish(key);
     void deliver({ ...next })
       .catch((error: unknown) => {
+        // An error with no message of its own leaves the reason empty; the status label says enough.
         const { t, errorMessage } = currentText();
-        return { error: errorMessage(error, t("chat.send.failed")) };
+        const fallback = t("chat.send.failed");
+        const message = errorMessage(error, fallback);
+        return { error: message === fallback ? null : message };
       })
       .then((result) => {
         // Dismissed while in flight: nothing is left to update.

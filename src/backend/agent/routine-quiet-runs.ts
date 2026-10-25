@@ -24,6 +24,12 @@ const ROUTINE_NO_UPDATE_MARKER = "[[no-update]]";
 export const ROUTINE_NO_UPDATE_TOOL = "routine_no_update";
 
 /**
+ * The OpenBot tool that a routine run calls when its task could not be done. The run then ends
+ * `failed` with the reason, while its delivery stays `completed`: the agent did answer.
+ */
+export const ROUTINE_REPORT_FAILURE_TOOL = "routine_report_failure";
+
+/**
  * A call to the no-update tool in provider history: a Codex, Pi or Muse tool item names the tool,
  * and a Claude item names it `mcp__openbot__<tool>`. A call through the `tool_call` bridge names it
  * in its arguments.

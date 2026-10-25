@@ -38,6 +38,7 @@ import { AGENT_MEMORY_LIMIT_CAPABILITY } from "@openbot/contracts/team-protocol/
 import { AGENT_PUBLISH_CAPABILITY } from "@openbot/contracts/team-protocol/agent-publish-v1";
 import { AGENT_SESSION_SETTINGS_CAPABILITY } from "@openbot/contracts/team-protocol/agent-session-settings-v1";
 import { AGENT_TASKS_CAPABILITY } from "@openbot/contracts/team-protocol/agent-tasks-v1";
+import { AGENT_UPDATE_CAPABILITY } from "@openbot/contracts/team-protocol/agent-update-v1";
 import { CHANNEL_ROUTES } from "@openbot/contracts/team-protocol/channels-v1";
 import { CONNECTORS_CAPABILITY } from "@openbot/contracts/team-protocol/connectors-v1";
 import { CONTEXT_RESET_CAPABILITY } from "@openbot/contracts/team-protocol/context-reset-v1";
@@ -69,6 +70,7 @@ import { TEAM_QUEUE_EDIT_CAPABILITY } from "@openbot/contracts/team-protocol/que
 import { ROUTINE_RECOVERY_CAPABILITY } from "@openbot/contracts/team-protocol/routine-recovery-v1";
 import { ROUTINE_RESULTS_CAPABILITY } from "@openbot/contracts/team-protocol/routine-results-v1";
 import { SHARED_TABLES_CAPABILITY } from "@openbot/contracts/team-protocol/shared-tables-v1";
+import { SIGN_IN_RELAY_CAPABILITY } from "@openbot/contracts/team-protocol/sign-in-relay-v1";
 import { SKILLS_ADMIN_CAPABILITY } from "@openbot/contracts/team-protocol/skills-admin-v1";
 import { STORAGE_ROUTES } from "@openbot/contracts/team-protocol/storage-v1";
 import type { TeamProtocolV2Json } from "@openbot/contracts/team-protocol/v2";
@@ -79,8 +81,10 @@ import type { RemoteFileUpload } from "@openbot/team-client/remote-peer";
 import { buildRoutineCalendar, type RoutineCalendarSource } from "@openbot/team-client/routine-calendar";
 import {
   cancelHostUpdate,
+  cancelSignInRelay,
   checkHostForUpdate,
   checkHostRelease,
+  completeSignInRelay,
   deleteEventRoutine,
   deleteHostedSite,
   deleteSharedTable,
@@ -92,7 +96,9 @@ import {
   getRoutineResultDestination,
   githubConnectorRepositories,
   githubConnectorRequest,
+  installAgentSkill,
   installAgentTemplate,
+  installMarketplaceAgent,
   listAgentSkills,
   listEventActivity,
   listEventRoutines,
@@ -129,8 +135,10 @@ import {
   setHostUpdateSettings,
   setMcpServerEnabled,
   setRoutineResultDestination,
+  signInRelayStatus,
   signOutMcpServer,
   startHostUpdate,
+  startMcpSignInRelay,
   testEventRoutine,
   testMcpServer,
   uninstallAgentSkill,
@@ -154,6 +162,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import { Effect } from "effect";
 import * as Crypto from "expo-crypto";
 import { createProviderAdmin } from "@/features/servers/model/provider-admin";
+import { saveAgentAvatar, savedAgentAvatar } from "@/features/workspace/model/agent-avatar-cache";
 import { decodeConversationSearchPage } from "@/features/workspace/model/conversation";
 import { type QueryScope, queryKeys } from "@/features/workspace/model/query-keys";
 import { saveAgentRecord } from "@/features/workspace/model/save-agent-record";
@@ -218,6 +227,7 @@ type HostRequestActions = Pick<
   | "controlAgentTask"
   | "respondToTaskPrompt"
   | "loadAgentSkills"
+  | "installAgentSkill"
   | "setAgentSkillEnabled"
   | "uninstallAgentSkill"
   | "loadAgentStorage"
@@ -276,6 +286,8 @@ type HostRequestActions = Pick<
   | "unpublishAgentTemplate"
   | "deleteStoredFile"
   | "installAgentTemplate"
+  | "installMarketplaceAgent"
+  | "mcpSignInRelay"
   | "loadAgentAvatar"
   | "duplicateAgent"
   | "loadQueue"
@@ -668,6 +680,7 @@ export function createHostRequestActions({
         ? request("GET", TEAM_API_ROUTES.agent.skills(agentId), decodeInstalledSkills, undefined, serverId)
         : null;
     },
+    installAgentSkill: async (input, serverId) => runTeamRequest(installAgentSkill(skillsAdmin(serverId), input)),
     setAgentSkillEnabled: async (input, serverId) => runTeamRequest(setAgentSkillEnabled(skillsAdmin(serverId), input)),
     uninstallAgentSkill: async (input, serverId) => runTeamRequest(uninstallAgentSkill(skillsAdmin(serverId), input)),
     loadAgentStorage: async (agentId, serverId, force = false) => {
@@ -741,6 +754,34 @@ export function createHostRequestActions({
       // A host too old to know the route answers 404, so refuse before the request.
       requireCapability(capabilities, serverId, AGENT_INSTALL_CAPABILITY, "mobile.link.template.error.unsupported");
       return runTeamRequest(installAgentTemplate(teamApi(serverId), input));
+    },
+    installMarketplaceAgent: async (input, serverId) => {
+      // A host too old to know the route answers 404, so refuse before the request. An update goes
+      // to the `agent-update-v1` route, as on the desktop.
+      if (input.agentId)
+        requireCapability(
+          capabilities,
+          serverId,
+          AGENT_UPDATE_CAPABILITY,
+          "mobile.marketplace.error.agentUpdateUnsupported",
+        );
+      else
+        requireCapability(
+          capabilities,
+          serverId,
+          AGENT_INSTALL_CAPABILITY,
+          "mobile.marketplace.error.agentUnsupported",
+        );
+      return runTeamRequest(installMarketplaceAgent(teamApi(serverId), input));
+    },
+    mcpSignInRelay: (serverId) => {
+      const relay = capabilityApi(serverId, SIGN_IN_RELAY_CAPABILITY, "mobile.marketplace.error.signInUnsupported");
+      return {
+        start: async (config) => (await runTeamRequest(startMcpSignInRelay(relay, { config }))).flowId,
+        status: (flowId) => runTeamRequest(signInRelayStatus(relay, flowId)),
+        complete: (flowId, query) => runTeamRequest(completeSignInRelay(relay, flowId, query)),
+        cancel: (flowId) => runTeamRequest(cancelSignInRelay(relay, flowId)),
+      };
     },
     loadAgentAvatar: (agentId, avatarUrl, serverId) => requestAgentAvatar(request, agentId, avatarUrl, serverId),
     duplicateAgent: async (agentId) => {
@@ -870,16 +911,21 @@ function routineCalendarSource(
   };
 }
 
-/** The agent photo as a data URL. The Live Activity reads it too, outside the workspace value. */
-export function requestAgentAvatar(
+/**
+ * The agent photo as a `file://` URI, or as a data URL when the phone cannot save it. A photo that
+ * this phone has saved needs no request. The Live Activity reads it too, outside the workspace value.
+ */
+export async function requestAgentAvatar(
   request: WorkspaceRequest,
   agentId: string,
   avatarUrl: string,
   serverId: string,
 ): Promise<string> {
+  const saved = savedAgentAvatar(serverId, agentId, avatarUrl);
+  if (saved) return saved;
   const version = new URL(avatarUrl).searchParams.get("v");
-  if (!version) return Promise.reject(new Error("The agent avatar has no version."));
-  return request(
+  if (!version) throw new Error("The agent avatar has no version.");
+  const dataUrl = await request(
     "GET",
     `${TEAM_API_ROUTES.agent.avatar(agentId)}?${new URLSearchParams({ v: version })}`,
     (value) => {
@@ -895,4 +941,5 @@ export function requestAgentAvatar(
     undefined,
     serverId,
   );
+  return saveAgentAvatar(serverId, agentId, avatarUrl, dataUrl);
 }

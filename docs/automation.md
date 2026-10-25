@@ -21,7 +21,8 @@ OpenBot puts it in its resources folder:
 
 - macOS: `/Applications/OpenBot.app/Contents/Resources/cli/openbot-cli.mjs`
 - Linux: `resources/cli/openbot-cli.mjs` in the install folder (for an AppImage, copy it out of the image)
-- Windows: `%LOCALAPPDATA%\Programs\OpenBot\resources\cli\openbot-cli.mjs`
+- Windows: `resources\cli\openbot-cli.mjs` in the install folder. The default folder is
+  `%LOCALAPPDATA%\Programs\OpenBot`.
 
 ```sh
 alias openbot-cli='node "/Applications/OpenBot.app/Contents/Resources/cli/openbot-cli.mjs"'

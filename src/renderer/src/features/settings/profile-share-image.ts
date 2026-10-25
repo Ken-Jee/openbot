@@ -69,10 +69,10 @@ function shareColors(): ShareColors {
     return value;
   };
   return {
-    surface: token("--openbot-surface-light"),
-    text: token("--openbot-text-on-light"),
-    muted: token("--openbot-text-muted-on-light"),
-    border: token("--openbot-border-on-light"),
+    surface: token("--openbot-paper"),
+    text: token("--openbot-paper-text"),
+    muted: token("--openbot-paper-text-muted"),
+    border: token("--openbot-paper-border"),
     accent: token("--openbot-accent"),
     accentSoft: token("--openbot-accent-soft"),
     logo: token("--openbot-logo-production"),

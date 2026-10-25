@@ -9,6 +9,7 @@ import {
   constrainBrowserPictureInPictureBounds,
 } from "./browser-picture-in-picture-bounds";
 import { isTrustedRendererUrl } from "./trusted-renderer";
+import { followAppearance, windowBackgroundColor } from "./window-appearance";
 
 interface BrowserPictureInPictureOptions {
   mainWindow: BrowserWindow;
@@ -20,6 +21,8 @@ interface BrowserPictureInPictureOptions {
 }
 
 const HOVER_POLL_INTERVAL_MS = 150;
+/** The dark background of the floating browser, under its own page. */
+const PICTURE_IN_PICTURE_DARK_BACKGROUND = "#111415";
 
 export class BrowserPictureInPicture {
   readonly #options: BrowserPictureInPictureOptions;
@@ -59,7 +62,7 @@ export class BrowserPictureInPicture {
       fullscreenable: false,
       maximizable: false,
       skipTaskbar: true,
-      backgroundColor: "#111415",
+      backgroundColor: windowBackgroundColor(PICTURE_IN_PICTURE_DARK_BACKGROUND),
       title: "OpenBot Browser",
       icon: this.#options.iconPath,
       webPreferences: {
@@ -71,6 +74,7 @@ export class BrowserPictureInPicture {
         webSecurity: true,
       },
     });
+    followAppearance(window, PICTURE_IN_PICTURE_DARK_BACKGROUND);
     this.#window = window;
     this.#closing = false;
     this.#options.browser.setPictureInPictureWindow(window);

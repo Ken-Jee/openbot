@@ -24,7 +24,13 @@ export interface ConversationPort {
   >;
   browser: Pick<
     OpenBotDesktopApi["browser"],
-    "capturePreview" | "onLiveViewEvent" | "sendLiveViewInput" | "startLiveView" | "stopLiveView"
+    | "capturePreview"
+    | "finishLocalSignIn"
+    | "onLiveViewEvent"
+    | "openLocalSignIn"
+    | "sendLiveViewInput"
+    | "startLiveView"
+    | "stopLiveView"
   >;
   servers: Pick<
     OpenBotDesktopApi["servers"],

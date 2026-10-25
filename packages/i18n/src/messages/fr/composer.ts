@@ -5,6 +5,10 @@ export const messages = {
   "composer.queueEdit.body":
     "Vous modifiez un message en attente. Enregistrez ou annulez la modification pour permettre son exécution.",
   "composer.queueEdit.cancel": "Annuler",
+  "composer.providerWait.offlineTitle": "Pas de connexion Internet",
+  "composer.providerWait.offline":
+    "{provider} ne peut pas répondre tant que cet ordinateur n’est pas de nouveau en ligne.",
+  "composer.providerWait.silent": "{provider} n’a rien envoyé depuis {duration}.",
   "composer.notice.dismiss": "Fermer l’erreur",
   "composer.signIn.title": "Connexion requise",
   "composer.signIn.body": "Connectez-vous à {provider} pour envoyer des messages.",
@@ -74,6 +78,9 @@ export const messages = {
   "composer.upload.cancel": "Annuler l’envoi",
   "composer.voice.progress": "Téléchargement du modèle vocal {progress} %",
   "composer.voice.recording": "Enregistrement vocal",
+  "composer.voice.limitSoon": "L’enregistrement s’arrête dans {seconds} secondes.",
+  "composer.voice.limitReached":
+    "L’enregistrement s’est arrêté à la limite de 2 minutes. Ce que vous avez dit est dans le message.",
   "composer.send.saveQueued": "Enregistrer le message en attente",
   "composer.send.voice": "Envoyer le message vocal",
   "composer.send.message": "Envoyer le message",

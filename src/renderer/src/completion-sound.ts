@@ -67,11 +67,21 @@ export function unlockCompletionSound(): void {
   }
 }
 
-async function playCompletionSound(): Promise<void> {
+/** The one audio context of the app sounds, so that each sound does not keep its own output open. */
+export async function appSoundContext(): Promise<AudioContext> {
   try {
     completionAudioContext ??= new AudioContext();
-    const context = completionAudioContext;
-    if (context.state === "suspended") await context.resume();
+    if (completionAudioContext.state === "suspended") await completionAudioContext.resume();
+    return completionAudioContext;
+  } catch (error) {
+    completionAudioContext = undefined;
+    throw error;
+  }
+}
+
+async function playCompletionSound(): Promise<void> {
+  try {
+    const context = await appSoundContext();
 
     const startedAt = context.currentTime;
     const oscillator = context.createOscillator();

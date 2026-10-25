@@ -9,6 +9,7 @@ import ChevronDown from "lucide-react-native/icons/chevron-down";
 import Plus from "lucide-react-native/icons/plus";
 import Settings from "lucide-react-native/icons/settings";
 import Settings2 from "lucide-react-native/icons/settings-2";
+import ShoppingBag from "lucide-react-native/icons/shopping-bag";
 import SquareCheck from "lucide-react-native/icons/square-check";
 import UsersRound from "lucide-react-native/icons/users-round";
 import { type PropsWithChildren, type ReactNode, useEffect, useRef, useState } from "react";
@@ -458,6 +459,11 @@ export function ServerDrawerContent({
               label={t("mobile.app.route.routines")}
               value={values.nextRoutine}
               onPress={() => onNavigate({ pathname: "/server-routines", params: { serverId } })}
+            />
+            <DrawerRow
+              icon={ShoppingBag}
+              label={t("mobile.app.route.marketplace")}
+              onPress={() => onNavigate({ pathname: "/server-marketplace", params: { serverId } })}
             />
             <DrawerRow
               icon={ChartColumn}

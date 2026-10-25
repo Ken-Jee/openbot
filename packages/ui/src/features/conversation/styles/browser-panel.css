@@ -89,6 +89,7 @@
   height: 15px;
 }
 
+.browser-profile-status,
 .browser-recording-status,
 .browser-diagnostic-status {
   display: inline-flex;
@@ -112,6 +113,34 @@
   color: var(--openbot-warning);
 }
 
+.browser-profile-status {
+  min-width: 0;
+  max-width: 160px;
+  flex-shrink: 1;
+  background: var(--openbot-bg-control);
+  color: var(--openbot-text-secondary);
+}
+
+/* The color of a profile: in its toolbar label, the agent select and the server settings. */
+.browser-profile-dot {
+  display: block;
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: var(--openbot-radius-pill);
+}
+
+.browser-profile-dot-shared {
+  background: var(--openbot-text-muted);
+}
+
+.browser-profile-status-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.browser-profile-status svg,
 .browser-recording-status svg,
 .browser-diagnostic-status svg {
   width: 12px;

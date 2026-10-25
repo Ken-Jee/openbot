@@ -21,7 +21,7 @@ import { CloseIcon } from "./ConversationIcons";
  */
 export function ComposerNotice(props: {
   tone?: "warning" | "danger";
-  title?: string;
+  title?: string | undefined;
   body: string;
   /** The code of the failure the body states. */
   reference?: string | null | undefined;

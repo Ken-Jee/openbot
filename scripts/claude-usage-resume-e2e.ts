@@ -4,7 +4,8 @@
 // `modelUsage` and restores it on `--resume`, and it repeats each request's message once per content
 // block. A message `usage-prompts=<a>,<b>` makes one request per number, with that many cached input
 // tokens. Turns: two in a new process, an idle release of the process, then two in the resumed one.
-// Before this change, the first turn after the resume booked the whole session again.
+// Before this change, the first turn after the resume booked the whole session again. The SDK cost of
+// that turn is not known, so it gets the list-price estimate of its own tokens.
 // `bun run test:claude-usage-resume`. Writes .openbot-build/claude-usage-resume-e2e/report.json.
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
@@ -50,6 +51,7 @@ const { ClaudeAgentClient } = await import("../src/backend/claude-client");
 const { runCauseEffect } = await import("../src/backend/effect-boundary");
 const { MailboxStore } = await import("../src/backend/mailbox-store");
 const { OpenBotDatabase } = await import("../src/backend/openbot-database");
+const { estimateUsageCost } = await import("../src/backend/agent/usage-pricing");
 
 // The stand-in for the Claude CLI. It speaks enough of the stream-json protocol for a turn to end.
 // An even request reports its cache write; an odd one leaves the count out, as the API does for 0.
@@ -231,6 +233,7 @@ const browser: AgentBrowserHost = {
   clearControls: () => {},
   endControl: () => {},
   close: () => Effect.void,
+  clearAgentSession: () => Effect.void,
 };
 
 /** Waits for a state of the service or of its database. */
@@ -364,15 +367,16 @@ async function runTurn(agentId: string, name: string, prompts: number[], send: b
     recorded: sum(got.map((record) => record.tokens)),
     expected: want,
     cost: got[0]?.cost ?? null,
-    expectedCost: firstResumed ? null : REQUEST_COST * prompts.length,
+    expectedCost: firstResumed
+      ? estimateUsageCost("claude", USAGE_MODEL, want, null).cost
+      : REQUEST_COST * prompts.length,
     passed: false,
   };
   report.turns.push(entry);
   assert.equal(got.length, 1, `${name}: one record for the model`);
   assert.deepEqual(entry.recorded, want, `${name}: the turn books only its own requests`);
-  if (entry.expectedCost === null) assert.equal(entry.cost, null, `${name}: the first resumed turn has no cost delta`);
-  else
-    assert.ok(entry.cost !== null && Math.abs(entry.cost - entry.expectedCost) < 1e-9, `${name}: the turn's own cost`);
+  assert.ok(entry.expectedCost !== null, `${name}: ${CLAUDE_MODEL} has a list price`);
+  assert.ok(entry.cost !== null && Math.abs(entry.cost - entry.expectedCost) < 1e-9, `${name}: the turn's own cost`);
   entry.passed = true;
 }
 

@@ -1,7 +1,7 @@
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import { type AvatarHue, type ChannelDraft, type ChannelSummary, isChannelDraft } from "@openbot/contracts/ipc";
 import * as Crypto from "expo-crypto";
-import { router, Stack, useLocalSearchParams, useNavigation } from "expo-router";
+import { router, Stack, useLocalSearchParams } from "expo-router";
 import { usePreventRemove } from "expo-router/react-navigation";
 import { Typography } from "heroui-native";
 import Check from "lucide-react-native/icons/check";
@@ -124,7 +124,6 @@ function ChannelForm({
     (current) => current.servers.find((server) => server.id === serverId)?.role !== "member",
   );
   const accent = String(useCSSVariable("--openbot-accent"));
-  const navigation = useNavigation();
   const [edits, setEdits] = useState<Partial<ChannelDraft>>({});
   const [saving, setSaving] = useState(false);
   const [finished, setFinished] = useState(false);
@@ -150,7 +149,9 @@ function ChannelForm({
   const availableIds = useMemo(() => new Set(choices.map((agent) => agent.id)), [choices]);
   const selectedIds = useMemo(() => new Set(draft.members.map((member) => member.agentId)), [draft.members]);
   const disabled = saving || !available || finished || Boolean(channel?.archived);
-  usePreventRemove(!finished && (dirty || saving), ({ data }) => {
+  // Discard turns prevention off before it repeats the action, so the hook does not warn.
+  const [discarding, setDiscarding] = useState(false);
+  usePreventRemove(!discarding && !finished && (dirty || saving), ({ repeat }) => {
     if (lock.current) return;
     void haptics.notification("warning");
     const text = currentText();
@@ -159,7 +160,10 @@ function ChannelForm({
       {
         text: text.t("mobile.channel.discard.discard"),
         style: "destructive",
-        onPress: () => navigation.dispatch(data.action),
+        onPress: () => {
+          setDiscarding(true);
+          repeat();
+        },
       },
     ]);
   });

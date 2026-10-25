@@ -2,16 +2,21 @@ import type { McpServerConfig, McpSignInState } from "@openbot/contracts/ipc";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef } from "react";
 import { useQueryScope } from "@/features/auth/context/mobile-session-context";
-import { useMobileWorkspace, useMobileWorkspaceActions } from "@/features/workspace/context/mobile-workspace-context";
+import {
+  useMobileWorkspace,
+  useMobileWorkspaceActions,
+  useMobileWorkspaceSelector,
+} from "@/features/workspace/context/mobile-workspace-context";
 import { queryKeys } from "@/features/workspace/model/query-keys";
 import { haptics } from "@/shared/lib/haptics";
 
 /** The MCP server list of one host, for an owner or admin. The Server settings row needs only this. */
 export function useMcpServerList(serverId: string) {
-  const { canManageMcpServers } = useMobileWorkspace();
+  // A selector, not the whole workspace: the chat composer reads this list, and must not render again
+  // for every workspace change.
+  const canManage = useMobileWorkspaceSelector((workspace) => workspace.canManageMcpServers(serverId));
   const { listMcpServers } = useMobileWorkspaceActions();
   const queryScope = useQueryScope();
-  const canManage = canManageMcpServers(serverId);
   const list = useQuery({
     queryKey: queryKeys.mcpServers(queryScope, serverId),
     enabled: canManage,

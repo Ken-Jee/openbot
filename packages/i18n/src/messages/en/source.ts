@@ -20,6 +20,7 @@ import { messages as errorSkill } from "./error/skill";
 import { messages as errorStorage } from "./error/storage";
 import { messages as errorTeam } from "./error/team";
 import { messages as errorUpdate } from "./error/update";
+import { messages as errorVault } from "./error/vault";
 import { messages as errorVoice } from "./error/voice";
 import { messages as statusAgent } from "./status/agent";
 import { messages as statusComputerUse } from "./status/computerUse";
@@ -50,6 +51,7 @@ export const source = {
   ...errorAttachment,
   ...errorImport,
   ...errorUpdate,
+  ...errorVault,
   ...errorMcp,
   ...errorConnector,
   ...errorStorage,

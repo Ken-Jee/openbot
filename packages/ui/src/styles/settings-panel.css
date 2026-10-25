@@ -22,7 +22,7 @@
   right: 0;
   bottom: 0;
   display: flex;
-  width: var(--settings-panel-width, 296px);
+  width: var(--settings-panel-width, 360px);
   flex-direction: column;
   border-left: 1px solid var(--openbot-border);
   background: var(--openbot-bg-canvas);
@@ -190,6 +190,7 @@
   background: var(--openbot-shadow-popover-ambient);
 }
 
+.settings-field input[aria-invalid="true"],
 .settings-field textarea[aria-invalid="true"] {
   border-color: var(--openbot-danger);
 }

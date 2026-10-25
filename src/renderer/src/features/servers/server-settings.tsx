@@ -281,6 +281,13 @@ const ServerSettings = createSimpleContext({
       setHostStatus(await serversPort().host.recheckScreenRecording());
     }
 
+    /** Changes the key of the server on this computer. Paired devices follow the signed handover. */
+    async function rotateHostKey(): Promise<void> {
+      if (serverSettingsTarget()?.kind !== "local")
+        throw new Error(currentText().t("server.settings.hostKeyLocalOnly"));
+      setHostStatus(await serversPort().host.rotateIdentityKey());
+    }
+
     async function setServerPublished(published: boolean): Promise<void> {
       const server = serverSettingsTarget();
       if (server?.kind !== "local") throw new Error(currentText().t("server.settings.publicationLocalOnly"));
@@ -711,6 +718,7 @@ const ServerSettings = createSimpleContext({
       refreshServerSettings,
       saveServerIdentity,
       recheckScreenRecording,
+      rotateHostKey,
       setServerPublished,
       createServerInvite,
       updateServerMember,

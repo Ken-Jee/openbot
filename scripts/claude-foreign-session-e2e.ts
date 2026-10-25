@@ -270,6 +270,7 @@ const browser: AgentBrowserHost = {
   clearControls: () => {},
   endControl: () => {},
   close: () => Effect.void,
+  clearAgentSession: () => Effect.void,
 };
 
 /** Each start of the stand-in Claude CLI for a session: its pid and its session arguments. */

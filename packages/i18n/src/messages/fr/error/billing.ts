@@ -7,6 +7,7 @@ export const messages = {
   "error.billing.confirmMismatch": "Saisissez le nom du serveur pour le supprimer.",
   "error.billing.restartBusy": "Le serveur ne peut pas redémarrer maintenant. Réessayez dans une minute.",
   "error.billing.planRequired": "L’offre de ce serveur a pris fin. Renouvelez-la pour démarrer le serveur.",
+  "error.billing.planSoldOut": "Cette offre est épuisée. Choisissez une autre offre.",
   // Billing errors.
   "error.billing.licenseExists": "Ce compte a déjà une licence. Modifiez plutôt son nombre d'utilisateurs.",
   "error.billing.licenseCurrency": "La licence doit utiliser la devise de vos autres forfaits.",

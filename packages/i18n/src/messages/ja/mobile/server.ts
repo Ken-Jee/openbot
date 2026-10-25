@@ -77,6 +77,7 @@ export const messages = {
   "mobile.server.hosted.yourServers": "あなたのサーバー",
   "mobile.server.hosted.plans": "プラン",
   "mobile.server.hosted.currentPlan": "ご利用中のプラン",
+  "mobile.server.hosted.soldOut": "売り切れ",
   "mobile.server.hosted.serverPlan": "{plan} · {interval}",
   "mobile.server.hosted.serverPlanEnds": "{plan} · {interval} · {date} に終了",
   "mobile.server.hosted.state.payment": "支払い待ち",

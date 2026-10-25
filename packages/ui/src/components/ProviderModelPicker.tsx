@@ -93,10 +93,7 @@ interface ProviderModelPickerProps {
   customAgents?: readonly CustomAgentSummary[] | undefined;
   /** Receives the picker trigger, so focus returns to it when the opened settings close. */
   onAddCustomProvider?: ((trigger: HTMLElement) => void) | undefined;
-  /**
-   * Opens the provider settings. With it, the rail leaves out the providers that cannot run, and a
-   * plus button after them opens the settings to connect one. Receives the picker trigger.
-   */
+  /** Opens the provider settings: a plus button after the rail, to connect one. Receives the picker trigger. */
   onManageProviders?: ((trigger: HTMLElement) => void) | undefined;
   /**
    * Gives each account of a provider with more than one its own rail entry, and passes the account
@@ -338,12 +335,11 @@ export function ProviderModelPicker(props: ProviderModelPickerProps) {
   /** The entries listed when the picker opened. An open rail does not drop a tab under the pointer. */
   const [openedKeys, setOpenedKeys] = createSignal<readonly RailKey[]>([]);
   /**
-   * Where the settings can connect a provider, the rail lists only the usable ones. When none is,
-   * it lists all of them, so the panel always has a tab to show.
+   * The rail lists only the usable entries. When none is, it lists all of them, so the panel always
+   * has a tab to show and a provider to download or connect.
    */
   const visibleKeys = createMemo<RailKey[]>(
     () => {
-      if (!props.onManageProviders) return railKeys();
       const listed = open() ? openedKeys() : [];
       const usable = railKeys().filter((key) => entryUsable(key) || listed.includes(key));
       return usable.length ? usable : railKeys();

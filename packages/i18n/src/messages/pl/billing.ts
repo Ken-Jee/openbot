@@ -54,7 +54,6 @@ export const messages = {
   "billing.lifecycle.automatic": "Automatyczne odnawianie zostanie wznowione",
   "billing.lifecycle.noRefund": "Brak zwrotu za niewykorzystany czas",
   "billing.lifecycle.noRenewal": "Brak kolejnych odnowień",
-  "billing.lifecycle.open": "Otwórz podgląd projektu",
   "billing.lifecycle.dateUtc": "{date} UTC",
   "billing.lifecycle.renews": "Automatyczne odnawianie jest włączone.",
   "billing.lifecycle.schedule": "Usuń na koniec okresu",

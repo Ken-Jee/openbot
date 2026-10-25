@@ -201,10 +201,14 @@ export function customAgentStatePaths(): ProviderStatePaths {
   return { writable: [], protected: [] };
 }
 
+/** The folder where Pi keeps its sign-in, settings and sessions. */
+export function piAgentDirectory(env: NodeJS.ProcessEnv = process.env, home = homedir()): string {
+  return env.PI_CODING_AGENT_DIR?.trim() || join(home, ".pi", "agent");
+}
+
 /** Pi can write sessions, but cannot change the settings or extensions a later full-access run loads. */
 export function piStatePaths(env: NodeJS.ProcessEnv = process.env, home = homedir()): ProviderStatePaths {
-  const root = env.PI_CODING_AGENT_DIR?.trim() || join(home, ".pi", "agent");
-  return { writable: [join(root, "sessions")], protected: [] };
+  return { writable: [join(piAgentDirectory(env, home), "sessions")], protected: [] };
 }
 
 /** Only session data is writable. Muse settings, credentials, hooks, and plugins stay read-only. */

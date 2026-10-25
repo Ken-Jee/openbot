@@ -249,6 +249,9 @@ class RoutineFlows extends Context.Service<RoutineFlows, RoutineFlowsShape>()("o
           const delivery = dependencies.delivery(step.deliveryId);
           if (!delivery)
             return store.settleStep(step.id, "failed", null, sourceText("error.backend.routineFlowLinkGone"));
+          // An error on a completed delivery is a failure the agent reported (`routine_report_failure`).
+          if (delivery.status === "completed" && delivery.error !== null)
+            return store.settleStep(step.id, "failed", null, delivery.error);
           if (delivery.status === "completed") {
             const output = delivery.turnId ? dependencies.turnAnswer(step.agentId, delivery.turnId) : null;
             return store.settleStep(step.id, "succeeded", output, null);

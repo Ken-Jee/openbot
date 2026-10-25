@@ -52,6 +52,11 @@ function geminiRequestFailure(error: unknown, detail: string): string {
 }
 
 export const ANTIGRAVITY_ACP_FLAVOR: AcpFlavor = {
+  // Antigravity 1.4.3 offers its Claude and GPT models only to a client named `zed`, `xcode`,
+  // `jetbrains.*` or `android studio*` (`supports_third_party_models`). Any other client gets the
+  // Gemini models only, also when the plan includes the others. The server also sends the name and
+  // version to Google in its User-Agent (`_surface`), so Google sees these requests as `zed/0.1.0`.
+  clientInfo: { name: "zed", title: "OpenBot", version: "0.1.0" },
   // Antigravity 1.3.0 has three exact forms: a load or resume puts the ID in data.sessionId, a
   // configuration change uses the SDK's resource URI `session <id>`, and a prompt raises a plain
   // error that the SDK wraps as an internal error.
@@ -84,6 +89,8 @@ export const ANTIGRAVITY_ACP_FLAVOR: AcpFlavor = {
   // Antigravity keeps session/prompt open while background tasks run. Its text must not wait for
   // that response.
   streamAnswerBeforePromptReturns: true,
+  // A silent prompt can be a background task that still runs, so the turn is not ended as stalled.
+  promptOpenForBackgroundTasks: true,
   // Antigravity 1.3.0 sends `usage_update` but has no ACP method or command that compacts.
   contextCompaction: "handoff",
 };

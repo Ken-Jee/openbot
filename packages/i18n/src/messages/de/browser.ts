@@ -105,6 +105,8 @@ export const messages = {
   "browser.userControl.status": "Du steuerst diese Seite",
   "browser.dock.messageTo": "Nachricht an {name}",
   "browser.dock.needsYou": "{name} braucht dich auf dieser Seite",
+  "browser.dock.needsAnswer": "{name} braucht deine Antwort",
+  "browser.dock.needsApproval": "{name} braucht deine Freigabe",
   "browser.dock.answerInChat": "Im Chat antworten",
   "browser.tab.newRight": "Neuer Tab rechts",
   "browser.tab.duplicate": "Duplizieren",
@@ -128,4 +130,45 @@ export const messages = {
   "browser.address.switchToTab": "Zum Tab wechseln",
   "browser.address.search": "Google-Suche",
   "browser.pageActions": "Seitenaktionen",
+  "browser.signIn.local": "Auf diesem Computer anmelden",
+  "browser.signIn.title": "Bei {site} anmelden",
+  "browser.signIn.description":
+    "Manche Websites lehnen eine Anmeldung von einem Server ab. Melde dich auf diesem Computer an, und OpenBot sendet die Anmeldung für {site} an {server}. Alle Agenten und Mitglieder auf {server} können sie dann im Browser verwenden.",
+  "browser.signIn.windowOpen":
+    "Melde dich in dem geöffneten Fenster an. OpenBot sendet die Anmeldung, wenn sie fertig ist. Wenn das Fenster offen bleibt, wähle Fertig.",
+  "browser.signIn.windowClosed":
+    "Das Anmeldefenster ist geschlossen. Wähle Fertig, um die Anmeldung zu senden, oder öffne das Fenster erneut.",
+  "browser.signIn.reopen": "Anmeldefenster öffnen",
+  "browser.signIn.sending": "Wird an {server} gesendet…",
+  "browser.signIn.sent": "Bei {site} auf {server} angemeldet",
+  "browser.signIn.notFound":
+    "OpenBot hat keine Anmeldung für {site} gefunden. Melde dich im Fenster an und wähle dann Fertig.",
+  "browser.signIn.stillSignedOut":
+    "{server} zeigt für {site} noch eine Anmeldeseite. Schließe die Anmeldung im Fenster ab.",
+  "browser.signIn.failed": "OpenBot konnte die Anmeldung nicht senden.",
+  "browser.profiles.title": "Browser-Profile",
+  "browser.profiles.subtitle":
+    "Jedes Profil behält eigene Anmeldungen, Cookies und Website-Daten auf dem Computer, auf dem OpenBot läuft.",
+  "browser.profiles.label": "Browser-Profile",
+  "browser.profiles.newName": "Profilname",
+  "browser.profiles.create": "Hinzufügen",
+  "browser.profiles.usage": "{agents} · {tabs}",
+  "browser.profiles.agents": { one: "{count} Agent", other: "{count} Agenten" },
+  "browser.profiles.tabs": { one: "{count} offener Tab", other: "{count} offene Tabs" },
+  "browser.profiles.renameLabel": "{name} umbenennen",
+  "browser.profiles.actionsFor": "Aktionen für {name}",
+  "browser.profiles.colorLabel": "Farbe von {name}",
+  "browser.profiles.save": "Speichern",
+  "browser.profiles.clear": "Daten löschen",
+  "browser.profiles.clearTitle": "Daten von {name} löschen?",
+  "browser.profiles.clearDescription":
+    "Dies meldet dich bei allen Websites in diesem Profil ab und löscht seine Cookies und Website-Daten. Seine offenen Tabs werden geschlossen.",
+  "browser.profiles.deleteTitle": "{name} löschen?",
+  "browser.profiles.deleteDescription":
+    "Dies löscht die Anmeldungen, Cookies und Website-Daten des Profils. Seine offenen Tabs werden geschlossen.",
+  "browser.profiles.deleteAgents": "Diese Agenten wechseln zum gemeinsamen Profil: {agents}.",
+  "browser.profiles.failed": "OpenBot konnte die Browser-Profile nicht ändern.",
+  "browser.profiles.loadFailed": "OpenBot konnte die Browser-Profile nicht laden.",
+  "browser.profiles.tabLabel": "Profil: {name}",
+  "browser.profiles.agentTabLabel": "Eigenes Profil des Agenten",
 } as const satisfies PartialTranslation<typeof source>;

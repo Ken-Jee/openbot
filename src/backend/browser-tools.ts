@@ -1,4 +1,5 @@
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
+import { BROWSER_TAKEOVER_REASONS, VAULT_TEXT_LIMIT, type VaultContactFields } from "@openbot/contracts/ipc";
 import { z } from "zod";
 import {
   BROWSER_FILL_FIELDS_MAX_FIELDS,
@@ -42,6 +43,24 @@ const browserTargetSchema = z.discriminatedUnion("kind", [
     y: z.number().min(0).max(INPUT_LIMITS.browserCoordinate),
   }),
 ]);
+
+const vaultText = z.string().max(VAULT_TEXT_LIMIT).optional();
+
+const vaultContactShape = {
+  fullName: vaultText.describe("Contact: the full name."),
+  address: vaultText.describe("Contact: the street address."),
+  address2: vaultText.describe("Contact: the apartment, suite or floor."),
+  city: vaultText.describe("Contact: the city."),
+  region: vaultText.describe("Contact: the state, province or region."),
+  postalCode: vaultText.describe("Contact: the postal code."),
+  country: z
+    .string()
+    .regex(/^[A-Za-z]{2}$|^$/u)
+    .optional()
+    .describe("Contact: the ISO 3166-1 alpha-2 country code, such as US or DE."),
+  phone: vaultText.describe("Contact: the phone number."),
+  email: vaultText.describe("Contact: the email address."),
+} satisfies { [Key in Exclude<keyof VaultContactFields, "label">]: z.ZodType };
 
 function browserTool<const Name extends string, Shape extends z.ZodRawShape>(definition: {
   name: Name;
@@ -111,7 +130,7 @@ const BROWSER_TOOL_DEFINITIONS = [
   browserTool({
     name: "submit_secret",
     description:
-      "Request the secret card for the active authentication step discovered in a fresh page snapshot. Identify password, email/SMS code, or authenticator-app code from the page instructions before calling. Select any login-method option first. The user authorizes one fill-and-submit action to the shown HTTPS origin. Never pass a secret as an argument. Use takeover if the method or code length is unclear, for nonnumeric/recovery codes, CAPTCHA, passkeys, or payments.",
+      "Request the secret card for the active authentication step discovered in a fresh page snapshot. Identify password, email/SMS code, or authenticator-app code from the page instructions before calling. Select any login-method option first. The user authorizes one fill-and-submit action to the shown HTTPS origin. Never pass a secret as an argument. Use takeover if the method or code length is unclear, for nonnumeric/recovery codes, CAPTCHA, passkeys, or payment confirmation. Fill saved cards with fill_card.",
     shape: {
       tabId,
       method: z
@@ -150,6 +169,13 @@ const BROWSER_TOOL_DEFINITIONS = [
         .describe(
           "For password or authenticator: the id of a saved login from list_logins. OpenBot fills its password or current code without asking the user.",
         ),
+      username: z
+        .string()
+        .max(VAULT_TEXT_LIMIT)
+        .optional()
+        .describe(
+          "For password without loginId: the username or email of this sign-in, as typed on the page. When the user saves the password in the OpenBot Vault from the card, the login gets this username.",
+        ),
     },
   }),
   browserTool({
@@ -159,10 +185,69 @@ const BROWSER_TOOL_DEFINITIONS = [
     shape: { tabId },
   }),
   browserTool({
+    name: "list_vault_items",
+    description:
+      "List what the user saved in the OpenBot Vault. A login shows id, website and username; its password and notes are never returned, so sign in with list_logins and submit_secret. A card shows id, label, nameOnCard, brand, last4, expiry and hasSecurityCode; its number and security code are never returned, so fill card fields with fill_card. A contact shows every field: type them with fill_fields, type, or select_option. addedBy names the agent that added an item; it is absent when the user added it.",
+    shape: {},
+  }),
+  browserTool({
+    name: "save_vault_item",
+    description:
+      "Add contact info to the OpenBot Vault, or change a saved item. A contact without id is new; with id, it changes. A login or a card needs its id from list_vault_items (not from list_logins). A login changes only its username; a card changes only fields that are not secret. You cannot set a password, a website, a card number or a security code. An omitted field keeps its value. Returns the id, kind and name, never a secret.",
+    shape: {
+      kind: z.enum(["contact", "login", "card"]),
+      id: identifier.optional().describe("The item to change. Omit it to add a contact."),
+      label: vaultText.describe("Contact or card: a short name, such as Home or Work card."),
+      ...vaultContactShape,
+      username: vaultText.describe("Login: the username or email."),
+      nameOnCard: vaultText.describe("Card: the name on the card."),
+      expMonth: z.number().int().min(1).max(12).optional().describe("Card: the expiry month."),
+      expYear: z.number().int().min(2000).max(2099).optional().describe("Card: the four-digit expiry year."),
+      billingContactId: identifier
+        .nullable()
+        .optional()
+        .describe("Card: the id of the contact for the billing address, or null for none."),
+    },
+  }),
+  browserTool({
+    name: "delete_vault_item",
+    description:
+      "Delete a login, card or contact from the OpenBot Vault by its id from list_vault_items (not from list_logins). A card that uses a deleted contact for billing keeps no billing address. This cannot be undone: ask first unless you added the item or the user asked for the delete.",
+    shape: { id: identifier },
+  }),
+  browserTool({
+    name: "fill_card",
+    description:
+      "Type a saved card from list_vault_items into card fields from one fresh snapshot: the number, and any of the security code, a single expiry field or month and year fields (inputs or native selects), and the name on the card. Fields can be on the HTTPS page or in an HTTPS payment frame. You never see the number or the security code: snapshots hide them. Does not submit. The first fill of a card on a site waits for the server owner's approval. Returns the filled field names and a fresh snapshot. Screenshots, evaluate and recording are unavailable until the page navigates.",
+    shape: {
+      tabId,
+      cardId: identifier,
+      targets: z
+        .strictObject({
+          number: browserTargetSchema,
+          securityCode: browserTargetSchema.optional(),
+          expiry: browserTargetSchema.optional().describe("One field for month and year, such as MM/YY."),
+          expMonth: browserTargetSchema.optional(),
+          expYear: browserTargetSchema.optional(),
+          nameOnCard: browserTargetSchema.optional(),
+        })
+        .refine((targets) => !(targets.expiry && (targets.expMonth || targets.expYear)), {
+          message: "Use expiry, or expMonth and expYear, not both.",
+        }),
+      timeoutMs: timeout,
+    },
+  }),
+  browserTool({
     name: "request_takeover",
     description:
-      "Ask the user to take over a tab for unclear OAuth account selection, CAPTCHA, passkeys, payment confirmation, or when secure password/code handoff is unavailable.",
-    shape: { tabId },
+      "Ask the user to take over a tab for unclear OAuth account selection, CAPTCHA, passkeys, payment confirmation such as 3-D Secure, or when secure password/code handoff or card fill is unavailable.",
+    shape: {
+      tabId,
+      reason: z
+        .enum(BROWSER_TAKEOVER_REASONS)
+        .optional()
+        .describe("sign-in-blocked: the site refused the sign-in from the browser's network address."),
+    },
   }),
   browserTool({
     name: "navigate",
@@ -202,7 +287,7 @@ const BROWSER_TOOL_DEFINITIONS = [
   browserTool({
     name: "fill_fields",
     description:
-      "Replace 1 to 16 already inspected ordinary main-frame text fields from one fresh snapshot, with at most 16 KiB combined UTF-8 text. Performs one queued operation and returns one final snapshot. Does not submit. Refuses known password, code, and payment fields. Partial results report confirmed and uncertain zero-based indices. Read the page before continuing; never automatically retry or undo a partial fill.",
+      "Replace 1 to 16 already inspected ordinary main-frame text fields from one fresh snapshot, with at most 16 KiB combined UTF-8 text. Performs one queued operation and returns one final snapshot. Does not submit. Refuses known password, code, and payment fields: use fill_card for card fields. Partial results report confirmed and uncertain zero-based indices. Read the page before continuing; never automatically retry or undo a partial fill.",
     shape: {
       tabId,
       revision,

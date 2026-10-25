@@ -134,6 +134,8 @@ export function createMockBrowser(
     },
     openPictureInPicture: async (bounds) => bounds ?? { x: 16, y: 16, width: 420, height: 300 },
     closePictureInPicture: async () => undefined,
+    openLocalSignIn: async () => ({ signedIn: false }),
+    finishLocalSignIn: async ({ send }) => (send ? { cookies: 12, signedIn: true } : null),
     dockPictureInPicture: async () => {
       emit(browserPictureInPictureListeners, { type: "dock" });
     },

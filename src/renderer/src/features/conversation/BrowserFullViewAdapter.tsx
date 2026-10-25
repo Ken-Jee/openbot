@@ -1,7 +1,10 @@
 import type { BrowserTab } from "@openbot/contracts/ipc";
+import { BROWSER_PROFILES_CAPABILITY } from "@openbot/contracts/team-protocol/browser-profiles-v1";
 import BrowserFullView from "@openbot/ui/features/browser/BrowserFullView";
+import BrowserLocalSignInDialog from "@openbot/ui/features/browser/BrowserLocalSignInDialog";
 import { BROWSER_NEW_TAB_URL } from "@openbot/ui/features/browser/browser-suggestions";
-import { createEffect, createMemo, untrack } from "solid-js";
+import { createEffect, createMemo, onCleanup, Show, untrack } from "solid-js";
+import { desktopBrowserProfileCalls } from "../browser/browser-profiles-port";
 import {
   browserSessionHistory,
   canReopenBrowserTab,
@@ -13,6 +16,7 @@ import {
   syncBrowserTabOrder,
   takeClosedBrowserTab,
 } from "../browser/browser-tab-session";
+import { createBrowserTabProfiles } from "../browser/stores/browser-tab-profiles";
 import { serverSupportsCapability } from "../servers/server-capabilities";
 import { BrowserDockAdapter } from "./BrowserDockAdapter";
 import { conversationPort } from "./conversation-port";
@@ -42,9 +46,19 @@ export default function BrowserFullViewAdapter() {
     setBrowserSurfaceElement,
     showBrowserPip,
     showBrowserTabOf,
+    localSignIn,
   } = useConversationViewScope();
   const serverId = () => props.server?.id ?? "";
   const tabs = createMemo(() => orderedBrowserTabs(serverId(), allBrowserTabs()));
+  // Any member who sees a tab reads its profile label, from a host that serves `browser-profiles-v1`.
+  const readTabProfiles = createMemo(() => {
+    if (props.runtime) return props.runtime.browserProfiles?.tabProfiles;
+    const server = props.server;
+    return server && serverSupportsCapability(server, BROWSER_PROFILES_CAPABILITY)
+      ? desktopBrowserProfileCalls(server.id).tabProfiles
+      : undefined;
+  });
+  const profileForTab = createBrowserTabProfiles(readTabProfiles, allBrowserTabs);
 
   createEffect(
     () => ({ id: serverId(), listed: allBrowserTabs() }),
@@ -99,6 +113,9 @@ export default function BrowserFullViewAdapter() {
     }
   }
 
+  // The session of the sign-in stays in main only while this dialog can finish it.
+  onCleanup(localSignIn.cancel);
+
   return (
     <BrowserFullView
       open={browserExpandedOpen()}
@@ -111,6 +128,7 @@ export default function BrowserFullViewAdapter() {
       controlForTab={browserControlForTab}
       controllerForTab={browserControllerForTab}
       ownerForTab={browserTabOwner}
+      profileForTab={profileForTab}
       onActivateTab={activateTab}
       onCloseTabs={closeTabs}
       onNewTab={(afterId) => openTab(BROWSER_NEW_TAB_URL, afterId === undefined ? {} : { afterId })}
@@ -138,8 +156,26 @@ export default function BrowserFullViewAdapter() {
       liveViewClipboard={serverSupportsCapability(props.server, "browser-view-clipboard")}
       onBack={() => setActiveRightPanel("browser")}
       onEnterPip={props.runtime ? () => undefined : showBrowserPip}
+      onSignInLocally={localSignIn.canStart(activeBrowserTab()) ? localSignIn.start : undefined}
       // A local tab is a native view above this window, so its dock goes in the overlay above the page.
       dock={<BrowserDockAdapter tab={activeBrowserTab()} overlay={!props.runtime && props.server?.kind === "local"} />}
+      dialogs={
+        <Show when={localSignIn.state()}>
+          {(current) => (
+            <BrowserLocalSignInDialog
+              open
+              site={current().site}
+              server={props.server?.name ?? ""}
+              windowOpen={current().windowOpen}
+              pending={current().pending}
+              error={current().error}
+              onReopen={() => localSignIn.reopen(current().tabId, current().url)}
+              onCancel={localSignIn.cancel}
+              onDone={localSignIn.finish}
+            />
+          )}
+        </Show>
+      }
     />
   );
 }

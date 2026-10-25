@@ -3,6 +3,7 @@ import type {
   AgentBackupModelSettings,
   AgentBackupModels,
   AgentHostSettings,
+  AgentTaskLimitSettings,
   AgentUsageLimitReturn,
   ServerSummary,
   UpdateAgentAdminSettingsInput,
@@ -11,6 +12,7 @@ import type {
 import { AGENT_ADMIN_CAPABILITY } from "@openbot/contracts/team-protocol/agent-admin-v1";
 import { AGENT_BACKUP_MODELS_CAPABILITY } from "@openbot/contracts/team-protocol/agent-backup-models-v1";
 import { AGENT_HOST_SETTINGS_CAPABILITY } from "@openbot/contracts/team-protocol/agent-host-settings-v1";
+import { AGENT_TASK_LIMIT_CAPABILITY } from "@openbot/contracts/team-protocol/agent-task-limit-v1";
 import { currentText } from "@openbot/ui/text";
 import { createEffect, createStore, untrack } from "solid-js";
 import { serverCanAdminister } from "../servers/server-capabilities";
@@ -25,6 +27,8 @@ export type RemoteAgentAdminCalls = Pick<
   | "updateAgentHostSettings"
   | "getAgentBackupModels"
   | "updateAgentBackupModels"
+  | "getAgentTaskLimit"
+  | "updateAgentTaskLimit"
 >;
 
 /** A joined server where this account may change agent access and auto-approve. */
@@ -39,6 +43,8 @@ interface RemoteAgentAdminState {
   hostSettings: AgentHostSettings | null;
   backupKey: string | null;
   backupModels: AgentBackupModelSettings | null;
+  taskLimitKey: string | null;
+  taskLimit: AgentTaskLimitSettings | null;
 }
 
 /**
@@ -57,6 +63,8 @@ export function createRemoteAgentAdmin(
     hostSettings: null,
     backupKey: null,
     backupModels: null,
+    taskLimitKey: null,
+    taskLimit: null,
   });
   const hostKey = () => {
     const current = target();
@@ -128,6 +136,41 @@ export function createRemoteAgentAdmin(
         .catch(() => undefined);
     },
   );
+  const taskLimitKey = () => {
+    const current = target();
+    if (current?.server.kind !== "remote" || !serverCanAdminister(current.server, AGENT_TASK_LIMIT_CAPABILITY))
+      return null;
+    return JSON.stringify([current.server.id, current.agentId]);
+  };
+  function acceptTaskLimit(requestKey: string, settings: AgentTaskLimitSettings): void {
+    if (taskLimitKey() !== requestKey) return;
+    setState((draft) => {
+      draft.taskLimitKey = requestKey;
+      draft.taskLimit = settings;
+    });
+  }
+  let taskLimitReadGeneration = 0;
+  createEffect(
+    () => JSON.stringify([taskLimitKey(), target()?.updatedAt]),
+    () => {
+      const requestKey = untrack(taskLimitKey);
+      const generation = ++taskLimitReadGeneration;
+      if (untrack(() => state.taskLimitKey) !== requestKey)
+        setState((draft) => {
+          draft.taskLimitKey = null;
+          draft.taskLimit = null;
+        });
+      const current = untrack(target);
+      if (!requestKey || !current) return;
+      calls()
+        .getAgentTaskLimit(current.agentId, current.server.id)
+        .then((settings) => {
+          if (generation === taskLimitReadGeneration) acceptTaskLimit(requestKey, settings);
+        })
+        // A failed read keeps the setting hidden. The host checks the role on every write anyway.
+        .catch(() => undefined);
+    },
+  );
   const key = () => {
     const current = target();
     if (current?.server.kind !== "remote" || !serverCanAdministerAgents(current.server)) return null;
@@ -182,6 +225,17 @@ export function createRemoteAgentAdmin(
       if (backupKey() === JSON.stringify([server.id, agentId])) backupReadGeneration += 1;
       acceptBackup(JSON.stringify([server.id, agentId]), settings);
     },
+    /** Undefined for a local agent, before the host answers, and without the capability. Null: the default. */
+    taskLimit: (): number | null | undefined =>
+      state.taskLimitKey !== null && state.taskLimitKey === taskLimitKey() ? state.taskLimit?.taskLimit : undefined,
+    async updateTaskLimit(agentId: string, taskLimit: number | null): Promise<void> {
+      const server = target()?.server;
+      if (server?.kind !== "remote" || !serverCanAdminister(server, AGENT_TASK_LIMIT_CAPABILITY))
+        throw new Error(currentText().t("agent.error.adminOnly"));
+      const settings = await calls().updateAgentTaskLimit({ agentId, taskLimit }, server.id);
+      if (taskLimitKey() === JSON.stringify([server.id, agentId])) taskLimitReadGeneration += 1;
+      acceptTaskLimit(JSON.stringify([server.id, agentId]), settings);
+    },
     /** Null for a local agent, before the first answer, and when the host does not serve the capability. */
     settings: (): AgentAdminSettings | null => (state.key !== null && state.key === key() ? state.settings : null),
     /** Undefined until the host answers. A released host with Turbo mode on locks every agent to auto-approve. */
@@ -206,17 +260,23 @@ export function createRemoteAgentAdmin(
 
 /**
  * Sends a profile change to an agent of a joined server. The Team API agent route ignores access,
- * so access, Local scripts and backup models go to their admin routes. Other fields keep the agent route.
+ * so access, Local scripts, backup models and the task limit go to their admin routes. Other fields
+ * keep the agent route.
  */
 export async function updateRemoteAgent(
-  admin: Pick<RemoteAgentAdmin, "update" | "updateAutomation" | "updateBackupModels">,
+  admin: Pick<RemoteAgentAdmin, "update" | "updateAutomation" | "updateBackupModels" | "updateTaskLimit">,
   input: UpdateAgentInput,
   updateProfile: (input: UpdateAgentInput) => Promise<void>,
 ): Promise<void> {
-  const { access, allowAutomation, backupModels, agentId, ...fields } = input;
+  const { access, allowAutomation, backupModels, taskLimit, agentId, ...fields } = input;
+  // A joined server's host keeps one value for each agent: it has no account default to return to.
+  // Only Settings › Agents sends `null`, and only for this computer, so no user sees this error.
+  // It comes before the first write, so that a wrong call changes nothing.
+  if (allowAutomation === null) throw new Error("A joined server has no default for Local scripts.");
   if (access !== undefined) await admin.update({ agentId, access });
   if (allowAutomation !== undefined) await admin.updateAutomation(agentId, allowAutomation);
   if (backupModels !== undefined) await admin.updateBackupModels(agentId, backupModels);
+  if (taskLimit !== undefined) await admin.updateTaskLimit(agentId, taskLimit);
   if (Object.keys(fields).length) await updateProfile({ agentId, ...fields });
 }
 

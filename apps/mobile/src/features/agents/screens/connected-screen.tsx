@@ -17,7 +17,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Pressable, StyleSheet, View, type ViewStyle } from "react-native";
+import { Pressable, StyleSheet, View, type ViewInstance, type ViewStyle } from "react-native";
 import Animated, {
   cancelAnimation,
   Easing,
@@ -218,7 +218,7 @@ const HEADER_RIPPLE = { borderless: true, radius: 20 } as const;
  * On Android, the content under the search field, which the field blurs: Android blurs only the
  * content of a `BlurTargetView`. iOS blurs with its glass and needs no target.
  */
-function SearchBlurTarget({ target, children }: { target: RefObject<View | null>; children: ReactNode }) {
+function SearchBlurTarget({ target, children }: { target: RefObject<ViewInstance | null>; children: ReactNode }) {
   if (!isAndroid) return children;
   return (
     <BlurTargetView ref={target} style={{ flex: 1 }}>
@@ -287,7 +287,7 @@ export function ConnectedScreen() {
   const [foreground, muted] = useThemeColor(["foreground", "muted"]);
   // The Android header buttons have the glass of the search field.
   const buttonGlass = useChromeGlass();
-  const searchBlurTarget = useRef<View>(null);
+  const searchBlurTarget = useRef<ViewInstance>(null);
   const iconColor = String(foreground);
   const mutedColor = String(muted);
   const hasSelectedServer = servers.some((server) => server.id === activeServer.id);
@@ -686,7 +686,7 @@ export function ConnectedScreen() {
                   </View>
                 ) : activeAgents.length === 0 ? (
                   <EmptyAgentsScene onAddAgent={addAgent} />
-                ) : null
+                ) : undefined
               }
             />
           ) : null}

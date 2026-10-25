@@ -24,7 +24,7 @@ All text uses Inter, the desktop and web font, with the system font as fallback.
 | Product headings, paragraphs, labels, and inline text | HeroUI Native `Typography` | Use semantic type, color, weight, and alignment props instead of React Native `Text` and screen-local font styling. |
 | Screen stacks, titles, back buttons, headers, and route transitions | Expo Router native `Stack` | Configure them in route layouts or screen options instead of drawing custom headers. |
 | Tab navigation | Expo Router `NativeTabs` | Use native tab triggers, labels, badges, and platform icons instead of a custom tab bar. |
-| Search integrated with navigation | `Stack.SearchBar` and native toolbar search slots | Do not place a HeroUI input inside a handmade navigation bar. The home search field is the documented exception; see [Home search](#home-search). |
+| Search integrated with navigation | `Stack.SearchBar` and native toolbar search slots | Do not place a HeroUI input inside a handmade navigation bar. The home search field and the Marketplace field are the documented exceptions; see [Home search](#home-search) and [Marketplace search](#marketplace-search). |
 | Header and bottom toolbar actions or menus | `Stack.Toolbar` native items | Let the platform render placement, materials, menus, and interaction behavior. |
 | Route-level modals and form sheets | Expo Router native presentations | Prefer native modal or form-sheet presentation over a custom full-screen overlay. |
 | Native pickers, switches, sliders, menus, and grouped system forms | `@expo/ui` | Use when the interaction should look and behave like a platform control. Keep every `@expo/ui` tree inside `Host`. Import `MenuView` from `@/shared/components/menu-view`, not `@expo/ui/community/menu`. iOS keeps the native menu. Android draws the HeroUI `Menu`, because the Material menu takes the device palette and shape, and shows a Lucide icon for each SF Symbol `image` that the component maps. Add the mapping when you use a new symbol. |
@@ -83,6 +83,32 @@ takes focus, the results come in over the list (220 ms, opacity and 8 pt up; opa
 reduced motion), a close button comes in beside the field, and the drawer pan stops. Close, Android
 Back, or a result closes them in 160 ms. With no query the results show shortcuts and the agents of
 the server; a query shows the same sections as before, with `BlurSwap` between states.
+
+### Marketplace search
+
+The Marketplace page (drawer → Marketplace) has the same bottom field as home, for the same reason:
+it is the one control of a page that the thumb reaches, and it rides on the keyboard. It uses the
+shared `GlassCapsule` (`src/shared/components/glass-capsule.tsx`), so the glass, the solid fallback
+and Reduce Transparency behave as on home. `Stack.SearchBar` would put the field at the top and
+leave the filter without a place.
+
+The filter is a glass button beside the field, in its own capsule, that opens a native `MenuView`:
+the kind (one inline group), a category submenu, and Installed only. It is not inside the field: on
+iOS the menu grows out of the view it opens from, so a button in the field would take the whole field
+into the menu. Android shows the categories as one more group of the menu, not as a sub-menu: the
+Android menu draws a sub-menu as a layer under its row, which runs off the screen above a bottom field.
+The Android menu opens above a button in the lower half of the screen and fits its height to the room
+there. Each filter that is set shows as a token in the field, and a tap on a token removes it. A filter or a query turns the overview into one grouped list in place;
+there is no results overlay. A close button comes in beside the field while it has focus or text.
+
+A listing opens as one sheet with a nested stack. The first page shows the listing as the desktop
+page does: one header card on the listing's gradient (`ListingGradient`, the still colours of the
+desktop `SkillGradient`) with the icon, name, creator and kind, and an example request or the agent's
+skills under them; then the facts in a grid of two columns, and the content (SKILL.md, an agent's skills and routines, an app's prompts). The `+` in the native header
+installs. A skill opens the agent choice as the next page, and an app that asks for a key or a
+sign-in opens its connect page; each page has its own `SheetSaveAction`. The arrow on an example request is the desktop Try: it puts the request
+(a skill keeps its `@[name](skill:id)` marker) in an agent's message field and the chat replaces the
+sheet, as Agent info > Skills does for a new skill. Several agents that can use it are a native menu.
 
 ## Sheets
 
@@ -198,7 +224,7 @@ Use `src/shared/components/sheet-scroll-view.tsx` as the root scroll container. 
   following existing screens. Reuse `SheetFormField` instead of rebuilding its platform inputs.
 - `SheetScrollView` uses `KeyboardAwareScrollView` to reveal the focused field and keep the last
   action reachable above the keyboard. Keep `mode="insets"` so keyboard clearance does not add a
-  layout spacer. Use `disableScrollOnKeyboardHide` to keep the user's position. The keyboard-controller 1.21.9 patch shrinks insets during dismissal and
+  layout spacer. Use `disableScrollOnKeyboardHide` to keep the user's position. The keyboard-controller 1.22.7 patch shrinks insets during dismissal and
   clamps only the current offset beyond the remaining content, instead of replaying a saved offset
   after a new drag. Check that event sequence again when the library changes. Leave
   `automaticallyAdjustKeyboardInsets` disabled and do not add another keyboard-avoiding wrapper. Verify tapping outside a field followed immediately by scrolling,

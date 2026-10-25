@@ -8,6 +8,7 @@ import type {
 import {
   AGENT_EXCHANGE_ITEM_TYPE,
   CONTEXT_RESET_ITEM_TYPE,
+  CONVERSATION_MEMORY_CHANGES_ITEM_TYPE,
   CONVERSATION_SUBAGENTS_ITEM_TYPE,
   HOSTED_SITE_EVENT_ITEM_TYPE_PREFIX,
   MARKETPLACE_SUGGESTION_ITEM_TYPE_PREFIX,
@@ -65,6 +66,7 @@ function isIncoming(message: { itemType?: string | undefined }, fromUser: boolea
     message.itemType !== AGENT_EXCHANGE_ITEM_TYPE &&
     message.itemType !== "plan" &&
     message.itemType !== CONVERSATION_SUBAGENTS_ITEM_TYPE &&
+    message.itemType !== CONVERSATION_MEMORY_CHANGES_ITEM_TYPE &&
     message.itemType !== ROUTINE_QUIET_ANSWER_ITEM_TYPE &&
     !isRoutineEventItem(message)
   );

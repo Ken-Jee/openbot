@@ -399,4 +399,18 @@ export const messages = {
   "connector.bitwarden.connected": "接続済み",
   "connector.bitwarden.disconnected": "未接続",
   "connector.bitwarden.actionFailed": "OpenBot は Bitwarden の接続を変更できませんでした。",
+  "connector.bitwarden.descriptionHost":
+    "{host} のブラウザーのログインを Bitwarden または Vaultwarden から入力します。",
+  "connector.bitwarden.setupHost":
+    "{host} は自分の Bitwarden CLI でサインインします。保管庫に Shared with OpenBot という名前のフォルダーを作成し、エージェントが使ってよいログインだけを入れてください。ウェブ保管庫で 設定 › セキュリティ › キー を開き、API キーを表示します。下にサーバーのアドレス、client_id、client_secret、マスターパスワードを入力してください。",
+  "connector.bitwarden.scopeHost":
+    "{host} のすべてのエージェントが Shared with OpenBot の一致するログインを使えます。OpenBot は完全に一致する HTTPS オリジンを使います。マスターパスワードの再入力が必要なアイテムや、カスタムの URI 一致ルールを持つアイテムは使いません。",
+  "connector.bitwarden.sessionHost":
+    "{host} は API キーとマスターパスワードを暗号化して保存し、再起動の後にもう一度ロックを解除できます。このコンピューターには保存しません。切断すると {host} から削除されます。{host} は HTTPS でサーバーのアドレスに接続できる必要があります。",
+  "connector.bitwarden.serverUrl": "サーバーのアドレス",
+  "connector.bitwarden.clientId": "API キーの client_id",
+  "connector.bitwarden.clientSecret": "API キーの client_secret",
+  "connector.bitwarden.masterPassword": "マスターパスワード",
+  "connector.bitwarden.connecting": "接続中",
+  "connector.bitwarden.connectedServer": "{server} に接続済み。",
 } as const satisfies PartialTranslation<typeof source>;

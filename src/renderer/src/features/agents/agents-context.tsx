@@ -16,6 +16,7 @@ import { desktopAnalytics } from "../../analytics";
 import { FALLBACK_STATUS } from "../../app-defaults";
 import { agentProfilesEqual, toAgentProfile } from "../../app-message-projection";
 import { createStoredProfile, updateStored } from "../../app-stored-values";
+import { usePlatform } from "../../platform";
 import { createScopeGuard } from "../../scope-lifetime";
 import { createSimpleContext } from "../../simple-context";
 import { useUiErrors } from "../../ui-errors";
@@ -24,7 +25,7 @@ import { useDirectMessages } from "../conversation/direct-messages-context";
 import { remoteAdminServer } from "../servers/server-capabilities";
 import { useServers } from "../servers/servers-context";
 import { useWindowPage } from "../window/window-page-context";
-import type { CreationPreference } from "./agent-creation-model";
+import type { CreationPreference, DevelopmentCreation } from "./agent-creation-model";
 import { AGENT_SELECTION_STORAGE_KEY, readAgentSelection, writeAgentSelection } from "./agent-selection";
 import { agentsPort } from "./agents-port";
 import {
@@ -85,7 +86,9 @@ const Agents = createSimpleContext({
     const [modelOptions, setModelOptions] = createSignal<ClientAgentModelOption[]>([]);
     const selectionServerId = untrack(activeServerId);
     const scopeIsCurrent = createScopeGuard();
-    let savedAgentId = readAgentSelection(AGENT_SELECTION_STORAGE_KEY)[selectionServerId] ?? "";
+    // A chat window shows its one agent, and keeps the choice of the main window as it is.
+    const chatWindowAgentId = usePlatform().chatWindow?.agentId;
+    let savedAgentId = chatWindowAgentId ?? readAgentSelection(AGENT_SELECTION_STORAGE_KEY)[selectionServerId] ?? "";
     const [activeAgentId, updateActiveAgentId] = createSignal("");
     const [agentChatOpenRevision, setAgentChatOpenRevision] = createSignal(0);
     const [agentSetupOpen, setAgentSetupOpen] = createSignal(false);
@@ -145,6 +148,21 @@ const Agents = createSimpleContext({
       },
     });
     const agentStatus = createMemo(() => withHostAccounts(providerStatus(), hostAccounts.host()));
+    const platform = usePlatform();
+    /**
+     * A development build's own server starts a new agent on the development default, as its backend does.
+     * The status is read here, not in `providerAvailable`, so a provider that becomes available resolves
+     * the new-agent form again.
+     */
+    const developmentCreation = createMemo((): DevelopmentCreation | null => {
+      if (activeServer()?.kind !== "local" || platform.appInfo()?.variant !== "dev") return null;
+      const available = new Set(
+        agentStatus()
+          .providers?.filter((row) => row.state === "available")
+          .map((row) => row.id),
+      );
+      return { providerAvailable: (provider) => available.has(provider) };
+    });
     createEffect(providerStatus, hostAccounts.schedule);
     let openedAgentChatId: string | null = null;
     /** Agents whose delete can still be undone. Main still has them, so each roster read leaves them out. */
@@ -172,7 +190,7 @@ const Agents = createSimpleContext({
       updateActiveAgentId((current) => {
         const next = typeof value === "function" ? value(current) : value;
         savedAgentId = "";
-        writeAgentSelection(AGENT_SELECTION_STORAGE_KEY, selectionServerId, next);
+        if (!chatWindowAgentId) writeAgentSelection(AGENT_SELECTION_STORAGE_KEY, selectionServerId, next);
         return next;
       });
     }
@@ -377,6 +395,7 @@ const Agents = createSimpleContext({
       setSettingsRequest,
       agentStatus,
       setAgentStatus,
+      developmentCreation,
       hostAccountLimits: hostAccounts.limits,
       refreshHostAccounts: hostAccounts.refresh,
       refreshHostAccountUsage: hostAccounts.refreshUsage,

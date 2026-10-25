@@ -14,16 +14,19 @@
 import { readFileSync } from "node:fs";
 import { ANDROID_PLAY_STORE_URL } from "../packages/ui/src/features/mobile-app/android-play-store";
 import { IOS_TESTFLIGHT_URL } from "../packages/ui/src/features/mobile-app/ios-testflight";
-import { announcementFileProblems, postAnnouncement, releaseAnchor } from "./discord-announcement";
+import {
+  announcementFileProblems,
+  LONGEST_ROLE_ID,
+  postAnnouncement,
+  releaseAnchor,
+  roleIdProblems,
+} from "./discord-announcement";
 import { MOBILE_CHANGELOG, MOBILE_STORES, parseStoreDates } from "./release-notes";
 
 export const MOBILE_ANNOUNCEMENT_FILE = "apps/mobile/release-announcement.json";
 const DOCS = "apps/mobile/README.md#discord-announcement";
 /** The ID of the "Mobile Release Pings" role. A GitHub variable of the `release-mobile` environment. */
 const ROLE_VARIABLE = "DISCORD_MOBILE_RELEASE_ROLE_ID";
-/** A Discord ID (snowflake) has at most 20 digits. */
-const ROLE_ID = /^\d{17,20}$/;
-const LONGEST_ROLE_ID = "0".repeat(20);
 
 /** The versions of `changelog` that both stores have, newest first. */
 export function versionsOnBothStores(changelog: string): string[] {
@@ -36,7 +39,6 @@ export function versionsOnBothStores(changelog: string): string[] {
 
 /** What stops `announcement` from being posted for `version`. Empty when it is ready. */
 export function mobileAnnouncementProblems(announcement: string, version: string): string[] {
-  // The longest role ID, so that the real mention cannot make the post too long.
   return announcementFileProblems(announcement, version, MOBILE_ANNOUNCEMENT_FILE, (highlights) =>
     announcementMessage(highlights, version, LONGEST_ROLE_ID),
   );
@@ -92,8 +94,7 @@ if (import.meta.main) {
   const announcement = readFileSync(MOBILE_ANNOUNCEMENT_FILE, "utf8");
   problems.push(...mobileAnnouncementProblems(announcement, version));
   const roleId = process.env[ROLE_VARIABLE] || undefined;
-  if (roleId !== undefined && !ROLE_ID.test(roleId)) problems.push(`${ROLE_VARIABLE} is not a Discord role ID.`);
-  if (command === "send" && roleId === undefined) problems.push(`${ROLE_VARIABLE} is not set.`);
+  problems.push(...roleIdProblems(ROLE_VARIABLE, roleId, command === "send"));
   if (problems.length > 0) {
     fail([
       `The Discord announcement for OpenBot mobile ${version} is not ready:`,

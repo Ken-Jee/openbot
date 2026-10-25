@@ -40,7 +40,14 @@ export interface ServersPort {
   hostedServers: Pick<OpenBotDesktopApi["hostedServers"], "list" | "restart" | "wake">;
   host: Pick<
     OpenBotDesktopApi["host"],
-    "configure" | "getStatus" | "onEvent" | "recheckScreenRecording" | "start" | "stop" | "updateIdentity"
+    | "configure"
+    | "getStatus"
+    | "onEvent"
+    | "recheckScreenRecording"
+    | "rotateIdentityKey"
+    | "start"
+    | "stop"
+    | "updateIdentity"
   >;
   notifications: Pick<OpenBotDesktopApi["notifications"], "onOpened">;
   remoteDesktop: Pick<
@@ -49,7 +56,7 @@ export interface ServersPort {
   >;
   servers: Pick<
     OpenBotDesktopApi["servers"],
-    | "getPresence"
+    | "getPresenceFor"
     | "join"
     | "list"
     | "onEvent"

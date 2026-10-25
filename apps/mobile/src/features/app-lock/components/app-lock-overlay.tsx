@@ -4,8 +4,8 @@ import { useThemeColor } from "heroui-native/hooks";
 import Fingerprint from "lucide-react-native/icons/fingerprint-pattern";
 import LockKeyhole from "lucide-react-native/icons/lock-keyhole";
 import ScanFace from "lucide-react-native/icons/scan-face";
-import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
-import { Alert, BackHandler, Modal, StyleSheet, useWindowDimensions, View } from "react-native";
+import { type ReactNode, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { Alert, AppState, BackHandler, Modal, StyleSheet, useWindowDimensions, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -31,7 +31,6 @@ import { haptics } from "@/shared/lib/haptics";
 import { useReducedMotion } from "@/shared/lib/motion";
 import { isIOS } from "@/shared/lib/platform";
 import { type MobileText, useText } from "@/shared/lib/text";
-import { useAppForeground } from "@/shared/lib/use-app-foreground";
 
 /** The attempts left are shown when this many or fewer remain. */
 const SHOW_ATTEMPTS_LEFT = 5;
@@ -47,6 +46,16 @@ export function deviceUnlockName(kind: DeviceUnlockKind | null, t: MobileText["t
   if (kind === "faceId") return t("mobile.appLock.method.faceId");
   if (kind === "touchId") return t("mobile.appLock.method.touchId");
   return t("mobile.appLock.method.phone");
+}
+
+function subscribeAppState(onChange: () => void): () => void {
+  const subscription = AppState.addEventListener("change", onChange);
+  return () => subscription.remove();
+}
+
+/** Only the active state. `useAppForeground` also counts `inactive` and `unknown`, and a start in the background can report them. */
+function isAppActive(): boolean {
+  return AppState.currentState === "active";
 }
 
 function DeviceUnlockIcon({ kind, size, color }: { kind: DeviceUnlockKind | null; size: number; color: string }) {
@@ -155,7 +164,7 @@ function LockScreen({ leaving, onHeaderLayout }: { leaving: boolean; onHeaderLay
   const confirming = useAppLock((state) => state.confirming);
   const lockCount = useAppLock((state) => state.lockCount);
   const attempts = useAppLock((state) => state.attempts);
-  const appForeground = useAppForeground();
+  const appActive = useSyncExternalStore(subscribeAppState, isAppActive, isAppActive);
   const [pin, setPin] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -211,13 +220,14 @@ function LockScreen({ leaving, onHeaderLayout }: { leaving: boolean; onHeaderLay
     else if (result === "failed") setMessage(t("mobile.appLock.device.failed", { method }));
   }, [method, t]);
 
-  // Offer Face ID once for each lock, when the app is in the foreground.
+  // Offer Face ID once for each lock, when the app is active. iOS can start the app while the phone is
+  // locked, and that start locks the app. A prompt then would wake the phone.
   const prompted = useRef(-1);
   useEffect(() => {
-    if (!appForeground || status !== "ready" || !config.deviceUnlock || prompted.current === lockCount) return;
+    if (!appActive || status !== "ready" || !config.deviceUnlock || prompted.current === lockCount) return;
     prompted.current = lockCount;
     void promptDevice();
-  }, [appForeground, config.deviceUnlock, lockCount, promptDevice, status]);
+  }, [appActive, config.deviceUnlock, lockCount, promptDevice, status]);
 
   async function submit(value: string) {
     setBusy(true);

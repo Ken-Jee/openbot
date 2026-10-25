@@ -8,7 +8,7 @@
  * and shows when the user hid it in place of the last message.
  */
 
-import { Badge, buttonVariants, Clock3, ContextMenu, Lock, Tooltip } from "@openbot/ui";
+import { AppWindow, Badge, buttonVariants, Clock3, ContextMenu, Lock, Tooltip } from "@openbot/ui";
 import type { JSX } from "@solidjs/web";
 import { createStore, Show } from "solid-js";
 import type { AgentProfile } from "../../data";
@@ -50,6 +50,8 @@ export function SidebarAgentRow(rowProps: { agent: AgentProfile; waiting?: boole
   const title = () => rowProps.agent.title.trim();
   const lockLabel = () => agentAccessLockLabel(rowProps.agent, t);
   const accessLabel = () => (lockLabel() ? `. ${lockLabel()}` : "");
+  const inWindow = () => props.windowAgentIds?.has(rowProps.agent.id) ?? false;
+  const windowLabel = () => (inWindow() ? `. ${t("sidebar.agentMenu.inWindow")}` : "");
   const state = () => (rowProps.userHidden ? undefined : props.agentStates[rowProps.agent.id]);
   const hiddenDetail = () => {
     const since = rowProps.userHidden ? userHiddenSince(rowProps.agent.id) : undefined;
@@ -100,7 +102,7 @@ export function SidebarAgentRow(rowProps: { agent: AgentProfile; waiting?: boole
             "sidebar-agent-row-dragging": draggedChatId() === rowProps.agent.id,
           },
         ]}
-        aria-label={`${rowProps.agent.name}${title() ? `, ${title()}` : ""}${accessLabel()}. ${hiddenLabel()}${detail()}${stateLabel() ? `. ${stateLabel()}` : ""}`}
+        aria-label={`${rowProps.agent.name}${title() ? `, ${title()}` : ""}${accessLabel()}${windowLabel()}. ${hiddenLabel()}${detail()}${stateLabel() ? `. ${stateLabel()}` : ""}`}
         title={routineLabel() || undefined}
         aria-pressed={props.activeAgentId === rowProps.agent.id ? "true" : "false"}
         data-cuelume-navigate=""
@@ -120,6 +122,11 @@ export function SidebarAgentRow(rowProps: { agent: AgentProfile; waiting?: boole
                 <Show when={lockLabel()}>
                   <span class="agent-row-access" title={lockLabel()}>
                     <Lock aria-hidden="true" />
+                  </span>
+                </Show>
+                <Show when={inWindow()}>
+                  <span class="agent-row-access" title={t("sidebar.agentMenu.inWindow")}>
+                    <AppWindow aria-hidden="true" />
                   </span>
                 </Show>
               </span>

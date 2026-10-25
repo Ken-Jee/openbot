@@ -1,5 +1,11 @@
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import { z } from "zod";
+import {
+  routineInstructionZodSchema,
+  routineLimitPolicyZodSchema,
+  routineMissedPolicyZodSchema,
+  routineScheduleZodSchema,
+} from "./routine-tool-schema";
 
 const handoff = {
   recipientAgentId: z.string(),
@@ -14,6 +20,9 @@ const handoff = {
     .optional(),
   dependencies: z.array(z.string()).optional(),
 };
+
+const PERSON_ONLY =
+  "It changes only this channel, and only in a task that a person's message started, not a routine run.";
 
 export const CHANNEL_TOOL_DEFINITIONS: readonly { name: string; description: string; shape: z.ZodRawShape }[] = [
   {
@@ -53,5 +62,57 @@ export const CHANNEL_TOOL_DEFINITIONS: readonly { name: string; description: str
     description:
       "Delete one saved channel memory when the user asks the channel to forget it. Give its text exactly as it is listed.",
     shape: { text: z.string().min(1).max(INPUT_LIMITS.agentMemoryText) },
+  },
+  {
+    name: "channel_add_member",
+    description: `Add an agent to this channel when a person asks for it. Get its id from openbot.list_agents. ${PERSON_ONLY}`,
+    shape: { agentId: z.string().min(1).max(INPUT_LIMITS.identifier) },
+  },
+  {
+    name: "channel_remove_member",
+    description: `Remove an agent from this channel when a person asks for it. Its open tasks here stop. You cannot remove yourself. ${PERSON_ONLY}`,
+    shape: { agentId: z.string().min(1).max(INPUT_LIMITS.identifier) },
+  },
+  {
+    name: "channel_set_instructions",
+    description: `Replace the instructions of this channel when a person asks for it. Send the whole new text; an empty text removes them. ${PERSON_ONLY}`,
+    shape: { instructions: z.string().max(INPUT_LIMITS.agentDescription) },
+  },
+  {
+    name: "channel_list_routines",
+    description:
+      "List the scheduled routines of this channel. Use it before you change or delete one. It works only in a task that a person's message started.",
+    shape: {},
+  },
+  {
+    name: "channel_create_routine",
+    description: `Create a scheduled routine that sends its instruction to this channel. It is active by default. Without a timezone, it uses the server timezone. Interval, advanced-every, and custom schedules must not run more often than every 3 minutes. ${PERSON_ONLY}`,
+    shape: {
+      name: z.string().min(1).max(INPUT_LIMITS.routineName),
+      instruction: routineInstructionZodSchema,
+      schedule: routineScheduleZodSchema,
+      active: z.boolean().optional(),
+      timezone: z.string().min(1).max(128).describe("IANA timezone such as Europe/Warsaw.").optional(),
+      limitPolicy: routineLimitPolicyZodSchema.optional(),
+      missedPolicy: routineMissedPolicyZodSchema.optional(),
+    },
+  },
+  {
+    name: "channel_update_routine",
+    description: `Change, pause, or resume a scheduled routine of this channel. Fields you leave out keep their saved values. ${PERSON_ONLY}`,
+    shape: {
+      routineId: z.string().min(1).max(INPUT_LIMITS.identifier),
+      name: z.string().min(1).max(INPUT_LIMITS.routineName).optional(),
+      instruction: routineInstructionZodSchema.optional(),
+      schedule: routineScheduleZodSchema.optional(),
+      active: z.boolean().optional(),
+      limitPolicy: routineLimitPolicyZodSchema.optional(),
+      missedPolicy: routineMissedPolicyZodSchema.optional(),
+    },
+  },
+  {
+    name: "channel_delete_routine",
+    description: `Delete a scheduled routine of this channel. ${PERSON_ONLY}`,
+    shape: { routineId: z.string().min(1).max(INPUT_LIMITS.identifier) },
   },
 ];

@@ -1,5 +1,5 @@
 import type { AgentModelId } from "./ipc-agent-identity";
-import type { AgentAuthState } from "./ipc-agent-status";
+import type { AccountUsageLimit, AgentAuthState } from "./ipc-agent-status";
 import type { ExternalDestination } from "./ipc-app-auth";
 import { isOneOf, isString } from "./runtime-values";
 
@@ -133,8 +133,9 @@ export interface AgentProviderDescriptor {
   readonly workspaceEnforcement: "tool-sandbox" | "command-sandbox" | "confined-process";
   /**
    * How the CLI takes a message into a running turn. `native`: it reads the message at its next
-   * step. `deferred`: the protocol has no steer request (ACP), so the message can wait until the
-   * turn ends. Only a `native` provider steers a message sent in `steer` mode; the others queue it.
+   * step (Grok through its `x.ai/interject` ACP extension). `deferred`: the protocol has no steer
+   * request (ACP), so the message can wait until the turn ends. Only a `native` provider steers a
+   * message sent in `steer` mode; the others queue it.
    */
   readonly steer: "native" | "deferred";
   /**
@@ -147,7 +148,7 @@ export interface AgentProviderDescriptor {
    * Whether OpenBot can read the plan's remaining usage. `false`: the CLI exposes no usage reading,
    * so the dock says the provider does not report usage instead of waiting for a reading. Declared
    * here because the renderer cannot see the drivers; set it to `true` with a driver's usage read
-   * (Codex and Claude read it themselves, Grok, OpenCode and Antigravity through `readRateLimits`).
+   * (Codex and Claude read it themselves, Grok, OpenCode, Antigravity and Cursor through `readRateLimits`).
    */
   readonly reportsUsage: boolean;
   /**
@@ -219,7 +220,7 @@ const AGENT_PROVIDER_DESCRIPTOR_TABLE = {
     signInPageEnd: "callback",
     skillFolders: [".agents/skills"],
     workspaceEnforcement: "confined-process",
-    steer: "deferred",
+    steer: "native",
     concurrentTurns: true,
     reportsUsage: true,
     approvalsInFullAccess: true,
@@ -287,7 +288,7 @@ const AGENT_PROVIDER_DESCRIPTOR_TABLE = {
     workspaceEnforcement: "confined-process",
     steer: "deferred",
     concurrentTurns: true,
-    reportsUsage: false,
+    reportsUsage: true,
     approvalsInFullAccess: true,
   },
   // The Cline CLI (`cline --acp`). Sign-in is the ACP `cline` method, which opens a browser. A Cline
@@ -566,11 +567,52 @@ export function isFreeOpencodeModel(id: string, name: string): boolean {
 /**
  * Whether the provider's account quota limits this model. OpenCode reports only the Go quota, and
  * OpenCode also runs free, custom and own-sign-in models that the Go quota does not limit.
- * Antigravity reports only the Gemini quota; its Claude and GPT models share another limit. Gemini
- * model ids can be code names, so only a Claude or GPT id is left out.
+ * Antigravity's own reading is a Gemini quota group; its Claude and GPT models share another group,
+ * which only the named groups (`usageGroupForModel`) show. Gemini model ids can be code names, so only
+ * a Claude or GPT id is left out.
  */
 export function accountUsageCoversModel(provider: AgentProviderId, model: string | null | undefined): boolean {
   if (provider === "opencode") return Boolean(model?.toLowerCase().startsWith("opencode-go/"));
   if (provider === "antigravity") return !/^(?:claude|gpt)/iu.test(model ?? "");
   return true;
+}
+
+/**
+ * The windows that limit the model: the quota group that lists it when the reading lists the models
+ * of its groups, or else the reading itself. Undefined when no group lists the model.
+ */
+export function usageQuotaForModel(
+  limit: AccountUsageLimit,
+  model: string | null | undefined,
+): Pick<AccountUsageLimit, "primary" | "secondary"> | undefined {
+  return model && limit.groups?.some((group) => group.models.length > 0)
+    ? usageGroupForModel(limit.groups, model)
+    : limit;
+}
+
+/**
+ * The quota group that lists the model. Antigravity lists families ("Gemini Flash", "Gemini 4 Argon")
+ * and the model ID adds a version and an effort (`gemini-3.8-flash-high`), so each word of a listed
+ * name must be a word of the ID. The longest such name wins: "Gemini Flash Lite" before "Gemini Flash".
+ */
+export function usageGroupForModel<Group extends { models: readonly string[] }>(
+  groups: readonly Group[],
+  model: string,
+): Group | undefined {
+  const id = new Set(modelWords(model));
+  let best: { group: Group; length: number } | undefined;
+  for (const group of groups)
+    for (const listed of group.models) {
+      const words = modelWords(listed);
+      if (words.length > (best?.length ?? 0) && words.every((word) => id.has(word)))
+        best = { group, length: words.length };
+    }
+  return best?.group;
+}
+
+function modelWords(text: string): string[] {
+  return text
+    .toLowerCase()
+    .split(/[^a-z0-9.]+/u)
+    .filter(Boolean);
 }

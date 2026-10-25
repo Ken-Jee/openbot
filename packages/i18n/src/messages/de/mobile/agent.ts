@@ -243,7 +243,6 @@ export const messages = {
   "mobile.agent.record.lateMonthDay": "Monate ohne Tag {day} werden übersprungen.",
   "mobile.agent.record.cronHint":
     "Fünf Felder: Minute, Stunde, Tag des Monats, Monat und Wochentag. Zum Beispiel läuft 0 9 * * 1-5 an Wochentagen um 9:00.",
-  "mobile.agent.record.problem.endBeforeStart": "Die Endzeit muss nach der Startzeit liegen.",
   "mobile.agent.record.problem.invalidDate": "Dieser Monat hat diesen Tag nicht.",
   "mobile.agent.record.problem.cronRequired": "Gib einen Cron-Ausdruck ein.",
   "mobile.agent.record.problem.cronTooLong": "Der Cron-Ausdruck ist zu lang.",

@@ -105,6 +105,8 @@ export const messages = {
   "browser.userControl.status": "Sterujesz tą stroną",
   "browser.dock.messageTo": "Wiadomość do: {name}",
   "browser.dock.needsYou": "{name} potrzebuje Twojej pomocy na tej stronie",
+  "browser.dock.needsAnswer": "{name} czeka na Twoją odpowiedź",
+  "browser.dock.needsApproval": "{name} czeka na Twoją zgodę",
   "browser.dock.answerInChat": "Odpowiedz na czacie",
   "browser.tab.newRight": "Nowa karta po prawej",
   "browser.tab.duplicate": "Duplikuj",
@@ -132,4 +134,54 @@ export const messages = {
   "browser.address.switchToTab": "Przejdź do karty",
   "browser.address.search": "Szukaj w Google",
   "browser.pageActions": "Akcje strony",
+  "browser.signIn.local": "Zaloguj się na tym komputerze",
+  "browser.signIn.title": "Zaloguj się do {site}",
+  "browser.signIn.description":
+    "Niektóre witryny odrzucają logowanie z serwera. Zaloguj się na tym komputerze, a OpenBot wyśle logowanie do {site} na {server}. Wszyscy agenci i członkowie na {server} mogą go potem używać w przeglądarce.",
+  "browser.signIn.windowOpen":
+    "Zaloguj się w oknie, które się otworzyło. OpenBot wyśle logowanie, gdy będzie gotowe. Jeśli okno pozostanie otwarte, wybierz Gotowe.",
+  "browser.signIn.windowClosed":
+    "Okno logowania jest zamknięte. Wybierz Gotowe, aby wysłać logowanie, albo otwórz okno ponownie.",
+  "browser.signIn.reopen": "Otwórz okno logowania",
+  "browser.signIn.sending": "Wysyłanie na {server}…",
+  "browser.signIn.sent": "Zalogowano do {site} na {server}",
+  "browser.signIn.notFound":
+    "OpenBot nie znalazł logowania do {site}. Zaloguj się w oknie, a następnie wybierz Gotowe.",
+  "browser.signIn.stillSignedOut": "{server} nadal pokazuje stronę logowania do {site}. Dokończ logowanie w oknie.",
+  "browser.signIn.failed": "OpenBot nie mógł wysłać logowania.",
+  "browser.profiles.title": "Profile przeglądarki",
+  "browser.profiles.subtitle":
+    "Każdy profil przechowuje na komputerze, na którym działa OpenBot, własne logowania, pliki cookie i dane witryn.",
+  "browser.profiles.label": "Profile przeglądarki",
+  "browser.profiles.newName": "Nazwa profilu",
+  "browser.profiles.create": "Dodaj",
+  "browser.profiles.usage": "{agents} · {tabs}",
+  "browser.profiles.agents": {
+    one: "{count} agent",
+    few: "{count} agentów",
+    many: "{count} agentów",
+    other: "{count} agenta",
+  },
+  "browser.profiles.tabs": {
+    one: "{count} otwarta karta",
+    few: "{count} otwarte karty",
+    many: "{count} otwartych kart",
+    other: "{count} otwartej karty",
+  },
+  "browser.profiles.renameLabel": "Zmień nazwę: {name}",
+  "browser.profiles.actionsFor": "Akcje: {name}",
+  "browser.profiles.colorLabel": "Kolor: {name}",
+  "browser.profiles.save": "Zapisz",
+  "browser.profiles.clear": "Wyczyść dane",
+  "browser.profiles.clearTitle": "Wyczyścić dane profilu {name}?",
+  "browser.profiles.clearDescription":
+    "Spowoduje to wylogowanie ze wszystkich witryn w tym profilu i usunięcie jego plików cookie oraz danych witryn. Jego otwarte karty zostaną zamknięte.",
+  "browser.profiles.deleteTitle": "Usunąć {name}?",
+  "browser.profiles.deleteDescription":
+    "Spowoduje to usunięcie logowań, plików cookie i danych witryn profilu. Jego otwarte karty zostaną zamknięte.",
+  "browser.profiles.deleteAgents": "Ci agenci przejdą na wspólny profil: {agents}.",
+  "browser.profiles.failed": "OpenBot nie mógł zmienić profili przeglądarki.",
+  "browser.profiles.loadFailed": "OpenBot nie mógł wczytać profili przeglądarki.",
+  "browser.profiles.tabLabel": "Profil: {name}",
+  "browser.profiles.agentTabLabel": "Własny profil agenta",
 } as const satisfies PartialTranslation<typeof source>;

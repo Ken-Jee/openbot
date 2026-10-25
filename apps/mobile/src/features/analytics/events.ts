@@ -80,6 +80,8 @@ export const MOBILE_EVENTS = {
   voice_conversation_action: { ...outcome, ...voice, action: ["start", "end"], turn_count: count },
   voice_turn: { ...outcome, ...voice, audio_duration_seconds: seconds },
   agent_template_action: { ...outcome, action: ["installed"], entry_point: ["deep_link"] },
+  // The desktop event, without `listing_slug`: the phone sends no listing name.
+  marketplace_action: { ...outcome, entity: ["agent", "skill", "plugin"], action: ["install", "update"] },
   analytics_preference_changed: { enabled: isBoolean },
 } as const;
 

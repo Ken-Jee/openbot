@@ -1,6 +1,6 @@
 # OpenBot Mobile
 
-React Native app built with Expo SDK 57, Expo Router, TypeScript 7, Biome, and Bun. The app uses Expo Continuous Native Generation, so native `ios/` and `android/` directories are intentionally not committed.
+React Native app built with Expo SDK 58, Expo Router, TypeScript 7, Biome, and Bun. The app uses Expo Continuous Native Generation, so native `ios/` and `android/` directories are intentionally not committed.
 
 ## Requirements
 
@@ -11,10 +11,8 @@ React Native app built with Expo SDK 57, Expo Router, TypeScript 7, Biome, and B
 ## Development
 
 The repository uses Bun’s hoisted linker so native Expo modules resolve to one installation.
-The root `postinstall` runs `bun run --cwd apps/mobile setup:skia` after dependency installation.
-Skia 2.6.2 needs this step to copy its packaged native libraries before CocoaPods runs;
-EAS and local installs use the same setup. `OPENBOT_SKIP_SKIA=1` skips the step for desktop and
-API work. If you installed with it, run `bun run --cwd apps/mobile setup:skia` before a native build.
+React Native Skia 2.14 needs no install step. CocoaPods copies its prebuilt libraries from the
+`react-native-skia-apple-*` packages, and Gradle reads them from `react-native-skia-android`.
 
 EAS profiles pin Bun 1.4.2 to match the root `packageManager`. Use the same Bun version
 locally: dependency paths and package patch metadata affect the runtime fingerprint.
@@ -23,23 +21,23 @@ After switching from the isolated linker to the hoisted linker, move the old
 from the repository root. A normal install can retain old workspace symlinks and cause
 the local fingerprint to differ from the clean EAS installation.
 
-Expo 57.0.24 is patched in `patches/expo@57.0.24.patch` so a DOM component ignores a props
+Expo 58.0.16 is patched in `patches/expo@58.0.16.patch` so a DOM component ignores a props
 message that it sends before Android mounts its web view, or after Android removes it. Android
 rejects these calls, and the rejection shows as a console error. The DOM component asks for the
 props again when it is ready.
 
-react-native-screens 4.26.2 is patched in `patches/react-native-screens@4.26.2.patch` with the
-Android fix from upstream PR #4498. A header update for a screen that its stack removed, such as a
-Save in a one-page sheet that closes the sheet, no longer throws
-`ScreenStackFragment added into a non-stack container`. Remove the patch when a release
-contains that fix.
+expo-splash-screen 58.0.10 is patched in `patches/expo-splash-screen@58.0.10.patch` so Android 12
+and 13 get no splash exit animation listener. With the listener, the platform hides the starting
+window on the first draw, and the app crashes when that window is already gone. Gradle links the
+prebuilt AAR of an Expo module and ignores a patch to its Kotlin source, so
+`expo.autolinking.android.buildFromSource` in `package.json` builds `expo-splash-screen` from source.
+A patch to the native code of another Expo module needs the same entry. iOS also links precompiled
+Expo modules by default, so a patch to Expo Swift code needs `expo.autolinking.ios.buildFromSource`.
 
-react-native-reanimated 4.5.5 is patched in `patches/react-native-reanimated@4.5.5.patch` with the
-Android fix from upstream PR #10435. On React Native 0.86, Reanimated applies all animated props
-again on each event during a draw pass, including the props of views that are already removed. Each
-of these updates threw, and Reanimated logged a full stack trace on the UI thread, hundreds of
-times per second while an SVG list scrolled. The patch skips views that no longer exist. Remove the
-patch when the installed Reanimated release contains that fix.
+@react-native-masked-view/masked-view 0.3.2 is patched in
+`patches/@react-native-masked-view%2Fmasked-view@0.3.2.patch` to change only its TypeScript types. They
+extend `NativeMethods`, which React Native 0.87 removed from its types, so `MaskedView` was not a
+valid JSX component. Remove the patch when a release fixes the types.
 
 react-native-uitextview 2.7.1 is patched in `patches/react-native-uitextview@2.7.1.patch` so the
 native selectable message text applies the same baseline offset as React Native `Text`. React Native
@@ -47,25 +45,16 @@ centers each line in its `lineHeight`. Without the offset, the text view drew ea
 of its line box, so iOS message bubbles had more space above the text than below it. Remove the
 patch when a release applies the offset.
 
-The app uses Reanimated 4.5.5, not the 4.5.1 that Expo SDK 57 pins. Reanimated 4.5.3 has the fix
-from upstream PR #9987: before it, a JS stall or an app pause could put an animated view back to
-its first style, and agents disappeared from the home list after a chat. The
-`expo.install.exclude` entry in `package.json` stops `expo install` from setting 4.5.1 again.
-Remove the entry when Expo pins 4.5.3 or later. Expo Go has its own native Reanimated, so it does
-not get this fix.
-
-Expo Router 57.0.20 is patched in `patches/expo-router@57.0.20.patch` to apply zoom dismissal
+Expo Router 58.0.24 is patched in `patches/expo-router@58.0.24.patch` to apply zoom dismissal
 bounds when its enabler registers after the chat mounts. This keeps the avatar-to-header zoom
 interactive from the left edge without enabling dismissal from the middle of the chat.
-The same patch keeps navigation queue snapshots immutable so React observes every navigation
-action, including the first tap when reopening a chat after going back.
 If a row or pinned avatar is tapped during the native return transition, the app retains that
 tap until the list is focused and `transitionEnd` fires. It then invokes the original Link
 handler once, preserving its AppleZoom source without a fixed delay.
 Focus is read from the route's live `isFocused()` state; nested navigators do not always emit
 an initial `focus` event, so a first tap must not depend on receiving one.
 
-Keyboard Controller 1.21.9 is included in SDK 57 Expo Go. Custom development clients and
+Keyboard Controller 1.22.7 is the version that Expo SDK 58 pins for Expo Go. Custom development clients and
 standalone apps must be rebuilt after adding this native dependency; a JavaScript reload alone
 cannot add it to an existing binary. All channels use the fingerprint runtime policy, so these
 updates cannot target older app-version `1.0.0` binaries without Keyboard Controller. Build and
@@ -129,8 +118,8 @@ The native UI does not depend on a native WebRTC module. A hidden Expo DOM compo
 `RTCPeerConnection` and its authenticated DataChannels, then forwards validated commands and live
 events to React Native. This keeps the production transport identical while remaining testable in
 Expo Go without a development build. Expo Go on Android does not include `@expo/dom-webview`, so there
-the component uses `react-native-webview`. `react-native.config.js` keeps that package out of native
-builds.
+the component uses `react-native-webview`. `react-native.config.js` keeps that package out of Android
+builds. iOS builds link it for the PDF preview (`pdf-preview.ios.tsx`).
 
 Remote connection recovery starts the first attempt immediately, then waits 10 seconds after each failure. After
 five failures it waits two minutes before starting a new series. The agent list shows `Reconnecting`
@@ -346,7 +335,7 @@ it to a tester group. Upload is manual; the command does not run EAS Submit.
 ### GitHub Actions TestFlight release
 
 The `Release iOS to TestFlight` workflow builds the selected `main` commit on a GitHub-hosted
-`macos-26` runner with Xcode 26.6. Expo SDK 57 requires Xcode 26.4 or newer; the desktop release's
+`macos-26` runner with Xcode 26.6. Expo SDK 58 requires Xcode 26.4 or newer; the desktop release's
 `macos-14` runner is not suitable. EAS CLI 24.1.2 runs with `--local --non-interactive`, so compilation
 uses GitHub Actions compute. Fastlane uploads directly to Apple without EAS Submit.
 
@@ -558,7 +547,7 @@ missing Client Secret, non-production environment, or web runtime disables the c
 blocking the app. Tests replace native modules and the HTTP transport; they do not contact OpenPanel.
 
 SDK 1.4.1 declares old peer ranges (`expo-application` 5–7 and `expo-constants` 14–18).
-Expo SDK 57 uses the SDK number for these package versions. Keep the Expo-compatible versions
+Expo SDK 58 uses the SDK number for these package versions. Keep the Expo-compatible versions
 installed by `expo install`; do not downgrade them to silence that peer warning. Native verification
 of both platforms is required before release.
 

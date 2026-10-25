@@ -4,6 +4,7 @@ import {
   AGENT_EXCHANGE_ITEM_TYPE,
   type AgentSummary,
   CONTEXT_RESET_ITEM_TYPE,
+  CONVERSATION_MEMORY_CHANGES_ITEM_TYPE,
   CONVERSATION_PLAN_ITEM_TYPE,
   CONVERSATION_SUBAGENTS_ITEM_TYPE,
   type ConversationReadState,
@@ -261,6 +262,7 @@ export class ConversationReadStore {
       AND COALESCE(item_type, '') != 'commentary'
       AND COALESCE(item_type, '') != 'plan'
       AND COALESCE(item_type, '') != 'subagents'
+      AND COALESCE(item_type, '') != '${CONVERSATION_MEMORY_CHANGES_ITEM_TYPE}'
       AND COALESCE(item_type, '') != '${ROUTINE_QUIET_ANSWER_ITEM_TYPE}'
       AND COALESCE(item_type, '') != 'agent_attachment'
       AND COALESCE(item_type, '') NOT LIKE '${CHAT_VISUAL_ITEM_TYPE_PREFIX}%'
@@ -365,6 +367,7 @@ function stateFromSnapshot(snapshot: ConversationSnapshot, throughMessageId: str
         message.itemType !== "commentary" &&
         message.itemType !== CONVERSATION_PLAN_ITEM_TYPE &&
         message.itemType !== CONVERSATION_SUBAGENTS_ITEM_TYPE &&
+        message.itemType !== CONVERSATION_MEMORY_CHANGES_ITEM_TYPE &&
         message.itemType !== ROUTINE_QUIET_ANSWER_ITEM_TYPE &&
         message.itemType !== "agent_attachment" &&
         !message.itemType?.startsWith(CHAT_VISUAL_ITEM_TYPE_PREFIX) &&

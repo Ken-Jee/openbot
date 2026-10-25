@@ -106,6 +106,7 @@ const browser: AgentBrowserHost = {
   clearControls: () => {},
   endControl: () => {},
   close: () => Effect.void,
+  clearAgentSession: () => Effect.void,
 };
 
 /** A Gateway event as Discord sends it. JSON, as on the wire. */

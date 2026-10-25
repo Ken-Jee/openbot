@@ -4,6 +4,7 @@ import type { LucideIcon } from "lucide-react-native";
 import Camera from "lucide-react-native/icons/camera";
 import Images from "lucide-react-native/icons/images";
 import Paperclip from "lucide-react-native/icons/paperclip";
+import Sparkles from "lucide-react-native/icons/sparkles";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BackHandler, Keyboard, Pressable, StyleSheet, useWindowDimensions, View, type ViewStyle } from "react-native";
 import Animated, {
@@ -32,7 +33,8 @@ import type { ChatAttachmentAnchor, ChatAttachments } from "./use-chat-attachmen
 const OPTION_ROW = 48;
 const OPTIONS_WIDTH = 236;
 const OPTIONS_PADDING = 8;
-const OPTIONS_HEIGHT = OPTION_ROW * 3 + OPTIONS_PADDING * 2;
+/** The card's height as the options list: Files, Photos and Camera, and Use skill when the chat has skills. */
+const optionsHeight = (rows: number) => OPTION_ROW * rows + OPTIONS_PADDING * 2;
 const SURFACE_RADIUS = 28;
 // One shape change, no overshoot: there is no finger on the card, and a card
 // that springs past its own size reads as a toy. `ReduceMotion.System` lets
@@ -122,6 +124,7 @@ export function ChatAttachmentPanel({
   keyboardOffset,
   liquidGlassAvailable,
   onClose,
+  onUseSkill,
   progress,
 }: {
   /**
@@ -139,6 +142,8 @@ export function ChatAttachmentPanel({
   keyboardOffset: number;
   liquidGlassAvailable: boolean;
   onClose: () => void;
+  /** Present when the chat's agent has skills: the row writes `@` in the field and offers them. */
+  onUseSkill?: () => void;
   /**
    * 0 with the card gone, 1 with it open. Shared with the composer, so the
    * plus comes back on the same frame the card stops covering it.
@@ -170,6 +175,7 @@ export function ChatAttachmentPanel({
   // The card keeps the plus's left edge while it is the options list, and
   // centres itself once it is the camera.
   const cameraShift = (width - cameraWidth) / 2 - anchor.left;
+  const listHeight = optionsHeight(onUseSkill ? 4 : 3);
 
   useEffect(() => {
     progress.set(withSpring(1, MORPH));
@@ -222,7 +228,7 @@ export function ChatAttachmentPanel({
     const presented = progress.get();
     const shape = morph.get();
     const openWidth = interpolate(shape, [0, 1], [OPTIONS_WIDTH, cameraWidth]);
-    const openHeight = interpolate(shape, [0, 1], [OPTIONS_HEIGHT, cameraHeight]);
+    const openHeight = interpolate(shape, [0, 1], [listHeight, cameraHeight]);
     return {
       // The card is the plus until it is anything else, so it never appears
       // from nothing and never has to travel to reach its own corner.
@@ -314,6 +320,17 @@ export function ChatAttachmentPanel({
               optionsStyle,
             ]}
           >
+            {onUseSkill ? (
+              <AttachmentOption
+                index={3}
+                icon={Sparkles}
+                label={t("mobile.chat.attachment.useSkill")}
+                foreground={foreground}
+                progress={progress}
+                disabled={false}
+                onPress={() => choose(onUseSkill)}
+              />
+            ) : null}
             <AttachmentOption
               index={2}
               icon={Paperclip}

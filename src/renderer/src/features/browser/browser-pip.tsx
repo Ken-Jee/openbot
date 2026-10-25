@@ -3,6 +3,7 @@ import { useText } from "@openbot/ui/text";
 import { render } from "@solidjs/web";
 import { createSignal, onCleanup, onSettled, Show } from "solid-js";
 import "../../styles.css";
+import { syncAppearance } from "../../appearance-choice";
 import { I18nProvider } from "../../i18n-context";
 import { browserPort } from "./browser-port";
 
@@ -77,6 +78,7 @@ function BrowserPictureInPicture() {
 
 const root = document.getElementById("root");
 if (!root) throw new Error("Browser Picture in Picture root element was not found.");
+syncAppearance();
 render(
   () => (
     <I18nProvider>

@@ -3,7 +3,7 @@
  * one L around the card. */
 .app-window {
   /* The frame is darker than the card, so the card comes forward. */
-  --window-frame: color-mix(in srgb, var(--openbot-bg-canvas) 50%, var(--openbot-bg-notch));
+  --window-frame: var(--openbot-bg-frame);
   /* The thin frame at the right and the bottom of the card */
   --window-edge: var(--openbot-space-1);
   --window-hairline-height: var(--openbot-icon-lg);
@@ -35,6 +35,16 @@
   .app-frame .tasks-page-header > .side-panel-toggle {
     display: none;
   }
+}
+
+/* A window with no macOS window buttons starts the server menu at the left edge of the search field
+ * and the rows below it, at all widths. The web frame has the macOS class but no buttons. The
+ * selector must out-rank the macOS rule below, which also matches the web frame. */
+.app-window
+  > :is(.web-app-frame, .app-frame:not(.app-frame-platform-darwin)):not(.app-frame-with-server-rail)
+  > .sidebar:not(.sidebar-compact)
+  .sidebar-topbar {
+  padding-left: var(--openbot-space-3);
 }
 
 @media (min-width: 721px) {
@@ -345,6 +355,30 @@
     padding: var(--openbot-space-4) var(--openbot-space-6) var(--openbot-space-6);
   }
 
+  /* The empty month fills the card and clips at its bottom edge, so the pitch stays in the middle of
+   * what the user sees. A pitch taller than the card scrolls. */
+  .app-window > .app-frame-edge > .window-page .routine-planner-empty {
+    min-height: 0;
+    overflow-y: auto;
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .app-window > .app-frame-edge > .window-page :is(.routine-planner-empty-board, .routine-planner-empty-board > *) {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .app-window > .app-frame-edge > .window-page .routine-planner-empty-board {
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  /* A narrow card puts the runs below the pitch, so both rows keep their height and scroll. */
+  @container (max-width: 920px) {
+    .app-window > .app-frame-edge > .window-page .routine-planner-empty {
+      grid-template-rows: none;
+    }
+  }
+
   /* The Tasks page sits in the middle pane beside the agent list, as the routine canvas does. Its title
    * goes in the top row, as the chat header does. The list and the task panel go in the card below it.
    * The card draws the surface, so the page has no background of its own. */
@@ -478,6 +512,8 @@
       .agent-usage-body,
       .routine-planner-toolbar,
       .routine-planner-body,
+      .routine-planner-empty,
+      .routine-planner-error,
       .marketplace-crumbs,
       .skills-marketplace-body
     ) {
@@ -730,4 +766,18 @@
     max-height: 40dvh;
     padding-bottom: var(--openbot-space-2);
   }
+}
+
+/* A window that shows one chat has no sidebar and no resizer, so the chat takes the whole
+ * frame. Its header starts after the macOS window buttons. */
+.app-window > .app-frame.app-frame-chat-window {
+  grid-template-columns: 0 0 minmax(0, 1fr);
+}
+
+.app-frame-chat-window > .left-panel-resizer {
+  display: none;
+}
+
+.app-frame-chat-window.app-frame-platform-darwin .conversation-header {
+  padding-left: 76px;
 }

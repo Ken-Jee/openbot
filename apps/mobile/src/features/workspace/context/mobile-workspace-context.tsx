@@ -13,8 +13,10 @@ import { TEAM_API_ROUTES } from "@openbot/contracts/team-api-routes";
 import { AGENT_ACCESS_CAPABILITY } from "@openbot/contracts/team-protocol/agent-access-v1";
 import { AGENT_ADMIN_CAPABILITY } from "@openbot/contracts/team-protocol/agent-admin-v1";
 import { AGENT_HOST_SETTINGS_CAPABILITY } from "@openbot/contracts/team-protocol/agent-host-settings-v1";
+import { AGENT_INSTALL_CAPABILITY } from "@openbot/contracts/team-protocol/agent-install-v1";
 import { AGENT_MEMORY_LIMIT_CAPABILITY } from "@openbot/contracts/team-protocol/agent-memory-limit-v1";
 import { AGENT_PUBLISH_CAPABILITY } from "@openbot/contracts/team-protocol/agent-publish-v1";
+import { AGENT_UPDATE_CAPABILITY } from "@openbot/contracts/team-protocol/agent-update-v1";
 import { CONNECTORS_CAPABILITY } from "@openbot/contracts/team-protocol/connectors-v1";
 import { TEAM_AGENT_CREATE_MODEL_CAPABILITY } from "@openbot/contracts/team-protocol/current";
 import { EVENTS_CAPABILITY } from "@openbot/contracts/team-protocol/events-v1";
@@ -34,6 +36,7 @@ import { PUSH_NOTIFICATIONS_CAPABILITY } from "@openbot/contracts/team-protocol/
 import { ROUTINE_RECOVERY_CAPABILITY } from "@openbot/contracts/team-protocol/routine-recovery-v1";
 import { ROUTINE_RESULTS_CAPABILITY } from "@openbot/contracts/team-protocol/routine-results-v1";
 import { SHARED_TABLES_CAPABILITY } from "@openbot/contracts/team-protocol/shared-tables-v1";
+import { SIGN_IN_RELAY_CAPABILITY } from "@openbot/contracts/team-protocol/sign-in-relay-v1";
 import { SKILLS_ADMIN_CAPABILITY } from "@openbot/contracts/team-protocol/skills-admin-v1";
 import type { TeamProtocolV2Json } from "@openbot/contracts/team-protocol/v2";
 import { TEAM_PROTOCOL_V3 } from "@openbot/contracts/team-protocol/v3";
@@ -53,6 +56,7 @@ import {
   remoteRecoveryMessage,
   runTeamEffect,
 } from "@openbot/team-client";
+import { verifyEd25519Base64Url } from "@openbot/team-client/ed25519";
 import { createFocusUsePing } from "@openbot/team-client/focus-use";
 import { createHostedServerWake, WAKE_RECONNECT_DELAY_MS } from "@openbot/team-client/hosted-server-wake";
 import type { RemoteFileUpload } from "@openbot/team-client/remote-peer";
@@ -105,6 +109,11 @@ import { useConversationReads } from "@/features/workspace/context/use-conversat
 import { useServerOrder } from "@/features/workspace/context/use-server-order";
 import { WorkspaceContexts } from "@/features/workspace/context/workspace-store";
 import { reduceAgentActivity } from "@/features/workspace/model/agent-activity";
+import {
+  agentAvatarDataUrl,
+  deleteServerAvatars,
+  saveAgentAvatar,
+} from "@/features/workspace/model/agent-avatar-cache";
 import {
   canToggleAgentPin,
   reconcileAgentPins,
@@ -224,6 +233,7 @@ export function MobileWorkspaceProvider({ children }: PropsWithChildren) {
         fetch,
         hostKeys: trustedHostKeys(session.apiUrl, session.user.id),
         pairedHost: session.host,
+        verifyHostKeySignature: verifyEd25519Base64Url,
       }),
     [session.apiUrl, session.sessionToken, session.user.id, session.host],
   );
@@ -350,6 +360,7 @@ export function MobileWorkspaceProvider({ children }: PropsWithChildren) {
       const removedAgentIds = new Set<string>();
       for (const serverId of serverIds) {
         removedServers.current.add(serverId);
+        deleteServerAvatars(serverId);
         connectionWaits.drop(serverId, new Error(currentText().t("mobile.workspace.error.transportNotReady")));
         readRefresh.invalidate(serverId);
         for (const id of serverAgentIds.current.get(serverId) ?? []) removedAgentIds.add(id);
@@ -456,9 +467,18 @@ export function MobileWorkspaceProvider({ children }: PropsWithChildren) {
     },
     [connectionWaits],
   );
+  // The query of `AgentPhoto`, so the Live Activity and the photo share one transfer and one copy.
+  // The Live Activity takes a data URL.
   const loadAgentAvatar = useCallback(
-    (agentId: string, avatarUrl: string, serverId: string) => requestAgentAvatar(request, agentId, avatarUrl, serverId),
-    [request],
+    (agentId: string, avatarUrl: string, serverId: string) =>
+      queryClient
+        .fetchQuery({
+          queryKey: queryKeys.agentAvatar(queryScope, serverId, agentId, avatarUrl),
+          queryFn: () => requestAgentAvatar(request, agentId, avatarUrl, serverId),
+          staleTime: Infinity,
+        })
+        .then(agentAvatarDataUrl),
+    [request, queryClient, queryScope],
   );
   const postLiveActivityAction = useCallback(
     (serverId: string, path: string, body: TeamProtocolV2Json) => request("POST", path, ignoreResponse, body, serverId),
@@ -667,6 +687,8 @@ export function MobileWorkspaceProvider({ children }: PropsWithChildren) {
       const saved = preferenceStore.read(serverId);
       setPreferences((current) => ({ ...current, [serverId]: saved }));
       context.stage = "connection";
+      // Events sent while the connection was down are lost, so open chats read their page again.
+      conversationStore.markStale();
       await client.connect(serverId, publicKey);
       if (!context.isCurrent()) return;
       context.stage = "compatibility";
@@ -1011,8 +1033,13 @@ export function MobileWorkspaceProvider({ children }: PropsWithChildren) {
         const knownIds = serverAgentIds.current.get(serverId) ?? new Set<string>();
         knownIds.add(event.snapshot.agentId);
         serverAgentIds.current.set(serverId, knownIds);
-        if (conversationStore.get(event.snapshot.agentId))
-          void loadConversation(event.snapshot.agentId, serverId, true).catch(() => undefined);
+        const { agentId, revision, threadId } = event.snapshot;
+        if (
+          conversationStore.get(agentId) &&
+          !conversationStore.holdsRevision(agentId, revision, threadId) &&
+          conversationStore.invalidate(agentId)
+        )
+          void loadConversation(agentId, serverId, true).catch(() => undefined);
       } else if (event.type === "conversation-delta") {
         conversationStore.enqueue(event);
       } else if (event.type === "conversation-page") {
@@ -1022,9 +1049,18 @@ export function MobileWorkspaceProvider({ children }: PropsWithChildren) {
           applyConversationReads({ [event.page.agentId]: readState });
         } else void refreshConversationReads(serverId).catch(() => undefined);
         if (conversationStore.get(event.page.agentId)) conversationStore.applyPage(event.page);
-      } else if (event.type === "conversation-invalidated" || event.type === "turn-completed") {
-        if (conversationStore.get(event.agentId))
+      } else if (event.type === "conversation-invalidated") {
+        // A read cursor change sends the revision that the phone already has.
+        if (
+          conversationStore.get(event.agentId) &&
+          !conversationStore.holdsRevision(event.agentId, event.revision) &&
+          conversationStore.invalidate(event.agentId)
+        )
           void loadConversation(event.agentId, serverId, true).catch(() => undefined);
+      } else if (event.type === "turn-completed") {
+        // The host sends the conversation of the ended turn first, so this joins the read that it started.
+        if (conversationStore.get(event.agentId) && conversationStore.invalidate(event.agentId))
+          void loadConversation(event.agentId, serverId).catch(() => undefined);
       } else if (event.type === "team-identity") {
         // The host uploads its logo to the account service under its own version, so that version
         // is also the directory key that loads the image.
@@ -1318,7 +1354,7 @@ export function MobileWorkspaceProvider({ children }: PropsWithChildren) {
         if (image && updated.avatarUrl) {
           queryClient.setQueryData(
             queryKeys.agentAvatar(queryScope, serverId, agentId, updated.avatarUrl),
-            `data:${image.mimeType};base64,${image.base64}`,
+            saveAgentAvatar(serverId, agentId, updated.avatarUrl, `data:${image.mimeType};base64,${image.base64}`),
           );
         }
         setAgents((current) =>
@@ -1602,6 +1638,10 @@ export function MobileWorkspaceProvider({ children }: PropsWithChildren) {
       canDeleteHostedSites: (serverId) => administers(serverId, HOSTED_SITES_CAPABILITY),
       canManageProviders: (serverId) => administers(serverId, PROVIDERS_ADMIN_CAPABILITY),
       canManageMcpServers: (serverId) => administers(serverId, MCP_SERVERS_CAPABILITY),
+      canRelayMcpSignIn: (serverId) =>
+        administers(serverId, MCP_SERVERS_CAPABILITY) && administers(serverId, SIGN_IN_RELAY_CAPABILITY),
+      canAddMarketplaceAgents: (serverId) => administers(serverId, AGENT_INSTALL_CAPABILITY),
+      canUpdateMarketplaceAgents: (serverId) => administers(serverId, AGENT_UPDATE_CAPABILITY),
       canSendNotifications: (serverId) =>
         servers.some((server) => server.id === serverId && showsOnline(server)) && supportsPushNotifications(serverId),
       canManageEvents: (serverId) => administers(serverId, EVENTS_CAPABILITY),

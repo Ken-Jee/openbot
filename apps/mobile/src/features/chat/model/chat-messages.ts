@@ -1,4 +1,4 @@
-import { CHAT_VISUAL_ITEM_TYPE_PREFIX } from "@openbot/contracts/chat-visual";
+import { CHAT_VISUAL_ITEM_TYPE_PREFIX, chatVisualReply } from "@openbot/contracts/chat-visual";
 import { sortConversationMessages } from "@openbot/contracts/conversation-order";
 import type {
   AgentExchangeSummary,
@@ -66,6 +66,8 @@ export type ChatMessage =
       status?: ConversationMessage["status"];
       replyToMessageId?: string | null;
       attachments?: AttachmentSummary[];
+      /** A visual reply: its one attachment is an HTML page that the chat shows. */
+      visual?: boolean;
       /** An image the agent is generating or generated. Its first attachment is the image. */
       imageGeneration?: ImageGenerationInfo;
       /** Why the turn of a failed user message stopped, as the host reported it. */
@@ -391,6 +393,7 @@ export function projectChatMessages(
           streaming: message.status === "streaming",
           status: message.status,
           attachments: message.attachments,
+          ...(chatVisualReply(message) ? { visual: true } : {}),
           imageGeneration: message.imageGeneration,
           replyToMessageId: message.replyToMessageId,
           createdAt: message.createdAt,
@@ -571,6 +574,7 @@ function projectChannelMessage(
     status: entry.message.status,
     replyToMessageId: entry.message.replyToMessageId,
     attachments: entry.message.attachments,
+    ...(chatVisualReply(entry.message) ? { visual: true } : {}),
     imageGeneration: entry.message.imageGeneration,
     createdAt: entry.message.createdAt,
   };

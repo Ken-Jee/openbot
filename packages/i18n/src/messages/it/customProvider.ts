@@ -152,6 +152,9 @@ export const messages = {
   "customProvider.acp.args": "Argomenti",
   "customProvider.acp.argsHint":
     "Separa gli argomenti con spazi. Metti tra virgolette un argomento che contiene spazi.",
+  "customProvider.acp.usagePrompt": "Comando di utilizzo",
+  "customProvider.acp.usagePromptHint":
+    "OpenBot lo invia al massimo ogni 5 minuti e mostra l'ultima risposta. Usa un comando a cui l'agente risponde da solo, come /usage.",
   "customProvider.acp.env": "Variabili d'ambiente",
   "customProvider.acp.env.name": "Nome della variabile {number}",
   "customProvider.acp.env.value": "Valore della variabile {number}",
@@ -183,6 +186,7 @@ export const messages = {
   "customProvider.acp.error.envDuplicate": "Questo agente imposta già {name}.",
   "customProvider.acp.error.envValueRequired": "Inserisci un valore per questa variabile.",
   "customProvider.acp.error.envValueLength": "Il valore deve avere meno di {max} caratteri.",
+  "customProvider.acp.error.usagePromptInvalid": "Usa una sola riga di massimo {max} caratteri.",
   "customProvider.acp.error.agentIdPattern":
     "Usa lettere minuscole, numeri o trattini, iniziando con una lettera o un numero. Al massimo 40 caratteri.",
   "customProvider.agents.title": "Agenti personalizzati",

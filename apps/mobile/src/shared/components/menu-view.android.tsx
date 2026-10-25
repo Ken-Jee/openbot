@@ -33,11 +33,11 @@ import Share from "lucide-react-native/icons/share";
 import Star from "lucide-react-native/icons/star";
 import StarOff from "lucide-react-native/icons/star-off";
 import TextWrap from "lucide-react-native/icons/text-wrap";
-import Trash2 from "lucide-react-native/icons/trash-2";
+import Trash2 from "lucide-react-native/icons/trash";
 import Users from "lucide-react-native/icons/users";
 import X from "lucide-react-native/icons/x";
 import { Fragment, type Ref, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
-import { BackHandler, Pressable, useWindowDimensions } from "react-native";
+import { BackHandler, Pressable, useWindowDimensions, type ViewInstance } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCSSVariable } from "uniwind";
@@ -194,7 +194,12 @@ export function MenuView({
   const { height } = useWindowDimensions();
   const safeArea = useSafeAreaInsets();
   const trigger = useRef<MenuTriggerRef>(null);
+  const anchor = useRef<ViewInstance>(null);
   const [isOpen, setIsOpen] = useState(false);
+  // Where the menu opens and the height it has there. A button in the lower half of the screen, such as
+  // the filter beside a bottom search field, opens the menu above it, so the menu does not run off the
+  // bottom edge.
+  const [room, setRoom] = useState<{ placement: "top" | "bottom"; height: number } | null>(null);
   // A second call in the same tick must see the new state before React applies it.
   const openRef = useRef(false);
 
@@ -209,7 +214,19 @@ export function MenuView({
     [onOpenMenu, onCloseMenu],
   );
 
-  const open = useCallback(() => trigger.current?.open(), []);
+  const open = useCallback(() => {
+    const view = anchor.current;
+    if (!view) {
+      trigger.current?.open();
+      return;
+    }
+    view.measureInWindow((_x, y, _width, buttonHeight) => {
+      const above = y - safeArea.top - 12;
+      const below = height - y - buttonHeight - safeArea.bottom - 12;
+      setRoom(above > below ? { placement: "top", height: above } : { placement: "bottom", height: below });
+      trigger.current?.open();
+    });
+  }, [height, safeArea.top, safeArea.bottom]);
   useImperativeHandle(ref, () => ({ show: open }), [open]);
 
   useEffect(() => {
@@ -241,6 +258,7 @@ export function MenuView({
       {/* The trigger only measures the anchor. The inner Pressable opens the menu on a tap or a long press. */}
       <Menu.Trigger ref={trigger} isDisabled accessible={false} aria-disabled={false}>
         <Pressable
+          ref={anchor}
           onPress={shouldOpenOnLongPress ? undefined : open}
           onLongPress={shouldOpenOnLongPress ? open : undefined}
           android_disableSound
@@ -254,10 +272,10 @@ export function MenuView({
         <Menu.Overlay />
         <Menu.Content
           presentation="popover"
-          placement="bottom"
+          placement={room?.placement ?? "bottom"}
           align="start"
           className="min-w-52"
-          style={scrolls ? { maxHeight: height - safeArea.top - safeArea.bottom - 24 } : undefined}
+          style={scrolls ? { maxHeight: room?.height ?? height - safeArea.top - safeArea.bottom - 24 } : undefined}
         >
           {title ? (
             <Menu.Label className="mb-1" numberOfLines={3} style={{ color: colors.muted }}>

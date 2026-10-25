@@ -51,6 +51,7 @@ const browser: AgentBrowserHost = {
   clearControls: () => {},
   endControl: () => {},
   close: () => Effect.void,
+  clearAgentSession: () => Effect.void,
   userControlTabFor: () => null,
   awaitUserControlRelease: unused,
 };

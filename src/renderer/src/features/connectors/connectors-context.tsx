@@ -1,4 +1,5 @@
 import type { ServerSummary } from "@openbot/contracts/ipc";
+import { BITWARDEN_CONNECTOR_CAPABILITY } from "@openbot/contracts/team-protocol/bitwarden-connector-v1";
 import { ONEPASSWORD_CONNECTOR_CAPABILITY } from "@openbot/contracts/team-protocol/onepassword-connector-v1";
 import { createMemo } from "solid-js";
 import { createSimpleContext } from "../../simple-context";
@@ -11,6 +12,7 @@ import { remoteAdminServer } from "../servers/server-capabilities";
 import { useServerSettings } from "../servers/server-settings";
 import { useServers } from "../servers/servers-context";
 import { useSidebar } from "../sidebar/sidebar-context";
+import { hostBitwardenConnectorPort } from "./bitwarden-connector-port";
 import {
   type ConnectorRegistry,
   createConnectorRegistry,
@@ -27,7 +29,7 @@ const context = createSimpleContext({
   init: () => {
     const { activeServer } = useServers();
     const { serverSettingsTarget } = useServerSettings();
-    const { agentList, agentStatus, modelOptions, serverSetupChoice } = useAgents();
+    const { agentList, agentStatus, modelOptions, serverSetupChoice, developmentCreation } = useAgents();
     const { setupState } = useSetup();
     const endpoints = useCustomProviders();
     const localAgents = useCustomAgents();
@@ -41,7 +43,7 @@ const context = createSimpleContext({
       return {
         modelOptions: options,
         agentStatus: agentStatus(),
-        initial: resolveCreationModel(serverSetupChoice() ?? setupState(), options),
+        initial: resolveCreationModel(serverSetupChoice() ?? setupState(), options, developmentCreation()),
         customProviders: endpoints.customProviders(),
         customAgents: localAgents.customAgents(),
       };
@@ -67,15 +69,22 @@ const context = createSimpleContext({
       const target = createMemo(() => remoteAdminServer(server(), "connectors-v1"));
       // A separate capability: a host that serves `connectors-v1` can be older than the 1Password routes.
       const onePasswordTarget = createMemo(() => remoteAdminServer(server(), ONEPASSWORD_CONNECTOR_CAPABILITY));
+      const bitwardenTarget = createMemo(() => remoteAdminServer(server(), BITWARDEN_CONNECTOR_CAPABILITY));
       const options: MessagingConnectorOptions = {
         agents: agentList,
-        hostName: () => (target() ?? onePasswordTarget())?.name,
+        hostName: () => (target() ?? onePasswordTarget() ?? bitwardenTarget())?.name,
         serverId: () => target()?.id,
       };
       const github = hostGitHubConnectorPort(() => target()?.id);
       const onePassword = hostOnePasswordConnectorPort(() => onePasswordTarget()?.id);
+      const bitwarden = hostBitwardenConnectorPort(() => bitwardenTarget()?.id);
       const host = createConnectorSet(
-        { github: () => github, onePassword: () => onePassword, messaging: hostMessagingApi(() => target()?.id) },
+        {
+          github: () => github,
+          onePassword: () => onePassword,
+          bitwarden: () => bitwarden,
+          messaging: hostMessagingApi(() => target()?.id),
+        },
         options,
       );
       return createConnectorRegistry(server, { computer, server: host });

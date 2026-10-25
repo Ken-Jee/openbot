@@ -8,10 +8,10 @@ type UseNotificationTaps = (open: (target: NotificationTarget) => void, openChat
  * `expo-notifications` throws when it loads in Expo Go on Android, which has no push notifications.
  * So `notification-taps.native.ts` loads only on iOS and in a build of the app.
  */
-function load(): UseNotificationTaps {
-  if (expoGoOnAndroid()) return () => undefined;
+function load(): { installNotificationHandler: () => void; useNotificationTaps: UseNotificationTaps } {
+  if (expoGoOnAndroid()) return { installNotificationHandler: () => undefined, useNotificationTaps: () => undefined };
   const taps: typeof import("./notification-taps.native") = require("./notification-taps.native");
-  return taps.useNotificationTaps;
+  return taps;
 }
 
-export const useNotificationTaps: UseNotificationTaps = load();
+export const { installNotificationHandler, useNotificationTaps } = load();

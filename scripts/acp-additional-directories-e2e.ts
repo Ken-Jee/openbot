@@ -64,6 +64,7 @@ try {
           { name: "FAKE_MODE", value: mode },
           { name: "FAKE_LOG", value: join(root, `${mode}.jsonl`) },
         ],
+        usagePrompt: null,
       }),
     );
   }

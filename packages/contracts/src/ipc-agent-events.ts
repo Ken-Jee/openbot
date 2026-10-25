@@ -128,7 +128,11 @@ export type AgentEvent =
       type: "browser-page-state-changed";
       tabs: { tabId: string; canGoBack: boolean; canGoForward: boolean }[];
     }
-  | { type: "error"; agentId?: string; code: string; message: string }
+  /**
+   * `provider` and `model` name the run that failed, for the banner. Local only: the Team API event
+   * projection drops them.
+   */
+  | { type: "error"; agentId?: string; code: string; message: string; provider?: AgentProviderId; model?: string }
   /**
    * A provider plan refused a turn, once per limit. The queues of its agents wait for the reset.
    * Local only: the released Team API event adapters do not carry it. `resetsAt` is in epoch seconds.
@@ -292,7 +296,12 @@ export function isAgentEvent(value: unknown): value is AgentEvent {
         )
       );
     case "error":
-      return isString(value.code) && isString(value.message);
+      return (
+        isString(value.code) &&
+        isString(value.message) &&
+        (value.provider === undefined || isAgentProvider(value.provider)) &&
+        (value.model === undefined || isString(value.model))
+      );
     case "usage-limit-reached":
       return (
         isIdentifier(value.agentId) &&

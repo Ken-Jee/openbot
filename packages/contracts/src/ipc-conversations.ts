@@ -3,6 +3,12 @@ import { isIdentifier } from "./ipc-bounded-values";
 import { type ConversationMessage, isConversationMessage, type MessageReaction } from "./ipc-conversation-messages";
 import { isDynamicRecord, isNumber } from "./runtime-values";
 
+/**
+ * The most recent completed messages that main keeps and sends for one conversation, plus the
+ * active turn. A snapshot with fewer messages is the whole conversation.
+ */
+export const CONVERSATION_SNAPSHOT_MESSAGE_LIMIT = 100;
+
 export interface ConversationSnapshot {
   agentId: string;
   threadId: string | null;

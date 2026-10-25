@@ -54,7 +54,6 @@ export const messages = {
   "billing.lifecycle.automatic": "Otomatik yenileme devam eder",
   "billing.lifecycle.noRefund": "Kullanılmayan süre için iade yok",
   "billing.lifecycle.noRenewal": "Başka yenileme yok",
-  "billing.lifecycle.open": "Tasarım önizlemesini aç",
   "billing.lifecycle.dateUtc": "{date} UTC",
   "billing.lifecycle.renews": "Otomatik yenileme açık.",
   "billing.lifecycle.schedule": "Dönem sonunda sil",

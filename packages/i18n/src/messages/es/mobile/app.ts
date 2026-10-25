@@ -29,6 +29,7 @@ export const messages = {
   "mobile.app.route.tasks": "Tareas",
   "mobile.app.route.task": "Tarea",
   "mobile.app.route.usage": "Uso",
+  "mobile.app.route.marketplace": "Marketplace",
   "mobile.app.quickAction.routines": "Rutinas",
   "mobile.app.quickAction.search": "Buscar",
 } as const satisfies PartialTranslation<typeof source>;

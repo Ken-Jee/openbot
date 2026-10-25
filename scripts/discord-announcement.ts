@@ -13,6 +13,10 @@ const PLACEHOLDER = /\b(TODO|TBD|FIXME|XXX)\b/;
 const MENTION = /@(everyone|here)\b|<[@#][!&]?\d+>/;
 /** How long Discord can take to answer before the post counts as failed. */
 const SEND_TIMEOUT_MS = 30_000;
+/** A Discord ID (snowflake) has at most 20 digits. */
+const ROLE_ID = /^\d{17,20}$/;
+/** The longest role ID, so that the real mention cannot make the post too long. */
+export const LONGEST_ROLE_ID = "0".repeat(20);
 
 /**
  * What stops the announcement file `file` from being posted for `version`. Empty when it is ready.
@@ -54,6 +58,12 @@ export function announcementFileProblems(
     problems.push(`The message is longer than the ${MAX_CONTENT} characters that Discord accepts.`);
   }
   return problems;
+}
+
+/** What is wrong with `roleId`, the value of `name`. `required` makes a missing value a problem. */
+export function roleIdProblems(name: string, roleId: string | undefined, required: boolean): string[] {
+  if (!roleId) return required ? [`${name} is not set.`] : [];
+  return ROLE_ID.test(roleId) ? [] : [`${name} is not a Discord role ID.`];
 }
 
 /** The anchor of `version` on /changelog, as `releaseAnchor` in `apps/auth-api/src/lib/changelog.ts` makes it. */

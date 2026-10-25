@@ -71,7 +71,7 @@ On the first start from an AppImage, OpenBot writes `~/.local/share/applications
 and `~/.local/share/icons/openbot.png`, which is what lets an `openbot://` link - an invitation, or
 a plugin listing - open the app and gives the launcher an icon that stays after the app exits. Delete the two files to undo it.
 
-Voice prompts are not available on Linux. Remote desktop works on Linux x64 in an X11 session,
+Remote desktop works on Linux x64 in an X11 session,
 such as Xorg or Xvfb. It does not work under Wayland, and the arm64 AppImage does not include it.
 
 For Gemini sign-in, install a desktop browser and `xdg-utils`. Open the sign-in page in a
@@ -81,8 +81,8 @@ desktop session on the same host or VM. Google sends the callback to that host t
 
 #### Linux server with no screen
 
-To run OpenBot as an always-on server of your account on a VPS or home server (Ubuntu 24.04 with
-systemd), install it from a terminal and sign in with an email code:
+To run OpenBot as an always-on server of your account on a VPS or home server (Ubuntu 24.04 or
+26.04 with systemd), install it from a terminal and sign in with an email code:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/nightly-labs/openbot/main/scripts/install-server.sh | sudo bash
@@ -244,8 +244,8 @@ lists from the main checkout when they are missing, installs dependencies, migra
 and seeds the isolated profile. Set it as the worktree setup command of your agent harness.
 
 On macOS, a worktree's `node_modules` uses almost no new disk space. Bun clones packages from its
-cache, and the root `postinstall` clones Electron from `~/Library/Caches/OpenBot/electron-dist` and
-the React Native Skia libraries from their packages. `du` still shows the full size of each clone.
+cache, and the root `postinstall` clones Electron from `~/Library/Caches/OpenBot/electron-dist`.
+`du` still shows the full size of each clone.
 The first install of an Electron version extracts it once and saves it there. Delete the directory
 to clear the cache; an entry that nobody used for 30 days is removed by the next save.
 
@@ -318,7 +318,6 @@ See [web client delivery](docs/web-client.md) for the release gate and focused c
 | Command | Purpose |
 | --- | --- |
 | `bun run dev` | Start the local Auth API, Signal service, and Electron client with renderer HMR on its app profile. Ports are allocated through the dev registry, so a sibling worktree never takes one this stack won. It refuses a second stack in the same worktree unless you pass `--force`. Each worktree opens a profile of its own, keyed to its path; `--shared` opens the shared `OpenBot Dev` profile instead. `--isolated` is still accepted and changes nothing. A profile that you used before stays on disk unchanged. `--hosting=test` signs the app in to the `test` account Worker, on a profile that all worktrees share, so that a hosted server is a real VM; see [docs/hosted-servers.md](docs/hosted-servers.md#real-servers-from-a-development-build). A profile that does not exist yet is seeded with the showcase data of `bun run dev:seed` before the client starts, so a first start never opens an empty app; an existing profile is left as it is. An isolated profile still shares the computer's provider CLI store, so it does not download the pinned CLIs again. Before it starts, it runs `bun install --frozen-lockfile` and `bun run api:migrate:local` only when `bun.lock`, a workspace `package.json`, a patch, or a migration changed since their last successful run. The stamps are in `node_modules` and `apps/auth-api/.wrangler/state/v3/d1`, and each `bun install` writes the install stamp too; delete one to run its step again. |
-| `OPENBOT_SKIP_SKIA=1 bun install --frozen-lockfile` | Install without the ~700 MB copy of the React Native Skia native libraries that the root `postinstall` makes for mobile builds. On macOS APFS, the `postinstall` copy is a clone and uses almost no disk space; the flag still saves time. Use it for desktop or API work. Before a native mobile build, install again without the flag, or run `bun run --cwd apps/mobile setup:skia` (add `--bun` after `run` on macOS to make a clone). |
 | `bun run preview` | Preview the built Electron client with the green preview icon. |
 | `bun run mobile:go` | Start the mobile app in Expo Go and clear the Metro cache. |
 | `bun mobile:ios` | Build and launch the iOS simulator app without RocketSim. |
@@ -370,6 +369,8 @@ See [web client delivery](docs/web-client.md) for the release gate and focused c
 | `bun run test:backend` | Run backend tests only. |
 | `bun run test:changed` | Run, on one worker, only the desktop and mobile test files that import a file changed since `origin/main`, including staged, unstaged and untracked files. It stops with an error when `origin/main` is missing. A change to a vitest config, a setup file or `package.json` selects no test. See [docs/development-checks.md](docs/development-checks.md#focused-tests). |
 | `bun run test:related -- <source>...` | Run, on one worker, only the test files that import the named source files. |
+| `bun run test:browser-agent-session` | Check that an agent with its own browser session, and the agents of a named browser profile, keep their cookies and storage apart, across popups, a restart, a deleted profile, and a clear. |
+| `bun run test:browser-profile-agents` | Check that the shared profile, an agent's own session, a named profile, and the delete of a named profile change the stored browser profile of an agent, and that the choice stays after a restart. |
 | `bun run test:browser` | Run the complete local embedded-browser smoke test, including cross-process persistence. Use `--scenario=controls`, `--scenario=tool-boundary`, `--scenario=evaluation`, `--scenario=wait-deadlines`, or `--scenario=popups` for one isolated scenario. |
 | `bun run test:codex` | Probe the real CLI handshake and account without starting a paid turn. |
 | `bun run test:durations` | Re-record how long each desktop test file takes. CI splits its shards by this table, so run it when the two shards stop finishing together. |

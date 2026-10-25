@@ -10,6 +10,7 @@ import {
   CUSTOM_AGENT_ID_PATTERN,
   CUSTOM_AGENT_LIMITS,
   type CustomAgentSummary,
+  isCustomAgentUsagePrompt,
   isNewCustomAgentId,
   type SaveCustomAgentInput,
 } from "@openbot/contracts/ipc";
@@ -33,12 +34,15 @@ export interface CustomAcpAgentDraft {
   /** Separated by spaces, as a user types them in a terminal. */
   args: string;
   env: CustomAcpEnvDraft[];
+  /** The command that asks the agent for its plan usage, such as `/usage`. Empty for none. */
+  usagePrompt: string;
 }
 
 export interface CustomAcpAgentErrors {
   agentId?: string;
   displayName?: string;
   command?: string;
+  usagePrompt?: string;
   envRows: (string | undefined)[];
 }
 
@@ -59,7 +63,7 @@ export type AcpAgentCheck =
   | { status: "failed"; message: string };
 
 export function emptyCustomAcpAgentDraft(): CustomAcpAgentDraft {
-  return { agentId: "", displayName: "", command: "", args: "", env: [{ name: "", value: "" }] };
+  return { agentId: "", displayName: "", command: "", args: "", env: [{ name: "", value: "" }], usagePrompt: "" };
 }
 
 export function presetAcpAgentDraft(preset: AcpAgentPreset): CustomAcpAgentDraft {
@@ -69,6 +73,7 @@ export function presetAcpAgentDraft(preset: AcpAgentPreset): CustomAcpAgentDraft
     command: preset.command,
     args: formatAgentArgs(preset.args),
     env: [{ name: "", value: "" }],
+    usagePrompt: "",
   };
 }
 
@@ -83,6 +88,7 @@ export function savedAcpAgentDraft(agent: CustomAgentSummary): CustomAcpAgentDra
       agent.envNames.length > 0
         ? agent.envNames.map((name) => ({ name, value: "", savedName: name }))
         : [{ name: "", value: "" }],
+    usagePrompt: agent.usagePrompt ?? "",
   };
 }
 
@@ -117,6 +123,11 @@ export function validateCustomAcpAgent(
 
   if (!draft.command.trim()) errors.command = t("customProvider.acp.error.commandRequired");
 
+  const usagePrompt = draft.usagePrompt.trim();
+  if (usagePrompt && !isCustomAgentUsagePrompt(usagePrompt)) {
+    errors.usagePrompt = t("customProvider.acp.error.usagePromptInvalid", { max: CUSTOM_AGENT_LIMITS.usagePrompt });
+  }
+
   const names = new Set<string>();
   draft.env.forEach((row, index) => {
     if (blankEnv(row)) return;
@@ -134,7 +145,9 @@ export function validateCustomAcpAgent(
 }
 
 export function hasCustomAcpAgentError(errors: CustomAcpAgentErrors): boolean {
-  return Boolean(errors.agentId || errors.displayName || errors.command || errors.envRows.some(Boolean));
+  return Boolean(
+    errors.agentId || errors.displayName || errors.command || errors.usagePrompt || errors.envRows.some(Boolean),
+  );
 }
 
 export function customAcpAgentValue(draft: CustomAcpAgentDraft): CustomAcpAgentDraft {
@@ -150,6 +163,7 @@ export function customAcpAgentValue(draft: CustomAcpAgentDraft): CustomAcpAgentD
         value: row.value,
         ...(row.savedName === undefined ? {} : { savedName: row.savedName }),
       })),
+    usagePrompt: draft.usagePrompt.trim(),
   };
 }
 
@@ -200,6 +214,7 @@ export function customAgentInput(draft: CustomAcpAgentDraft): SaveCustomAgentInp
     command: value.command,
     args: draftArgs(value.args),
     env: draftEnv(value),
+    usagePrompt: value.usagePrompt || null,
   };
 }
 

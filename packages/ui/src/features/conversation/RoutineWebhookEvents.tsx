@@ -86,32 +86,46 @@ export function RoutineWebhookEvents(props: RoutineWebhookEventsProps) {
             <span>{t("routine.webhook.filters")}</span>
             {/* Not keyed: each keystroke makes a new row object, and a keyed row would remount and lose focus. */}
             <For each={props.filters} keyed={false}>
-              {(filter, index) => (
-                <div class="agent-routine-event-filter">
-                  <Input
-                    size="sm"
-                    aria-label={t("routine.webhook.filterPointer")}
-                    value={filter().pointer}
-                    placeholder={t("routine.webhook.filterPointerPlaceholder")}
-                    invalid={!eventFilterPointerValid(filter().pointer)}
-                    onValueChange={(pointer) => updateFilter(index, { pointer })}
-                  />
-                  <Input
-                    size="sm"
-                    aria-label={t("routine.webhook.filterValue")}
-                    value={filter().value}
-                    placeholder={t("routine.webhook.filterValue")}
-                    onValueChange={(value) => updateFilter(index, { value })}
-                  />
-                  <IconButton
-                    variant="ghost"
-                    label={t("routine.webhook.removeFilter")}
-                    onClick={() => props.onFiltersChange(props.filters.filter((_, itemIndex) => itemIndex !== index))}
-                  >
-                    <X aria-hidden="true" />
-                  </IconButton>
-                </div>
-              )}
+              {(filter, index) => {
+                const errorId = createUniqueId();
+                const invalid = () => !eventFilterPointerValid(filter().pointer);
+                return (
+                  <div class="routine-webhook-filter">
+                    <div class="agent-routine-event-filter">
+                      <Input
+                        size="sm"
+                        aria-label={t("routine.webhook.filterPointer")}
+                        aria-describedby={invalid() ? errorId : undefined}
+                        value={filter().pointer}
+                        placeholder={t("routine.webhook.filterPointerPlaceholder")}
+                        invalid={invalid()}
+                        onValueChange={(pointer) => updateFilter(index, { pointer })}
+                      />
+                      <Input
+                        size="sm"
+                        aria-label={t("routine.webhook.filterValue")}
+                        value={filter().value}
+                        placeholder={t("routine.webhook.filterValue")}
+                        onValueChange={(value) => updateFilter(index, { value })}
+                      />
+                      <IconButton
+                        variant="ghost"
+                        label={t("routine.webhook.removeFilter")}
+                        onClick={() =>
+                          props.onFiltersChange(props.filters.filter((_, itemIndex) => itemIndex !== index))
+                        }
+                      >
+                        <X aria-hidden="true" />
+                      </IconButton>
+                    </div>
+                    <Show when={invalid()}>
+                      <Text id={errorId} variant="caption" tone="danger">
+                        {t("routine.webhook.pointerInvalid")}
+                      </Text>
+                    </Show>
+                  </div>
+                );
+              }}
             </For>
             <Text variant="caption" tone="muted">
               {t("routine.webhook.filtersHint")}

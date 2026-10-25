@@ -1,17 +1,19 @@
-import type {
-  AgentAccessChange,
-  AgentAccessSnapshot,
-  HostReleaseStatus,
-  HostStatus,
-  HostUpdateStatus,
-  McpServerConfig,
-  McpSignInState,
-  McpTestResult,
+import {
+  type AgentAccessChange,
+  type AgentAccessSnapshot,
+  type BrowserProfileSummary,
+  type HostStatus,
+  type HostUpdateStatus,
+  type McpServerConfig,
+  type McpSignInState,
+  type McpTestResult,
+  nextBrowserProfileHue,
 } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
-import { createSignal, createStore, onSettled, snapshot } from "solid-js";
+import { createSignal, createStore } from "solid-js";
 import { fn } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import type { ServerBrowserProfilesOptions } from "../src/features/browser/ServerBrowserProfilesPanel";
 import type { McpPanelSignIn } from "../src/features/servers/ServerMcpPanel";
 import type { ServerAgentAccessOptions } from "../src/features/servers/ServerRolesSection";
 import { ServerSettingsModal, type ServerSettingsModalProps } from "../src/features/servers/ServerSettingsModal";
@@ -19,53 +21,26 @@ import {
   STORY_AGENT_SUMMARIES,
   STORY_HOST_STATUS,
   STORY_HOSTED_SITES,
-  STORY_INVITES,
   STORY_MCP_SERVERS,
   STORY_PRESENCE,
-  STORY_SERVERS,
 } from "../src/preview/fixtures";
 import { storyConnectorRegistry } from "./connector-fixtures";
 import { createSignInHost } from "./mcp-sign-in-host";
-import { createMockOpenBot } from "./mock-openbot";
-import { SettingsPageStory } from "./settings-page-story";
+import {
+  ServerSettingsStory,
+  STORY_LOCAL_SERVER,
+  STORY_REMOTE_SERVER,
+  serverSettingsArgs,
+} from "./server-settings-story";
 
-const localServer = STORY_SERVERS.find((server) => server.kind === "local") ?? STORY_SERVERS[0];
-const remoteServer = STORY_SERVERS.find((server) => server.kind === "remote") ?? STORY_SERVERS[1];
-if (!remoteServer) throw new Error("Story server fixtures need a remote server.");
+const localServer = STORY_LOCAL_SERVER;
+const remoteServer = STORY_REMOTE_SERVER;
 
 const meta = {
   title: "Settings/ServerSettingsModal",
   component: ServerSettingsModal,
-  render: (args) => <RemoteSetupStory settings={args} />,
-  args: {
-    open: true,
-    platform: "darwin",
-    server: localServer,
-    hostStatus: STORY_HOST_STATUS,
-    members: STORY_PRESENCE.members,
-    invites: STORY_INVITES,
-    loading: false,
-    loadError: null,
-    onRetry: fn(async () => undefined),
-    onSaveIdentity: fn(async () => undefined),
-    onSetPublished: fn(async () => undefined),
-    onSetMuted: fn(async () => undefined),
-    onCreateInvite: fn(async (input) => ({
-      id: "invite-story",
-      inviteUrl: "https://team.example.com/invite/story",
-      expiresAt: "2026-08-29T10:00:00.000Z",
-      role: input.role,
-      usedAt: null,
-      email: input.email ?? null,
-      permanent: input.permanent ?? false,
-      useCount: 0,
-    })),
-    onUpdateMember: fn(async () => undefined),
-    onRemoveMember: fn(async () => undefined),
-    onRevokeInvite: fn(async () => undefined),
-    onOpenScreenRecordingSettings: fn(async () => undefined),
-    onRecheckScreenRecording: fn(async () => undefined),
-  },
+  render: (args) => <ServerSettingsStory settings={args} />,
+  args: serverSettingsArgs(),
   parameters: {
     layout: "fullscreen",
     a11y: { test: "error" },
@@ -138,7 +113,7 @@ export const RemoteDesktopAfterPublication: Story = {
 function PublicationSetupStory(props: { settings: ServerSettingsModalProps }) {
   const [published, setPublished] = createSignal(false);
   return (
-    <RemoteSetupStory
+    <ServerSettingsStory
       settings={{
         ...props.settings,
         initialSection: "members",
@@ -318,7 +293,7 @@ function McpSignInStory(props: { settings: ServerSettingsModalProps; initial?: R
     return { toolCount: 6, error: null };
   };
   return (
-    <RemoteSetupStory
+    <ServerSettingsStory
       settings={{
         ...props.settings,
         get mcpServers() {
@@ -344,6 +319,93 @@ export const Sites: Story = {
       onOpenSite: fn(),
     },
   },
+};
+
+const STORY_BROWSER_PROFILES: BrowserProfileSummary[] = [
+  { id: "0a1b2c3d4e5f60718293a4b5c6d7e8f9", name: "Client A", hue: 215, agentIds: ["chief", "research"], tabCount: 3 },
+  { id: "f9e8d7c6b5a4938271605f4e3d2c1b0a", name: "Client B", hue: 30, agentIds: ["sales"], tabCount: 1 },
+  { id: "1b2c3d4e5f60718293a4b5c6d7e8f90a", name: "Personal", hue: 150, agentIds: [], tabCount: 0 },
+];
+
+/** Profiles in memory, so add, rename, color, clear and delete change the list as the host does. */
+function storyBrowserProfiles(initial: readonly BrowserProfileSummary[]): ServerBrowserProfilesOptions {
+  // Five agents in all: the ones that no named profile has use the shared profile.
+  const [state, setState] = createStore<{
+    profiles: BrowserProfileSummary[] | undefined;
+    sharedAgentIds: string[] | undefined;
+  }>({
+    profiles: initial.map((profile) => ({ ...profile, agentIds: [...profile.agentIds] })),
+    sharedAgentIds: ["chief", "research", "sales", "writer", "support"].filter(
+      (agentId) => !initial.some((profile) => profile.agentIds.includes(agentId)),
+    ),
+  });
+  const change = (recipe: (profiles: BrowserProfileSummary[]) => void) => async () =>
+    setState((draft) => {
+      if (draft.profiles) recipe(draft.profiles);
+    });
+  return {
+    listAgents: async () => [
+      { id: "chief", name: "Chief" },
+      { id: "research", name: "Research" },
+      { id: "sales", name: "Sales Outbound" },
+    ],
+    store: {
+      state,
+      refresh: async () => undefined,
+      create: async (name) => {
+        if (state.profiles?.some((profile) => profile.name.toLowerCase() === name.toLowerCase()))
+          throw new Error(sourceText("error.backend.browserProfileNameTaken"));
+        const id = crypto.randomUUID().replaceAll("-", "");
+        await change((profiles) => {
+          profiles.push({
+            id,
+            name,
+            hue: nextBrowserProfileHue(profiles.map((profile) => profile.hue)),
+            agentIds: [],
+            tabCount: 0,
+          });
+        })();
+        return id;
+      },
+      rename: (profileId, name) =>
+        change((profiles) => {
+          const profile = profiles.find((item) => item.id === profileId);
+          if (profile) profile.name = name;
+        })(),
+      recolor: (profileId, hue) =>
+        change((profiles) => {
+          const profile = profiles.find((item) => item.id === profileId);
+          if (profile) profile.hue = hue;
+        })(),
+      clear: (profileId) =>
+        change((profiles) => {
+          const profile = profiles.find((item) => item.id === profileId);
+          if (profile) profile.tabCount = 0;
+        })(),
+      remove: async (profileId) =>
+        setState((draft) => {
+          const index = draft.profiles?.findIndex((item) => item.id === profileId) ?? -1;
+          if (index < 0) return;
+          // A delete moves the agents of the profile to the shared profile.
+          draft.sharedAgentIds?.push(...(draft.profiles?.[index]?.agentIds ?? []));
+          draft.profiles?.splice(index, 1);
+        }),
+    },
+  };
+}
+
+/** The named browser profiles of this computer: a color, a name, and one menu for each profile. */
+export const BrowserProfiles: Story = {
+  args: { initialSection: "browser-profiles" },
+  render: (args) => (
+    <ServerSettingsStory settings={{ ...args, browserProfiles: storyBrowserProfiles(STORY_BROWSER_PROFILES) }} />
+  ),
+};
+
+/** No named profile yet: the agents use the shared profile or their own. */
+export const BrowserProfilesEmpty: Story = {
+  args: { initialSection: "browser-profiles" },
+  render: (args) => <ServerSettingsStory settings={{ ...args, browserProfiles: storyBrowserProfiles([]) }} />,
 };
 
 export const SitesForMember: Story = {
@@ -375,13 +437,13 @@ const remoteUpdateArgs = {
 
 export const RemoteUpdateAvailable: Story = {
   args: remoteUpdateArgs,
-  render: (args) => <RemoteSetupStory settings={args} hostUpdate={STORY_HOST_UPDATE} />,
+  render: (args) => <ServerSettingsStory settings={args} hostUpdate={STORY_HOST_UPDATE} />,
 };
 
 export const RemoteUpdateWaiting: Story = {
   args: remoteUpdateArgs,
   render: (args) => (
-    <RemoteSetupStory
+    <ServerSettingsStory
       settings={args}
       hostUpdate={{
         ...STORY_HOST_UPDATE,
@@ -396,7 +458,7 @@ export const RemoteUpdateWaiting: Story = {
 export const RemoteUpdateDownloading: Story = {
   args: remoteUpdateArgs,
   render: (args) => (
-    <RemoteSetupStory
+    <ServerSettingsStory
       settings={args}
       hostUpdate={{
         ...STORY_HOST_UPDATE,
@@ -411,7 +473,7 @@ export const RemoteUpdateDownloading: Story = {
 export const RemoteUpdateAutomatic: Story = {
   args: remoteUpdateArgs,
   render: (args) => (
-    <RemoteSetupStory
+    <ServerSettingsStory
       settings={args}
       hostUpdate={{
         ...STORY_HOST_UPDATE,
@@ -427,34 +489,9 @@ export const RemoteUpdateAutomatic: Story = {
 export const RemoteUpdateDisabled: Story = {
   args: remoteUpdateArgs,
   render: (args) => (
-    <RemoteSetupStory settings={args} hostUpdate={{ ...STORY_HOST_UPDATE, remoteUpdates: "disabled" }} />
+    <ServerSettingsStory settings={args} hostUpdate={{ ...STORY_HOST_UPDATE, remoteUpdates: "disabled" }} />
   ),
 };
-
-function RemoteSetupStory(props: {
-  settings: ServerSettingsModalProps;
-  hostUpdate?: HostUpdateStatus;
-  hostRelease?: HostReleaseStatus;
-}) {
-  const previous = window.openbot;
-  // Storybook passes the args as a store, and the mock copies its options with `structuredClone`.
-  const hostStatus = props.settings.hostStatus;
-  const mock = createMockOpenBot({
-    ...(hostStatus ? { hostStatus: snapshot(hostStatus) } : {}),
-    ...(props.hostUpdate ? { hostUpdate: props.hostUpdate } : {}),
-    ...(props.hostRelease ? { hostRelease: props.hostRelease } : {}),
-  });
-  window.openbot = mock.api;
-  onSettled(() => () => {
-    mock.dispose();
-    window.openbot = previous;
-  });
-  return (
-    <SettingsPageStory title="Server settings">
-      {(page) => <ServerSettingsModal {...props.settings} page={page()} />}
-    </SettingsPageStory>
-  );
-}
 
 export const SmallViewport: Story = {
   parameters: {
@@ -465,7 +502,7 @@ export const SmallViewport: Story = {
 export const HostedReleaseAvailable: Story = {
   args: remoteUpdateArgs,
   render: (args) => (
-    <RemoteSetupStory
+    <ServerSettingsStory
       settings={args}
       hostUpdate={{ ...STORY_HOST_UPDATE, currentVersion: "0.25.2", phase: "unsupported", availableVersion: null }}
       hostRelease={{ currentVersion: "0.25.2", latestVersion: "0.26.0", phase: "available", method: "hosted" }}
@@ -476,7 +513,7 @@ export const HostedReleaseAvailable: Story = {
 export const ContainerReleaseAvailable: Story = {
   args: remoteUpdateArgs,
   render: (args) => (
-    <RemoteSetupStory
+    <ServerSettingsStory
       settings={args}
       hostUpdate={{ ...STORY_HOST_UPDATE, currentVersion: "0.25.2", phase: "unsupported", availableVersion: null }}
       hostRelease={{ currentVersion: "0.25.2", latestVersion: "0.26.0", phase: "available", method: "container" }}
@@ -495,7 +532,7 @@ export const Connectors: Story = {
 
 function ConnectorsStory(props: { settings: ServerSettingsModalProps }) {
   const connectors = storyConnectorRegistry(localServer);
-  return <RemoteSetupStory settings={{ ...props.settings, connectors }} />;
+  return <ServerSettingsStory settings={{ ...props.settings, connectors }} />;
 }
 
 /**
@@ -535,4 +572,13 @@ export const Roles: Story = {
 /** The role menu of each member row holds the server role and the custom roles. */
 export const MembersWithRoles: Story = {
   args: { initialSection: "members", agentAccess: storyAgentAccess() },
+};
+
+/** Only the owner and no invitation: sample invitations land behind the invite action, one at a time. */
+export const MembersEmpty: Story = {
+  args: {
+    initialSection: "members",
+    members: STORY_PRESENCE.members.filter((member) => member.role === "owner"),
+    invites: [],
+  },
 };

@@ -58,6 +58,8 @@ export interface HostedServerPlan {
   memberLimit: number;
   /** The speed compared with the smallest plan. 1 is the base speed. */
   relativeSpeed: number;
+  /** No new server can take this plan. */
+  soldOut: boolean;
 }
 
 /**
@@ -100,6 +102,7 @@ export function hostedServerPlansFromCatalog(catalog: HostedServerCatalog): Host
     diskGb: plan.diskGb,
     memberLimit: plan.memberLimit,
     relativeSpeed: plan.relativeSpeed,
+    soldOut: plan.soldOut === true,
   }));
 }
 
@@ -251,15 +254,22 @@ export function HostedServerPlans(props: HostedServerPlansProps) {
             <li
               class="hosted-plan"
               data-recommended={recommended() ? "" : undefined}
-              data-dimmed={props.pendingPlan != null && props.pendingPlan !== plan.id ? "" : undefined}
+              data-dimmed={
+                plan.soldOut || (props.pendingPlan != null && props.pendingPlan !== plan.id) ? "" : undefined
+              }
               style={{ "--plan-index": index() }}
             >
               <div class="hosted-plan-head">
                 <h3 class="hosted-plan-name">{t(PLAN_TEXT[plan.id].name)}</h3>
-                <Show when={recommended()}>
-                  <Badge class="hosted-plan-badge" variant="outline">
-                    {t("settings.hostedServers.plan.recommended")}
-                  </Badge>
+                <Show
+                  when={!plan.soldOut}
+                  fallback={<Badge variant="outline">{t("settings.hostedServers.plan.soldOut")}</Badge>}
+                >
+                  <Show when={recommended()}>
+                    <Badge class="hosted-plan-badge" variant="outline">
+                      {t("settings.hostedServers.plan.recommended")}
+                    </Badge>
+                  </Show>
                 </Show>
               </div>
               <p class="hosted-plan-price">
@@ -302,7 +312,7 @@ export function HostedServerPlans(props: HostedServerPlansProps) {
                 fullWidth
                 loading={props.pendingPlan === plan.id}
                 loadingLabel={t("settings.hostedServers.creating")}
-                disabled={props.disabled || props.pendingPlan != null}
+                disabled={props.disabled || plan.soldOut || props.pendingPlan != null}
                 onClick={() => props.onChoose(plan.id)}
               >
                 {t("server.add.choosePlan", { plan: t(PLAN_TEXT[plan.id].name) })}

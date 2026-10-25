@@ -1,4 +1,6 @@
 import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import { statSync } from "node:fs";
 import { basename } from "node:path";
 import type {
   AccountUsage,
@@ -9,12 +11,18 @@ import type {
   AgentStatus,
   AgentSummary,
   CapabilityState,
+  CustomAgentUsage,
   CustomProviderRestart,
   ProviderCodeLoginStart,
+  ProviderUsageResetOutcome,
+  ProviderUsageResets,
 } from "@openbot/contracts/ipc";
 import {
   accountUsageCoversModel,
   agentProviderDescriptor,
+  CUSTOM_AGENT_DEFAULT_MODEL,
+  CUSTOM_AGENT_LIMITS,
+  DEFAULT_PROVIDER_ACCOUNT_ID,
   isAgentProvider,
   workspaceAccessEnforced,
 } from "@openbot/contracts/ipc";
@@ -26,8 +34,10 @@ import { startAcpAuthentication } from "./../acp-sign-in";
 import { type AgentClient, AgentProcessExitError, type AgentProvider } from "./../agent-client";
 import { CodexAppServerClient } from "./../app-server-client";
 import { type AgentCliInfo, type BundledProviderExecutables, CodexCliError, cliPathEnvironment } from "./../cli";
+import { readCursorUsage } from "./../cursor-usage";
 import { causeHelpers } from "../effect-boundary";
 import { McpHandoffLog } from "./../mcp-handoff-log";
+import { providerMcpServerName } from "./../mcp-provider-shapes";
 import { openCodeSignInMessage } from "./../opencode-config";
 import { readOpenCodeGoUsage } from "./../opencode-usage";
 import type { ProcessConfinement } from "../process-confinement";
@@ -37,6 +47,7 @@ import {
   decodeAccountRateLimitsReadResult,
   decodeAccountRateLimitsUpdated,
   decodeAccountReadResult,
+  decodeRateLimitResetCreditConsumeResult,
   decodeRecordResponse,
   getString,
 } from "./../protocol";
@@ -53,7 +64,7 @@ import { startProviderTerminalLogin } from "../provider-terminal-login";
 import { recordRestartActivity } from "../restart-activity";
 import { shortenDiagnostic } from "./../stderr-diagnostics";
 import { stopProcessTree } from "../windows-process-tree";
-import { normalizeAccountUsage } from "./account-usage";
+import { normalizeAccountUsage, usageWindowHasReset } from "./account-usage";
 import { captureBrowser } from "./browser-capture";
 import { startCliCodeLogin } from "./cli-code-login";
 import { CliLoginFailed, CliLoginFlow, toCliLoginFailed } from "./cli-login-flow";
@@ -69,6 +80,7 @@ import {
   isAcpHandlerDiagnostic,
   isBackgroundRefreshDiagnostic,
   isBundledSandboxFallbackDiagnostic,
+  isCodexCredentialFallbackDiagnostic,
   isGlogBelowErrorDiagnostic,
   isIgnoredConfigDiagnostic,
   isMcpSubsystemDiagnostic,
@@ -96,6 +108,12 @@ const logger = createOpenBotLogger("provider-runtime");
 const stderrLogger = createOpenBotLogger("provider-stderr");
 
 const ACCOUNT_USAGE_READ_TIMEOUT_MS = 30_000;
+/** A read this recent answers a second request, such as one that waited for the read before it. */
+const CUSTOM_AGENT_USAGE_REUSE_MS = 60_000;
+/** A released `acp` shows its last answers for this long, then starts again to read new ones. */
+const CUSTOM_AGENT_USAGE_WAKE_MS = 60 * 60_000;
+/** The providers whose app server spends a usage reset credit (`account/rateLimitResetCredit/consume`). */
+const USAGE_RESET_PROVIDERS: ReadonlySet<AgentProvider> = new Set(["codex"]);
 /**
  * How long a start may take when it holds back no other provider: the first start of a CLI that was
  * just installed, a start that follows a sign-in or a key change, and each start of a provider that
@@ -114,6 +132,21 @@ const PROVIDER_IDLE_RELEASE_MS = 10 * 60_000;
  */
 const PROVIDER_UNASSIGNED_RELEASE_MS = 60_000;
 const PROVIDER_IDLE_CHECK_MS = 60_000;
+/** How often the host reads a signed-out provider's sign-in file. A read is one `stat`. */
+const SIGN_IN_FILE_POLL_MS = 2_000;
+
+/**
+ * Identifies one write of a sign-in file. The time alone is not enough: a file system with 1 s
+ * times shows two writes in the same second as one, such as an empty file and then the credentials.
+ */
+function signInFileVersion(path: string): string {
+  try {
+    const stats = statSync(path, { throwIfNoEntry: false });
+    return stats ? `${stats.ino}:${stats.size}:${stats.mtimeMs}` : "missing";
+  } catch {
+    return "unreadable";
+  }
+}
 /**
  * Starts that fail in a row before OpenBot stops starting a provider by itself. A start that fails,
  * that times out, or whose process ends within `STABLE_RUN_MS` counts. Only a user action starts the
@@ -160,15 +193,6 @@ function logProviderStateChanges(
       message: row.message === null ? null : shortenDiagnostic(redactMcp(row.message)),
     });
   }
-}
-
-/**
- * True once a window of a kept reading has passed its reset time, so the reading is stale. Only
- * then does a usage read start a released provider again. `resetsAt` is in seconds.
- */
-function usageWindowHasReset(limit: AccountUsage["limits"][number]): boolean {
-  const now = Date.now() / 1_000;
-  return [limit.primary, limit.secondary].some((window) => window?.resetsAt != null && window.resetsAt <= now);
 }
 
 /**
@@ -394,11 +418,28 @@ export class ProviderRuntime implements ProviderPort {
   /** The last usage each provider reported, shown for a released provider instead of starting it. */
   readonly #lastUsage = new Map<AgentProvider, AccountUsage["limits"][number]>();
   /**
+   * The usage reset credits that the last usage reading of each client counted, null when the
+   * provider could not count them. A provider that has no credits never sets one.
+   */
+  readonly #resetCredits = new WeakMap<AgentClient, number | null>();
+  /** The same count for each provider's own sign-in, kept for a released provider as `#lastUsage` is. */
+  readonly #ownResetCredits = new Map<AgentProvider, number | null>();
+  /**
    * Providers whose last usage read returned no limit, such as custom ACP agents. The dock polls
    * every five minutes, so starting a released one to ask again would keep its process running.
    */
   readonly #usageUnreported = new Set<AgentProvider>();
+  /**
+   * The last answer of each custom agent's usage prompt, with the prompt and the time of the read. A
+   * null text is a read that gave no answer, kept so that a released `acp` does not start for it again.
+   */
+  readonly #customAgentUsage = new Map<string, { prompt: string; text: string | null; readAt: number }>();
+  /** One usage read at a time, so that a second request does not send the prompts again. */
+  readonly #customAgentUsageLock = Semaphore.makeUnsafe(1);
   #idleCheck: NodeJS.Timeout | null = null;
+  /** Each provider's sign-in file, and the version of it that the last account check saw. */
+  readonly #signInFiles = new Map<AgentProvider, { path: string; seen: string }>();
+  #signInCheck: NodeJS.Timeout | null = null;
   #status: AgentStatus = structuredClone(INITIAL_STATUS);
   #providerRefresh: Deferred.Deferred<AgentStatus, ProviderOperationFailed> | null = null;
   readonly #codexLogin: CodexLoginFlow;
@@ -505,6 +546,10 @@ export class ProviderRuntime implements ProviderPort {
           cli: (provider) =>
             this.#clients.has(provider) || this.#released.has(provider) ? this.#cli.get(provider) : undefined,
           defaultEmail: (provider) => this.#accounts.get(provider)?.email ?? null,
+          signInTemp: (provider) => {
+            const temp = provider === "antigravity" ? antigravityTemp(this.#credentials) : undefined;
+            return temp && { ...temp, provider: providerLabel(provider) };
+          },
           authenticate: (provider, cli, accountEnvironment) =>
             this.#authenticateClient(provider, cli, { accountEnvironment }).pipe(
               Effect.mapError((error) => new ProviderAccountFailed({ cause: error.cause })),
@@ -518,6 +563,13 @@ export class ProviderRuntime implements ProviderPort {
             [...this.#confined.values()].find(
               (confined) => confined.client.provider === provider && confined.accountId === accountId,
             )?.client ?? null,
+          isAccountBusy: (provider, accountId) =>
+            [...this.#confined].some(
+              ([agentId, confined]) =>
+                confined.client.provider === provider &&
+                confined.accountId === accountId &&
+                this.#hooks.isAgentBusy(agentId),
+            ),
           stopAgentClients: (provider, accountId) =>
             Effect.forEach(
               [...this.#confined].filter(
@@ -530,7 +582,13 @@ export class ProviderRuntime implements ProviderPort {
             this.#refreshUsage(client, model, false).pipe(
               Effect.mapError((error) => new ProviderAccountFailed({ cause: error.cause })),
             ),
+          resetCredits: (client) => this.#resetCredits.get(client),
+          consumeUsageReset: (client) =>
+            this.#consumeUsageReset(client).pipe(
+              Effect.mapError((error) => new ProviderAccountFailed({ cause: error.cause })),
+            ),
           changed: () => this.#setStatus({}),
+          usageChanged: (limit) => this.#emit({ type: "usage-changed", usage: { limits: [structuredClone(limit)] } }),
           redact: (text) => this.#redactMcp(redactText(text)),
         })
       : null;
@@ -543,6 +601,12 @@ export class ProviderRuntime implements ProviderPort {
       requestTimeoutMs: this.#requestTimeoutMs,
       recordProviderError: (provider, error) => this.#recordProviderError(provider, error),
     });
+  }
+
+  /** The account type and plan of the provider's own sign-in, or `null` before it is read. */
+  accountKind(provider: AgentProvider): { type: string; planType: string | null } | null {
+    const account = this.#accounts.get(provider);
+    return account ? { type: account.type, planType: account.planType ?? null } : null;
   }
 
   /**
@@ -849,6 +913,9 @@ export class ProviderRuntime implements ProviderPort {
                 deadline,
               ),
             );
+          } else if (provider === "cursor") {
+            // Cursor's usage is one HTTPS request with the CLI's token, so do not start the CLI for it.
+            usage = normalizeAccountUsage(yield* readCursorUsage().pipe(toProviderOperationFailed, deadline));
           } else {
             // Starting a provider that has no usage reading only to get nothing back cost a cold
             // start on every dock poll.
@@ -946,6 +1013,156 @@ export class ProviderRuntime implements ProviderPort {
     );
   }
 
+  /**
+   * The usage reset credits of each connected account of a provider. The provider's own sign-in is
+   * read again while its process runs and keeps its last count while the provider is released; an
+   * account after the first is read as the dock reads it. An account whose provider could not count
+   * its credits is left out.
+   */
+  readonly usageResets = Effect.fn("ProviderRuntime.usageResets")(function* (
+    this: ProviderRuntime,
+    provider: AgentProvider,
+  ) {
+    const resets: ProviderUsageResets[] = [];
+    if (!USAGE_RESET_PROVIDERS.has(provider) || this.#off.has(provider)) return resets;
+    const client = this.#clients.get(provider);
+    if (client)
+      yield* this.#refreshUsage(client, defaultUsageModel(provider), false).pipe(
+        Effect.timeoutOrElse({
+          duration: ACCOUNT_USAGE_READ_TIMEOUT_MS,
+          orElse: () => Effect.fail(new ProviderOperationFailed({ cause: new Error("Usage read timed out.") })),
+        }),
+        this.#logUsageFailure(provider),
+      );
+    const own = this.#ownResetCredits.get(provider);
+    if (typeof own === "number") resets.push({ provider, accountId: DEFAULT_PROVIDER_ACCOUNT_ID, available: own });
+    if (this.#providerAccounts && ProviderAccounts.support(provider))
+      resets.push(...(yield* this.#providerAccounts.usageResets(provider, defaultUsageModel(provider))));
+    return resets;
+  }).bind(this);
+
+  /**
+   * Spends one usage reset credit of an account. The account's usage is read again and sent, so
+   * every view shows the limits that the provider now reports. The service ends the limit that held
+   * the account's agents.
+   */
+  readonly resetUsage = Effect.fn("ProviderRuntime.resetUsage")(function* (
+    this: ProviderRuntime,
+    provider: AgentProvider,
+    accountId: string,
+  ) {
+    if (!USAGE_RESET_PROVIDERS.has(provider))
+      return yield* new ProviderOperationFailed({
+        cause: new Error(sourceText("error.provider.usageResetUnsupported", { provider: providerLabel(provider) })),
+      });
+    yield* providerStep(() => this.requireProviderOn(provider));
+    if (accountId !== DEFAULT_PROVIDER_ACCOUNT_ID) {
+      const accounts = yield* this.#requireAccounts(provider);
+      const { outcome, limit } = yield* accounts
+        .resetUsage(provider, accountId, defaultUsageModel(provider))
+        .pipe(toProviderOperationFailed);
+      if (limit) this.#emit({ type: "usage-changed", usage: { limits: [structuredClone(limit)] } });
+      return outcome;
+    }
+    if (!this.#clients.has(provider)) yield* this.ensureProvider(provider);
+    const client = this.#clients.get(provider);
+    if (!client)
+      return yield* new ProviderOperationFailed({
+        cause: new Error(sourceText("error.provider.accountNeedsConnection", { provider: providerLabel(provider) })),
+      });
+    const outcome: ProviderUsageResetOutcome = yield* this.#consumeUsageReset(client);
+    const usage = yield* this.#refreshUsage(client, defaultUsageModel(provider), false).pipe(
+      this.#logUsageFailure(provider),
+    );
+    const limit = usage ? usage.limits[0] : undefined;
+    if (limit && (limit.primary || limit.secondary)) {
+      const own = { ...limit, id: provider };
+      this.#lastUsage.set(provider, own);
+      this.#emit({ type: "usage-changed", usage: { limits: [structuredClone(own)] } });
+    }
+    return outcome;
+  }).bind(this);
+
+  /** A new key for each reset that the user asks for, which the provider spends at most one credit for. */
+  #consumeUsageReset(client: AgentClient) {
+    return client
+      .request(
+        "account/rateLimitResetCredit/consume",
+        { idempotencyKey: randomUUID() },
+        decodeRateLimitResetCreditConsumeResult,
+      )
+      .pipe(toProviderOperationFailed);
+  }
+
+  /**
+   * The answers of the custom agents to their usage prompts, for the rail. The answer is text, not
+   * windows, so the provider `acp` keeps `reportsUsage: false` and its limit errors stay turn errors.
+   * The rail polls every five minutes. A released `acp` shows the last answers, and starts again only
+   * when an answer is older than an hour or its prompt changed. An agent with no answer is left out.
+   */
+  readonly customAgentUsage = Effect.fn("ProviderRuntime.customAgentUsage")(function* (
+    this: ProviderRuntime,
+  ): Effect.fn.Return<CustomAgentUsage[]> {
+    return yield* this.#customAgentUsageLock.withPermit(this.#readCustomAgentUsage());
+  }).bind(this);
+
+  readonly #readCustomAgentUsage = Effect.fn("ProviderRuntime.readCustomAgentUsage")(function* (
+    this: ProviderRuntime,
+  ): Effect.fn.Return<CustomAgentUsage[]> {
+    const agents = savedCustomAgents(this.#credentials).flatMap((agent) =>
+      agent.usagePrompt === null ? [] : [{ id: agent.id, prompt: agent.usagePrompt }],
+    );
+    for (const id of this.#customAgentUsage.keys())
+      if (!agents.some((agent) => agent.id === id)) this.#customAgentUsage.delete(id);
+    if (agents.length === 0 || this.#off.has("acp")) return [];
+    const kept = (): CustomAgentUsage[] =>
+      agents.flatMap(({ id }) => {
+        const text = this.#customAgentUsage.get(id)?.text;
+        return text == null ? [] : [{ id, text }];
+      });
+    const readWithin = (ms: number) =>
+      agents.every(({ id, prompt }) => {
+        const entry = this.#customAgentUsage.get(id);
+        return entry !== undefined && entry.prompt === prompt && Date.now() - entry.readAt < ms;
+      });
+    if (readWithin(CUSTOM_AGENT_USAGE_REUSE_MS)) return kept();
+    if (this.#released.has("acp") && readWithin(CUSTOM_AGENT_USAGE_WAKE_MS)) return kept();
+    if (!this.#clients.has("acp")) yield* this.ensureProvider("acp").pipe(this.#logUsageFailure("acp"));
+    const client = this.#clients.get("acp");
+    const readUsageText = client?.readUsageText?.bind(client);
+    if (!readUsageText) return kept();
+    yield* Effect.forEach(
+      agents,
+      ({ id, prompt }) =>
+        readUsageText(`${id}/${CUSTOM_AGENT_DEFAULT_MODEL}`, prompt).pipe(
+          toProviderOperationFailed,
+          Effect.timeoutOrElse({
+            duration: ACCOUNT_USAGE_READ_TIMEOUT_MS,
+            orElse: () => Effect.fail(new ProviderOperationFailed({ cause: new Error("Usage read timed out.") })),
+          }),
+          Effect.map((answer) => answer?.slice(0, CUSTOM_AGENT_LIMITS.usageAnswer) ?? null),
+          Effect.catch((error: ProviderOperationFailed) =>
+            Effect.sync(() => {
+              logger.warn("Could not read custom agent usage.", {
+                provider: "acp",
+                message: error.cause instanceof Error ? this.#redactMcp(error.cause.message) : "unknown",
+              });
+              // A failed read keeps the last answer to the same prompt on the rail.
+              const previous = this.#customAgentUsage.get(id);
+              return previous?.prompt === prompt ? previous.text : null;
+            }),
+          ),
+          Effect.tap((text) =>
+            Effect.sync(() => {
+              this.#customAgentUsage.set(id, { prompt, text, readAt: Date.now() });
+            }),
+          ),
+        ),
+      { concurrency: "unbounded", discard: true },
+    );
+    return kept();
+  });
+
   #logUsageFailure(provider: AgentProvider) {
     return Effect.catch((error: ProviderOperationFailed | ProviderAccountFailed) =>
       Effect.sync(() => {
@@ -964,11 +1181,50 @@ export class ProviderRuntime implements ProviderPort {
       PROVIDER_IDLE_CHECK_MS,
     );
     this.#idleCheck.unref?.();
+    this.#watchSignInFiles();
     yield* this.#connect(
       "starting",
       BUILT_IN_PROVIDER_DRIVERS.map((driver) => driver.id),
     );
   }).bind(this);
+
+  /**
+   * A provider found signed out at start keeps no client, and nothing else asks it again. A user who
+   * signs in with the provider's own CLI, such as over SSH on a server, would see it signed out until
+   * a restart (#2895). The version is read before the start check, so a sign-in that ends during
+   * that check is not missed.
+   */
+  #watchSignInFiles(): void {
+    for (const driver of BUILT_IN_PROVIDER_DRIVERS) {
+      const path = driver.signInFile?.();
+      if (path && !this.#signInFiles.has(driver.id))
+        this.#signInFiles.set(driver.id, { path, seen: signInFileVersion(path) });
+    }
+    if (this.#signInFiles.size === 0) return;
+    this.#signInCheck ??= setInterval(() => this.#checkSignInFiles(), SIGN_IN_FILE_POLL_MS);
+    this.#signInCheck.unref?.();
+  }
+
+  /**
+   * Only a signed-out row is checked again: the CLI also writes the file to refresh a token, and a
+   * provider that stopped at `START_FAILURE_LIMIT` must wait for the user. A change that comes while
+   * a check runs keeps its new version, so a later poll checks it. A sign-in or a Connect that
+   * OpenBot started checks the account itself when it ends.
+   */
+  #checkSignInFiles(): void {
+    if (this.#status.phase === "starting" || this.#status.phase === "restarting" || this.#providerRefresh) return;
+    for (const [provider, file] of this.#signInFiles) {
+      const row = this.#status.providers?.find((candidate) => candidate.id === provider);
+      if (row?.state !== "sign-in-required") continue;
+      if (this.#cliLogin.has(provider) || this.#providerConnectionCommands.has(provider)) continue;
+      const version = signInFileVersion(file.path);
+      if (version === file.seen) continue;
+      file.seen = version;
+      Effect.runFork(
+        this.#startProvider(provider, { preserveCheckErrors: true }).pipe(Effect.ignore, Effect.forkIn(this.#scope)),
+      );
+    }
+  }
 
   readonly setPreferredProvider = Effect.fn("ProviderRuntime.setPreferredProvider")(function* (
     this: ProviderRuntime,
@@ -1134,22 +1390,53 @@ export class ProviderRuntime implements ProviderPort {
           .pipe(toProviderOperationFailed);
         return this.status();
       case "acp-authenticate": {
+        // A Reconnect of a Google sign-in signs out first: the saved token would answer it with no
+        // browser page. A saved key wins over Google, so it keeps the token. A provider that the idle
+        // timer released is still connected.
+        const fresh =
+          provider === "antigravity" &&
+          this.#status.providers?.find((row) => row.id === provider)?.state === "available" &&
+          !this.#credentials.apiKey("antigravity");
+        // The sign-out removes the credential that a running turn uses.
+        if (fresh && this.#hooks.isProviderBusy(provider)) {
+          return yield* new ProviderOperationFailed({
+            cause: new Error(sourceText("error.provider.cliBusyReconnect", { provider: providerLabel(provider) })),
+          });
+        }
         yield* this.#cancelCliLogin(provider);
+        const disposals = this.#disposals;
         const temp = provider === "antigravity" ? antigravityTemp(this.#credentials) : undefined;
         yield* this.#cliLogin
-          .start(provider, (cli) =>
-            startAcpAuthentication({
+          .start(provider, (cli) => {
+            let loggedOut = false;
+            return startAcpAuthentication({
               executable: cli.executable,
               argv: signIn.argv,
               env: { ...signIn.env },
               methodId: signIn.methodId,
               timeoutMs: signIn.timeoutMs,
+              ...(fresh
+                ? {
+                    logout: true,
+                    onLoggedOut: () => {
+                      loggedOut = true;
+                    },
+                  }
+                : {}),
               privateTemp: temp && { ...temp, provider: providerLabel(provider) },
               ...(provider === "antigravity" && (onHost || process.platform === "linux")
                 ? { openGoogleSignIn: openExternal }
                 : {}),
-            }),
-          )
+            }).pipe(
+              // A sign-in that stops after the sign-out leaves no account behind it.
+              Effect.map((login) => ({
+                ...login,
+                done: login.done.pipe(
+                  Effect.onError(() => (loggedOut ? this.#endSignedOutClient(provider, disposals) : Effect.void)),
+                ),
+              })),
+            );
+          })
           .pipe(toProviderOperationFailed);
         return this.status();
       }
@@ -1868,6 +2155,11 @@ export class ProviderRuntime implements ProviderPort {
       return yield* new ProviderOperationFailed({
         cause: new Error(sourceText("error.provider.cliNotReady", { provider: providerLabel(provider) })),
       });
+    // A CLI that ignores the account's folder would run the agent on the provider's own sign-in.
+    if (own.account && !this.#providerAccounts?.supported(provider))
+      return yield* new ProviderOperationFailed({
+        cause: new Error(sourceText("error.provider.accountsUnsupported", { provider: providerLabel(provider) })),
+      });
     const disposals = this.#disposals;
     const accountEnvironment = own.account ? this.#providerAccounts?.environment(own.account) : undefined;
     const { client } = yield* this.#authenticateClient(provider, cli, {
@@ -2106,6 +2398,9 @@ export class ProviderRuntime implements ProviderPort {
     this.#restartsWhenIdle.clear();
     if (this.#idleCheck) clearInterval(this.#idleCheck);
     this.#idleCheck = null;
+    if (this.#signInCheck) clearInterval(this.#signInCheck);
+    this.#signInCheck = null;
+    this.#signInFiles.clear();
     this.#released.clear();
     const loginClient = this.#codexLogin.dispose();
     const stopCliLogins = this.#cliLogin.dispose();
@@ -2674,6 +2969,25 @@ export class ProviderRuntime implements ProviderPort {
     );
   }, Effect.uninterruptible);
 
+  /**
+   * Stops the client that still runs on a credential that a Reconnect signed out, and reports the
+   * provider signed out. A failed sign-in then reports its own reason; a cancel keeps this one.
+   */
+  readonly #endSignedOutClient = Effect.fn("ProviderRuntime.endSignedOutClient")(function* (
+    this: ProviderRuntime,
+    provider: AgentProvider,
+    disposals: number,
+  ) {
+    if (disposals !== this.#disposals || this.#hooks.isStopping()) return;
+    const version = this.#cli.get(provider)?.version;
+    yield* this.#stopProviderClient(provider).pipe(Effect.ignore);
+    this.#setProviderConnectionFailure(
+      provider,
+      new ProviderSignInError({ message: this.#signInRequiredMessage(provider) }),
+      version,
+    );
+  });
+
   #cancelCliLogin(provider: AgentProvider): Effect.Effect<void, ProviderOperationFailed> {
     return this.#cliLogin.cancel(provider, null).pipe(toProviderOperationFailed);
   }
@@ -2981,6 +3295,10 @@ export class ProviderRuntime implements ProviderPort {
       // logged or turned into a renderer error event. Shortened after that, because a value cut in
       // half is a value the redactor does not match.
       const message = shortenDiagnostic(this.#redactMcp(raw));
+      if (client.provider === "codex" && isCodexCredentialFallbackDiagnostic(raw)) {
+        logger.info("Codex completed a credential storage fallback.", { provider: client.provider, message });
+        return;
+      }
       // An agent that tears down its sessions while OpenBot stops it (idle release, restart, quit)
       // can write an error for each one. It is not a failure the user can act on, so it goes to the log.
       if (origin?.duringStop) {
@@ -2990,10 +3308,16 @@ export class ProviderRuntime implements ProviderPort {
         });
         return;
       }
-      const names = new Set([
-        ...this.#credentials.mcpServers().map((config) => config.name),
-        ...this.#mcpHandoff.names(),
-      ]);
+      // Also the name a provider was given. One with no letter or digit, such as `__`, would match
+      // every `mcp__server__tool` line.
+      const names = new Set(
+        [...this.#credentials.mcpServers().map((config) => config.name), ...this.#mcpHandoff.names()].flatMap(
+          (name) => {
+            const given = providerMcpServerName(name);
+            return /[A-Za-z0-9]/u.test(given) ? [name, given] : [name];
+          },
+        ),
+      );
       if (isMcpSubsystemDiagnostic(message, [...names])) {
         stderrLogger.warn("A provider reported an MCP server failure.", { provider: client.provider, message });
         return;
@@ -3031,7 +3355,12 @@ export class ProviderRuntime implements ProviderPort {
       }
       // The usage notice reports the limit only for a provider with a usage reading. Another
       // provider's line goes on to the error below, or nothing on screen would name the limit.
-      if (isUsageLimitDiagnostic(message) && agentProviderDescriptor(client.provider).reportsUsage) {
+      // Cursor's line goes on too: its reading has no on-demand or team limit.
+      if (
+        isUsageLimitDiagnostic(message) &&
+        client.provider !== "cursor" &&
+        agentProviderDescriptor(client.provider).reportsUsage
+      ) {
         stderrLogger.warn("A provider reported an exhausted usage limit.", { provider: client.provider, message });
         Effect.runFork(this.refreshUsageAfterLimit(client));
         return;
@@ -3285,6 +3614,11 @@ export class ProviderRuntime implements ProviderPort {
         decodeAccountRateLimitsReadResult,
       )
       .pipe(toProviderOperationFailed);
+    if (rateLimits.rateLimitResetCredits !== undefined) {
+      const available = rateLimits.rateLimitResetCredits?.availableCount ?? null;
+      this.#resetCredits.set(client, available);
+      if (this.#clients.get(client.provider) === client) this.#ownResetCredits.set(client.provider, available);
+    }
     const usage = normalizeAccountUsage(rateLimits, client.provider === "codex" ? model : undefined);
     if (emit) this.#emit({ type: "usage-changed", usage: structuredClone(usage) });
     return structuredClone(usage);

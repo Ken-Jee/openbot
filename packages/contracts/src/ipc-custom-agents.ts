@@ -20,6 +20,8 @@ export const CUSTOM_AGENT_LIMITS = {
   envValue: 4_096,
   capabilities: 32,
   checkModels: 256,
+  usagePrompt: 256,
+  usageAnswer: 4_000,
 } as const;
 
 /** A POSIX environment variable name. */
@@ -42,6 +44,11 @@ export interface SaveCustomAgentInput {
   command: string;
   args: string[];
   env: CustomAgentEnvInput[];
+  /**
+   * The prompt that OpenBot sends, in a session that no thread owns, to read the plan usage, such as
+   * `/usage`. Null for none. One line.
+   */
+  usagePrompt: string | null;
 }
 
 export interface DeleteCustomAgentInput {
@@ -55,8 +62,19 @@ export interface CustomAgentSummary {
   command: string;
   args: string[];
   envNames: string[];
+  /**
+   * Absent in the result of a registry install from a server: the released `acp-registry-v1` codec
+   * keeps only the fields it knew, and the next list carries the value.
+   */
+  usagePrompt?: string | null | undefined;
   /** The file that the command starts, or null when it cannot be found now. */
   resolvedCommand: string | null;
+}
+
+/** Main to renderer. The answer of one agent to its usage prompt, as plain text with secrets redacted. */
+export interface CustomAgentUsage {
+  id: string;
+  text: string;
 }
 
 export interface CustomAgentResult {
@@ -105,6 +123,11 @@ function isArgs(value: unknown): value is string[] {
   );
 }
 
+/** One line: the prompt goes to the agent as it is, so a line break would send a second instruction. */
+export function isCustomAgentUsagePrompt(value: unknown): value is string {
+  return isBoundedString(value, CUSTOM_AGENT_LIMITS.usagePrompt) && value.trim().length > 0 && !/[\0\r\n]/.test(value);
+}
+
 export function isCustomAgentEnvName(value: unknown): value is string {
   return isBoundedString(value, INPUT_LIMITS.identifier) && CUSTOM_AGENT_ENV_NAME_PATTERN.test(value);
 }
@@ -124,6 +147,7 @@ export function isCustomAgentSummary(value: unknown): value is CustomAgentSummar
     Array.isArray(value.envNames) &&
     value.envNames.length <= CUSTOM_AGENT_LIMITS.env &&
     value.envNames.every(isCustomAgentEnvName) &&
+    (value.usagePrompt === undefined || value.usagePrompt === null || isCustomAgentUsagePrompt(value.usagePrompt)) &&
     isNullableBoundedString(value.resolvedCommand, CUSTOM_AGENT_LIMITS.command)
   );
 }
@@ -135,6 +159,15 @@ export function isCustomAgentResult(value: unknown): value is CustomAgentResult 
     value.agents.length <= CUSTOM_AGENT_LIMITS.agents &&
     value.agents.every(isCustomAgentSummary) &&
     isOneOf(CUSTOM_PROVIDER_RESTARTS, value.restart)
+  );
+}
+
+export function isCustomAgentUsage(value: unknown): value is CustomAgentUsage {
+  return (
+    isDynamicRecord(value) &&
+    isString(value.id) &&
+    isCustomAgentId(value.id) &&
+    isBoundedString(value.text, CUSTOM_AGENT_LIMITS.usageAnswer)
   );
 }
 

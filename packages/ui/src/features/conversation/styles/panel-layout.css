@@ -1,12 +1,12 @@
 .conversation-panel:has(.settings-panel) .conversation-header,
 .conversation-panel:has(.settings-panel) .conversation-scroll,
 .conversation-panel:has(.settings-panel) .composer-wrap {
-  width: calc(100% - var(--settings-panel-width, 296px));
+  width: calc(100% - var(--settings-panel-width, 360px));
 }
 
 .conversation-panel:has(.settings-panel) .chat-search {
-  right: calc(var(--settings-panel-width, 296px) + 16px);
-  max-width: calc(100% - var(--settings-panel-width, 296px) - 32px);
+  right: calc(var(--settings-panel-width, 360px) + 16px);
+  max-width: calc(100% - var(--settings-panel-width, 360px) - 32px);
 }
 
 .conversation-panel:has(#browser-side-panel) .chat-search,

@@ -38,7 +38,7 @@ export const pushNotificationsNative: PushNotificationsNative | null = {
     const text = JSON.stringify({ version: 1, servers });
     const file = new File(directory, KEYS_FILE);
     if (file.exists && file.textSync() === text) return;
-    file.write(text);
+    file.writeSync(text);
   },
   removeKeys() {
     const directory = Paths.appleSharedContainers[APP_GROUP];

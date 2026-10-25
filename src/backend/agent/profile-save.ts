@@ -1,5 +1,6 @@
 import { rm } from "node:fs/promises";
 import type {
+  AgentDefaults,
   AgentSummary,
   ConversationMessageSender,
   SaveAgentProfileInput,
@@ -154,8 +155,16 @@ const { io: profileIo, sync: profileStep, rewrap: toProfileSaveFailed } = causeH
 
 export { toProfileSaveFailed };
 
-/** Model and effort use live turn settings; these fields change standing context or access. */
-export function standingProfileChanged(previous: AgentSummary | null | undefined, agent: AgentSummary): boolean {
+/**
+ * Model and effort use live turn settings; these fields change standing context or access. An agent
+ * that follows an account default reads `defaults`, and `previousDefaults` before a change of them.
+ */
+export function standingProfileChanged(
+  previous: AgentSummary | null | undefined,
+  agent: AgentSummary,
+  defaults: AgentDefaults,
+  previousDefaults: AgentDefaults = defaults,
+): boolean {
   return (
     !previous ||
     previous.name !== agent.name ||
@@ -165,7 +174,7 @@ export function standingProfileChanged(previous: AgentSummary | null | undefined
     previous.provider !== agent.provider ||
     workspaceAccessEnforced(previous) !== workspaceAccessEnforced(agent) ||
     agentComputerUseEnabled(previous) !== agentComputerUseEnabled(agent) ||
-    agentAutomationAllowed(previous) !== agentAutomationAllowed(agent) ||
-    agentQuickAcknowledgementEnabled(previous) !== agentQuickAcknowledgementEnabled(agent)
+    agentAutomationAllowed(previous, previousDefaults) !== agentAutomationAllowed(agent, defaults) ||
+    agentQuickAcknowledgementEnabled(previous, previousDefaults) !== agentQuickAcknowledgementEnabled(agent, defaults)
   );
 }

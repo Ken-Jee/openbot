@@ -40,7 +40,11 @@ function isTable(token: Token): token is Tokens.Table {
 /** Tokens that the reveal shows at once, as one word. */
 function isWholeWord(token: Token): boolean {
   return (
-    token.type === "agentMention" || token.type === "code" || token.type === "inlineMath" || token.type === "blockMath"
+    token.type === "agentMention" ||
+    token.type === "skillMention" ||
+    token.type === "code" ||
+    token.type === "inlineMath" ||
+    token.type === "blockMath"
   );
 }
 function hasChildren(token: Token): token is Token & { tokens: Token[] } {

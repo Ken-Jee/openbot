@@ -160,8 +160,9 @@ const ServerScope = createSimpleContext({
         draft.loading = false;
         draft.sequence = sequence;
       });
+      // By id: a chat window can show a server that the main window does not.
       void serversPort()
-        .servers.getPresence()
+        .servers.getPresenceFor(serverId)
         .then((value) => {
           if (isCurrent()) setTeamPresence(value);
         })

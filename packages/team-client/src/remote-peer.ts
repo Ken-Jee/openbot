@@ -73,6 +73,13 @@ import { createRemoteFileSender, type RemoteFileUpload } from "./file-upload";
 export type { RemoteFileUpload } from "./file-upload";
 export { MOBILE_ATTACHMENT_BYTES } from "./file-upload";
 
+import {
+  judgePath,
+  PATH_CHECK_INTERVAL_MS,
+  type ProbeArm,
+  type ProbeSample,
+  unmeasuredProbeMs,
+} from "./remote-path-check";
 import { createTeamRequestId } from "./request-id";
 import { encodeTeamWebRtcPayload, TeamWebRtcPayloadDecoder } from "./webrtc-framing";
 export type RemoteTeamCommand =
@@ -173,7 +180,7 @@ export interface RemoteTeamDiagnostic {
     | "signal-ready"
     | "signal-retry"
     | "host-waiting"
-    | "host-busy"
+    | "path-check"
     | "peer-state"
     | "route"
     | "ice-recovery"
@@ -285,15 +292,6 @@ const ICE_RESTART_DELAY_MS = 2_000;
 const SIGNAL_RENEW_DELAY_MS = 8_000;
 /** A socket that waits for the host is renewed with its resume token, so a dead socket does not wait forever. */
 const HOST_WAIT_RENEW_MS = 60_000;
-const COMPATIBILITY_REQUEST_TIMEOUT_MS = 3_000;
-/** The first read on a new peer also waits for a slow relay path, such as TURN over TLS on mobile data. */
-const FIRST_COMPATIBILITY_REQUEST_TIMEOUT_MS = 10_000;
-/**
- * A host whose main process is busy answers the check late, but its WebRTC process still receives
- * and acknowledges the request. While the path receives data, the check waits this long in total
- * before it replaces the peer, so a busy host does not cause a reconnect loop.
- */
-const BUSY_HOST_COMPATIBILITY_TIMEOUT_MS = 60_000;
 const REQUEST_TIMEOUT_MS = 10 * 60_000 + 30_000;
 /**
  * The host gets no answer to its ICE consent checks while the phone is suspended, and stops using a
@@ -517,15 +515,18 @@ export function createRemoteTeamPeer(actions: ActionsRef, options: { waitForHost
     return pair ? { local: stats.get(pair.localCandidateId), remote: stats.get(pair.remoteCandidateId) } : null;
   }
 
-  /**
-   * A count that grows while the host's WebRTC process answers on the selected path: received bytes
-   * and ICE consent answers. Null when there is no pair or no stats.
-   */
-  function receivedOnPath(connection: RTCPeerConnection) {
+  /** The data bytes of the selected pair and its round-trip time. Null when there is no pair or no stats. */
+  function sentOnPath(connection: RTCPeerConnection) {
     return peerCall(() => connection.getStats()).pipe(
       Effect.map((stats) => {
         const pair = selectedPair(stats);
-        return pair ? (Number(pair.bytesReceived) || 0) + (Number(pair.responsesReceived) || 0) : null;
+        if (!pair) return null;
+        const rtt = Number(pair.currentRoundTripTime);
+        return {
+          bytesSent: Number(pair.bytesSent) || 0,
+          bytesReceived: Number(pair.bytesReceived) || 0,
+          rttMs: Number.isFinite(rtt) ? rtt * 1000 : null,
+        };
       }),
       Effect.catch(() => Effect.succeed(null)),
     );
@@ -1337,9 +1338,6 @@ export function createRemoteTeamPeer(actions: ActionsRef, options: { waitForHost
               );
         const requestId = createTeamRequestId((size) => crypto.getRandomValues(new Uint8Array(size)));
         const checksConnection = method === "GET" && path === TEAM_API_ROUTES.compatibility;
-        const compatibilityTimeout = state.answeredRequest
-          ? COMPATIBILITY_REQUEST_TIMEOUT_MS
-          : FIRST_COMPATIBILITY_REQUEST_TIMEOUT_MS;
         const payload = yield* peerDecode(() =>
           encodeTeamProtocolV2Frame({
             version: 2,
@@ -1355,9 +1353,19 @@ export function createRemoteTeamPeer(actions: ActionsRef, options: { waitForHost
             },
           }),
         );
-        // Read before the send, so the acknowledgement of this request counts as an answer of the path.
+        // Read before the send, so the bytes of this probe and of the frames ahead of it count as its progress.
         const connection = state.connection;
-        let pathReceived = checksConnection && connection ? yield* receivedOnPath(connection) : null;
+        const sent = checksConnection && connection ? yield* sentOnPath(connection) : null;
+        const arm: ProbeArm | null = sent && {
+          at: Date.now(),
+          rttMs: sent.rttMs,
+          bytesSent: sent.bytesSent,
+          bytesReceived: sent.bytesReceived,
+          rpcBuffered: state.channels.rpc?.bufferedAmount ?? 0,
+          probeBytes: new TextEncoder().encode(payload).byteLength,
+          fresh: !state.answeredRequest,
+          limitMs: timeoutMs,
+        };
         const answer = Deferred.makeUnsafe<{ status: number; body: TeamProtocolV2Json }, RemotePeerError>();
         const response = yield* Effect.acquireUseRelease(
           // Registered before the send, so a fast response finds its request.
@@ -1370,18 +1378,21 @@ export function createRemoteTeamPeer(actions: ActionsRef, options: { waitForHost
               reject(error);
               if (checksConnection) failPeer(state, error, actions);
             };
-            const busyHostDeadline = Date.now() + Math.min(BUSY_HOST_COMPATIBILITY_TIMEOUT_MS, timeoutMs);
-            // A path that still receives data reaches a host that is only slow. A path that receives
-            // nothing, as after a network change, is replaced at once.
+            const samples: ProbeSample[] = [];
             const checkPath = () => {
-              if (!connection || pathReceived === null || Date.now() >= busyHostDeadline) return expire();
-              const before = pathReceived;
-              void runPeerEffect(receivedOnPath(connection)).then((received) => {
+              if (!connection || !arm) return expire();
+              void runPeerEffect(sentOnPath(connection)).then((now) => {
                 if (pendingRequests.get(requestId) !== pending) return;
-                if (received === null || received <= before) return expire();
-                pathReceived = received;
-                diagnose(state, "host-busy", "compatibility check waits");
-                pending.timer = setTimeout(checkPath, Math.min(compatibilityTimeout, busyHostDeadline - Date.now()));
+                if (!now) return expire();
+                const sample = { at: Date.now(), bytesSent: now.bytesSent, bytesReceived: now.bytesReceived };
+                const verdict = judgePath(arm, samples, sample);
+                samples.push(sample);
+                if (verdict.kind === "pending") {
+                  pending.timer = setTimeout(checkPath, verdict.recheckAt - sample.at);
+                  return;
+                }
+                diagnose(state, "path-check", verdict.reason);
+                expire();
               }, expire);
             };
             const resolve = (value: { status: number; body: TeamProtocolV2Json }) =>
@@ -1393,7 +1404,9 @@ export function createRemoteTeamPeer(actions: ActionsRef, options: { waitForHost
               reject,
               timer: setTimeout(
                 checksConnection ? checkPath : expire,
-                checksConnection ? Math.min(compatibilityTimeout, timeoutMs) : timeoutMs,
+                checksConnection
+                  ? Math.min(arm ? PATH_CHECK_INTERVAL_MS : unmeasuredProbeMs(!state.answeredRequest), timeoutMs)
+                  : timeoutMs,
               ),
             };
             pendingRequests.set(requestId, pending);

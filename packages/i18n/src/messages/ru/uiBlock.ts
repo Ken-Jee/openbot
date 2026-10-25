@@ -14,6 +14,8 @@ export const messages = {
   "uiBlock.confirm.accept": "Подтвердить",
   "uiBlock.confirm.autoActionLabel": "{action} · {seconds} с",
   "uiBlock.confirm.previewLabel": "Предпросмотр",
+  "uiBlock.confirm.showFullPreview": "Показать всё",
+  "uiBlock.confirm.hideFullPreview": "Свернуть",
   "uiBlock.choice.submit": "Отправить",
   "uiBlock.choice.shortcutHint": "Нажмите {first}–{last}, чтобы выбрать",
   "uiBlock.choice.selectedCount": {

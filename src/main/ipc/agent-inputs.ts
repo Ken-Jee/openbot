@@ -637,16 +637,19 @@ export function parseUpdateAgent(value: unknown): UpdateAgentInput {
     if (!isBoolean(value.computerUse)) throw new Error("Invalid Computer Use value.");
     result.computerUse = value.computerUse;
   }
+  // `null` returns the agent to the account default.
   if (value.allowAutomation !== undefined) {
-    if (!isBoolean(value.allowAutomation)) throw new Error("Invalid automation value.");
+    if (value.allowAutomation !== null && !isBoolean(value.allowAutomation))
+      throw new Error("Invalid automation value.");
     result.allowAutomation = value.allowAutomation;
   }
   if (value.allowNewChat !== undefined) {
-    if (!isBoolean(value.allowNewChat)) throw new Error("Invalid new chat value.");
+    if (value.allowNewChat !== null && !isBoolean(value.allowNewChat)) throw new Error("Invalid new chat value.");
     result.allowNewChat = value.allowNewChat;
   }
   if (value.quickAcknowledgement !== undefined) {
-    if (!isBoolean(value.quickAcknowledgement)) throw new Error("Invalid quick acknowledgement value.");
+    if (value.quickAcknowledgement !== null && !isBoolean(value.quickAcknowledgement))
+      throw new Error("Invalid quick acknowledgement value.");
     result.quickAcknowledgement = value.quickAcknowledgement;
   }
   if (value.fastMode !== undefined) {

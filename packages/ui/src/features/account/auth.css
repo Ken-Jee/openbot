@@ -193,7 +193,6 @@
 .account-login-form input:not(.otp-input-native):focus {
   border-color: var(--openbot-border-focus);
   background: var(--openbot-bg-surface);
-  box-shadow: 0 0 0 3px var(--openbot-accent-soft);
 }
 
 .account-login-form input:not(.otp-input-native)[aria-invalid="true"] {
@@ -1248,8 +1247,8 @@ button {
 }
 
 button:not(.ui-button):focus-visible,
-input:focus-visible,
-textarea:focus-visible {
+input:not(.ui-input):focus-visible,
+textarea:not(.ui-textarea):focus-visible {
   outline: 2px solid var(--openbot-border-focus);
   outline-offset: 2px;
 }

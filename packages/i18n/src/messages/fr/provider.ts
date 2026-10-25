@@ -76,9 +76,10 @@ export const messages = {
   "provider.aria.moreActions": "Autres actions pour {name}",
 
   "provider.aria.use": "Utiliser {name} dans OpenBot",
+  "provider.use.inUseOne": "{agent} utilise {name}. Changez le modèle de cet agent, puis désactivez {name}.",
   "provider.use.inUse": {
-    one: "{agents} utilise {name}. Changez le modèle de cet agent, puis désactivez {name}.",
-    other: "{agents} utilisent {name}. Changez le modèle de ces agents, puis désactivez {name}.",
+    one: "{count} agent utilise {name}. Changez le modèle de cet agent, puis désactivez {name}.",
+    other: "{count} agents utilisent {name}. Changez le modèle de ces agents, puis désactivez {name}.",
   },
   "provider.codeLogin.title": "Se connecter à {name} avec un code",
   "provider.codeLogin.description": "Terminez sur votre téléphone ou dans un autre navigateur. OpenBot attend ici.",
@@ -181,4 +182,24 @@ export const messages = {
   "provider.account.finishSignIn": "Terminez la connexion dans le navigateur.",
   "provider.account.remove": "Supprimer le compte",
   "provider.account.actionFailed": "Impossible de modifier le compte {name}.",
+  "provider.account.resetUsage": "Réinitialiser l’usage",
+  "provider.account.resetUsageTitle": "Réinitialiser l’usage de {name} ?",
+  "provider.account.resetUsageDescription": {
+    one: "Cela utilise votre dernier crédit de réinitialisation d’usage. Les limites d’usage épuisées de ce compte repartent maintenant. Vous ne pouvez pas annuler cette action.",
+    other:
+      "Cela utilise 1 de vos {count} crédits de réinitialisation d’usage. Les limites d’usage épuisées de ce compte repartent maintenant. Vous ne pouvez pas annuler cette action.",
+  },
+  "provider.account.resetUsagePending": "Réinitialisation…",
+  "provider.account.resetUsageDone": "Les limites d’usage de {name} repartent maintenant.",
+  "provider.account.resetUsageNothing": "{name} n’a aucune limite d’usage épuisée. Aucun crédit n’a été utilisé.",
+  "provider.account.resetUsageNoCredit": "{name} n’a plus de crédits de réinitialisation d’usage.",
+  "provider.account.resetUsageAlreadyRedeemed": "Ce crédit de réinitialisation de {name} a déjà été utilisé.",
+  "provider.account.resetUsageFailed": "Impossible de réinitialiser l’usage de {name}.",
+  "provider.settings.cache": "Cache",
+  "provider.settings.promptCache": "Cache de prompt",
+  "provider.settings.promptCacheDescription":
+    "Durée pendant laquelle Claude garde le contexte d’un agent en cache entre les tours.",
+  "provider.settings.promptCacheHour": "1 heure",
+  "provider.settings.promptCacheMinutes": "5 minutes",
+  "provider.settings.promptCacheLoadFailed": "Impossible de charger la durée du cache de prompt de ce serveur.",
 } as const satisfies PartialTranslation<typeof source>;

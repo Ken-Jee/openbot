@@ -13,6 +13,7 @@ import { Effect } from "effect";
 import { join } from "node:path";
 import {
   type AppVariant,
+  type ChatWindowTarget,
   type ComputerUseHighlightPlacement,
   IPC_ENDPOINTS,
   LOCAL_SERVER_ID,
@@ -56,6 +57,10 @@ import type { RemoteWorkflowError } from "./remote-service-effects";
 import { sendToRenderer } from "./renderer-ipc";
 import { isTrustedRendererUrl } from "./trusted-renderer";
 import type { UpdateService } from "./update-service";
+import { followAppearance, followWindowGlass, windowBackgroundColor } from "./window-appearance";
+
+/** The dark background of the main and setup windows, under the page's own canvas. */
+const MAIN_WINDOW_DARK_BACKGROUND = "#0b0d0e";
 
 /**
  * What the window surface reads off the running application. Deliberately narrower than
@@ -104,6 +109,11 @@ export interface MainWindowContext {
 
 export interface MainWindowController {
   getMainWindow: () => BrowserWindow | null;
+  /** The windows that each show one chat. They get the same live events as the main window. */
+  getChatWindows: () => BrowserWindow[];
+  /** The chats that have a window, for the marks in the main window's sidebar. */
+  chatWindowTargets: () => ChatWindowTarget[];
+  openChatWindow: (target: ChatWindowTarget) => void;
   openMainWindow: () => BrowserWindow;
   ensureMainWindow: () => Promise<BrowserWindow>;
   loadRenderer: (window: BrowserWindow) => Promise<void>;
@@ -136,7 +146,6 @@ export function createMainWindowController({
     });
 
   function createWindow(): BrowserWindow {
-    let inspectElementModifierPressed = false;
     const cursor = screen.getCursorScreenPoint();
     const bounds = resolveMainWindowBounds(
       currentMainWindowBounds(),
@@ -150,7 +159,7 @@ export function createMainWindowController({
       minWidth: 960,
       minHeight: 640,
       show: false,
-      backgroundColor: "#0b0d0e",
+      backgroundColor: windowBackgroundColor(MAIN_WINDOW_DARK_BACKGROUND),
       title:
         developmentProfile === "test-client"
           ? getTranslate()("window.localClientTitle")
@@ -175,6 +184,7 @@ export function createMainWindowController({
         webSecurity: true,
       },
     });
+    followWindowGlass(window, MAIN_WINDOW_DARK_BACKGROUND);
 
     window.once("ready-to-show", () => {
       performance.mark("openbot:window-ready");
@@ -201,6 +211,8 @@ export function createMainWindowController({
     onMainWindowCreated(window);
     window.on("closed", () => {
       if (holder.current === window) holder.current = null;
+      // A chat window is a second view of a chat in the main window, so it does not outlive it.
+      for (const chat of chatWindows.values()) chat.window.close();
     });
     window.on("move", () => rememberMainWindowBounds(window.getNormalBounds()));
     window.on("resize", () => rememberMainWindowBounds(window.getNormalBounds()));
@@ -216,95 +228,7 @@ export function createMainWindowController({
     });
     window.webContents.on("render-process-gone", onRendererGone);
     window.webContents.once("destroyed", onRendererGone);
-    window.webContents.on("before-input-event", (event, input) => {
-      if (input.key.toLowerCase() === "shift") {
-        inspectElementModifierPressed = input.type === "keyDown";
-      }
-      if (isToggleDevToolsShortcut(input)) {
-        event.preventDefault();
-        window.webContents.toggleDevTools();
-        return;
-      }
-      const sizeStep = interfaceSizeShortcut(input, process.platform === "darwin");
-      const interfaceSize = getServices()?.interfaceSize;
-      if (sizeStep && interfaceSize) {
-        // This also stops the View menu item with the same key, which would step the size again.
-        event.preventDefault();
-        Effect.runFork(interfaceSize.step(sizeStep));
-        return;
-      }
-      if (isSelectAllShortcut(input)) {
-        event.preventDefault();
-        void window.webContents.executeJavaScript(
-          `(() => {
-            const active = document.activeElement;
-            if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) {
-              active.select();
-              return;
-            }
-            // A focused canvas is a remote browser page, which selects its own text when it gets the key.
-            // Only the key down is held here; the real key up still reaches it.
-            if (active instanceof HTMLCanvasElement) {
-              const key = { key: "a", code: "KeyA", ctrlKey: ${input.control}, metaKey: ${input.meta}, bubbles: true };
-              active.dispatchEvent(new KeyboardEvent("keydown", key));
-              return;
-            }
-            if (!(active instanceof HTMLElement) || !active.isContentEditable) return;
-            const range = document.createRange();
-            range.selectNodeContents(active);
-            const selection = window.getSelection();
-            selection?.removeAllRanges();
-            selection?.addRange(range);
-          })()`,
-          true,
-        );
-        return;
-      }
-      const services = getServices();
-      const tabId = services?.browser.activeTabId;
-      if (
-        !services ||
-        !tabId ||
-        services.remoteServers.activeServerId !== LOCAL_SERVER_ID ||
-        !services.browser.visible ||
-        !isCloseBrowserTabShortcut(input)
-      ) {
-        return;
-      }
-      event.preventDefault();
-      setImmediate(() => void Effect.runPromise(services.browser.close(tabId)).catch(() => undefined));
-    });
-    window.webContents.on("context-menu", (event, params) => {
-      if (inspectElementModifierPressed) {
-        event.preventDefault();
-        window.webContents.inspectElement(params.x, params.y);
-        return;
-      }
-      // The chat has no custom menu, so selected text would have no way to reach the clipboard.
-      // The native edit menu covers copy, select-all and link copying; anything else keeps no menu.
-      const items = chatContextMenuItems({
-        selectionText: params.selectionText,
-        isEditable: params.isEditable,
-        linkURL: params.linkURL,
-      });
-      if (items.length === 0) return;
-      event.preventDefault();
-      Menu.buildFromTemplate(
-        items.map((item) => {
-          if (item === "separator") return { type: "separator" } as const;
-          if (item === "copy-link")
-            return {
-              label: getTranslate()("menu.copyLink"),
-              click: () => clipboard.writeText(params.linkURL),
-            };
-          if (item === "copy") return { role: "copy" } as const;
-          return { role: "selectAll" } as const;
-        }),
-      ).popup({ window });
-    });
-    window.on("blur", () => {
-      inspectElementModifierPressed = false;
-    });
+    attachAppInput(window, getServices, getTranslate, { closesBrowserTabs: true });
     window.webContents.on("will-navigate", (event, targetUrl) => {
       if (!isTrustedRendererUrl(targetUrl)) event.preventDefault();
     });
@@ -318,6 +242,81 @@ export function createMainWindowController({
     return window;
   }
 
+  /** Keyed by `chatWindowKey`. A chat has one window at most. */
+  const chatWindows = new Map<string, { target: ChatWindowTarget; window: BrowserWindow }>();
+
+  function chatWindowTargets(): ChatWindowTarget[] {
+    return [...chatWindows.values()].map(({ target }) => target);
+  }
+
+  function announceChatWindows(): void {
+    const targets = chatWindowTargets();
+    sendToRenderer(holder.current, IPC_ENDPOINTS.app.chatWindows, targets);
+    getServices()?.remoteServers.setChatWindowServers(new Set(targets.map((target) => target.serverId)));
+  }
+
+  function openChatWindow(target: ChatWindowTarget): void {
+    const key = chatWindowKey(target);
+    const existing = chatWindows.get(key)?.window;
+    if (existing && !existing.isDestroyed()) {
+      if (existing.isMinimized()) existing.restore();
+      existing.show();
+      existing.focus();
+      return;
+    }
+    const window = new BrowserWindow({
+      width: 560,
+      height: 760,
+      minWidth: 380,
+      minHeight: 480,
+      show: false,
+      backgroundColor: windowBackgroundColor(MAIN_WINDOW_DARK_BACKGROUND),
+      // The page sets the chat name as its title when it loads.
+      title: getTranslate()("window.localHostTitle"),
+      icon: appIconPath,
+      ...(process.platform === "darwin"
+        ? { titleBarStyle: "hidden" as const, trafficLightPosition: { x: 12, y: 13 } }
+        : { autoHideMenuBar: true }),
+      webPreferences: {
+        preload: join(__dirname, "../preload/index.cjs"),
+        contextIsolation: true,
+        devTools: true,
+        sandbox: true,
+        nodeIntegration: false,
+        webSecurity: true,
+      },
+    });
+    followWindowGlass(window, MAIN_WINDOW_DARK_BACKGROUND);
+    chatWindows.set(key, { target: { serverId: target.serverId, agentId: target.agentId }, window });
+    window.once("ready-to-show", () => window.show());
+    window.on("closed", () => {
+      if (chatWindows.get(key)?.window === window) chatWindows.delete(key);
+      announceChatWindows();
+    });
+    // Focus cannot bring back a crashed page. The main window still shows the chat.
+    window.webContents.on("render-process-gone", () => {
+      if (!window.isDestroyed()) window.destroy();
+    });
+    window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+    window.webContents.on("will-navigate", (event, targetUrl) => {
+      if (!isTrustedRendererUrl(targetUrl)) event.preventDefault();
+    });
+    window.webContents.on("did-navigate", () => {
+      const interfaceSize = getServices()?.interfaceSize;
+      if (interfaceSize) window.webContents.setZoomFactor(interfaceSize.zoomFactor);
+    });
+    attachAppInput(window, getServices, getTranslate, { closesBrowserTabs: false });
+    announceChatWindows();
+    const url = appRendererUrl(process.env.ELECTRON_RENDERER_URL);
+    url.searchParams.set("window", "chat");
+    url.searchParams.set("server", target.serverId);
+    url.searchParams.set("agent", target.agentId);
+    window.loadURL(url.toString()).catch((error: unknown) => {
+      reportError("Could not load the chat window", error);
+      if (!window.isDestroyed()) window.destroy();
+    });
+  }
+
   function openMainWindow(): BrowserWindow {
     const window = createWindow();
     holder.current = window;
@@ -326,8 +325,7 @@ export function createMainWindowController({
 
   function loadRenderer(window: BrowserWindow): Promise<void> {
     onRendererLoadStarted();
-    const developmentUrl = process.env.ELECTRON_RENDERER_URL;
-    return developmentUrl ? window.loadURL(developmentUrl) : window.loadURL("openbot-app://app/index.html");
+    return window.loadURL(appRendererUrl(process.env.ELECTRON_RENDERER_URL).toString());
   }
 
   async function ensureMainWindow(): Promise<BrowserWindow> {
@@ -350,12 +348,120 @@ export function createMainWindowController({
 
   return {
     getMainWindow: () => holder.current,
+    getChatWindows: () =>
+      [...chatWindows.values()].map((chat) => chat.window).filter((window) => !window.isDestroyed()),
+    chatWindowTargets,
+    openChatWindow,
     openMainWindow,
     ensureMainWindow,
     loadRenderer,
     restoreMainWindowBounds,
     flushMainWindowBounds,
   };
+}
+
+/**
+ * The keys and the right-click menu of a window that loads the app. Only the main window has the
+ * browser, so only it closes a browser tab on the close shortcut.
+ */
+function attachAppInput(
+  window: BrowserWindow,
+  getServices: () => MainWindowApplicationServices | null,
+  getTranslate: () => AppTranslate,
+  { closesBrowserTabs }: { closesBrowserTabs: boolean },
+): void {
+  let inspectElementModifierPressed = false;
+  window.webContents.on("before-input-event", (event, input) => {
+    if (input.key.toLowerCase() === "shift") {
+      inspectElementModifierPressed = input.type === "keyDown";
+    }
+    if (isToggleDevToolsShortcut(input)) {
+      event.preventDefault();
+      window.webContents.toggleDevTools();
+      return;
+    }
+    const sizeStep = interfaceSizeShortcut(input, process.platform === "darwin");
+    const interfaceSize = getServices()?.interfaceSize;
+    if (sizeStep && interfaceSize) {
+      // This also stops the View menu item with the same key, which would step the size again.
+      event.preventDefault();
+      Effect.runFork(interfaceSize.step(sizeStep));
+      return;
+    }
+    if (isSelectAllShortcut(input)) {
+      event.preventDefault();
+      void window.webContents.executeJavaScript(
+        `(() => {
+          const active = document.activeElement;
+          if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) {
+            active.select();
+            return;
+          }
+          // A focused canvas is a remote browser page, which selects its own text when it gets the key.
+          // Only the key down is held here; the real key up still reaches it.
+          if (active instanceof HTMLCanvasElement) {
+            const key = { key: "a", code: "KeyA", ctrlKey: ${input.control}, metaKey: ${input.meta}, bubbles: true };
+            active.dispatchEvent(new KeyboardEvent("keydown", key));
+            return;
+          }
+          if (!(active instanceof HTMLElement) || !active.isContentEditable) return;
+          const range = document.createRange();
+          range.selectNodeContents(active);
+          const selection = window.getSelection();
+          selection?.removeAllRanges();
+          selection?.addRange(range);
+        })()`,
+        true,
+      );
+      return;
+    }
+    const services = getServices();
+    const tabId = services?.browser.activeTabId;
+    if (
+      !closesBrowserTabs ||
+      !services ||
+      !tabId ||
+      services.remoteServers.activeServerId !== LOCAL_SERVER_ID ||
+      !services.browser.visible ||
+      !isCloseBrowserTabShortcut(input)
+    ) {
+      return;
+    }
+    event.preventDefault();
+    setImmediate(() => void Effect.runPromise(services.browser.close(tabId)).catch(() => undefined));
+  });
+  window.webContents.on("context-menu", (event, params) => {
+    if (inspectElementModifierPressed) {
+      event.preventDefault();
+      window.webContents.inspectElement(params.x, params.y);
+      return;
+    }
+    // A chat message opens its own menu, but leaves selected text and links to this one
+    // (`keepNativeMenu` in `ChatMessageRow`). The native edit menu covers copy, select-all and
+    // link copying; anything else keeps no menu.
+    const items = chatContextMenuItems({
+      selectionText: params.selectionText,
+      isEditable: params.isEditable,
+      linkURL: params.linkURL,
+    });
+    if (items.length === 0) return;
+    event.preventDefault();
+    Menu.buildFromTemplate(
+      items.map((item) => {
+        if (item === "separator") return { type: "separator" } as const;
+        if (item === "copy-link")
+          return {
+            label: getTranslate()("menu.copyLink"),
+            click: () => clipboard.writeText(params.linkURL),
+          };
+        if (item === "copy") return { role: "copy" } as const;
+        return { role: "selectAll" } as const;
+      }),
+    ).popup({ window });
+  });
+  window.on("blur", () => {
+    inspectElementModifierPressed = false;
+  });
 }
 
 export function createDynamicIslandWindow(bounds: Rectangle, _display: Display): BrowserWindow {
@@ -488,7 +594,7 @@ export function createComputerUsePermissionHelpWindow(translate: AppTranslate): 
     fullscreenable: false,
     skipTaskbar: true,
     alwaysOnTop: true,
-    backgroundColor: "#0b0d0e",
+    backgroundColor: windowBackgroundColor(MAIN_WINDOW_DARK_BACKGROUND),
     title: translate("window.computerUsePermissionTitle"),
     ...(process.platform === "darwin"
       ? { titleBarStyle: "hiddenInset" as const, trafficLightPosition: { x: 12, y: 13 } }
@@ -505,6 +611,7 @@ export function createComputerUsePermissionHelpWindow(translate: AppTranslate): 
   // Over System Settings, which opens in front of everything: a window the pane covers would carry
   // the steps to nobody.
   window.setAlwaysOnTop(true, "floating");
+  followAppearance(window, MAIN_WINDOW_DARK_BACKGROUND);
   // The fixed height fits the contents only at 100%; the main window zoom would clip the steps.
   window.webContents.setZoomMode("isolated");
   window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
@@ -512,6 +619,15 @@ export function createComputerUsePermissionHelpWindow(translate: AppTranslate): 
     if (!isTrustedRendererUrl(targetUrl)) event.preventDefault();
   });
   return window;
+}
+
+/** The entry that loads `App`: the main window, and a chat window with its query. */
+function appRendererUrl(developmentUrl: string | undefined): URL {
+  return developmentUrl ? new URL(developmentUrl) : new URL("openbot-app://app/index.html");
+}
+
+function chatWindowKey(target: ChatWindowTarget): string {
+  return JSON.stringify([target.serverId, target.agentId]);
 }
 
 /** The entry for the helper windows. It does not load `App`, so each window uses less memory. */

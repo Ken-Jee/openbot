@@ -24,7 +24,7 @@ export const messages = {
   "agentSettings.backupModels.intro":
     "{model}, {name} yazmaya başlamadan önce kullanım sınırına ulaşırsa {name} hangi modelin kullanılacağını size sorar.",
   "agentSettings.backupModels.introAutomatic":
-    "{model}, {name} yazmaya başlamadan önce kullanım sınırına ulaşırsa {name} sıradaki ilk uygun modele geçer.",
+    "{model}, {name} yazmaya başlamadan önce kullanım sınırına ulaşırsa veya bir sağlayıcı hatasıyla başarısız olursa {name} sıradaki ilk uygun modele geçer.",
   "agentSettings.backupModels.ask": "Değiştirmeden önce sor",
   "agentSettings.backupModels.order": "Sıra",
   "agentSettings.backupModels.listLabel": "Yedek modeller, sırayla",
@@ -37,7 +37,7 @@ export const messages = {
   "agentSettings.backupModels.unavailable": "Şu an uygun değil · atlandı",
   "agentSettings.backupModels.withAccount": "{model} · {account}",
   "agentSettings.backupModels.note":
-    "{name} yazmaya başladıktan sonra asla model değiştirmez. Sınır bittiğinde {model} modeline geri döner.",
+    "{name} yazmaya başladıktan sonra asla model değiştirmez. Sınır bittiğinde veya bir sağlayıcı hatasından 10 dakika sonra {model} modeline geri döner.",
   "agentSettings.groups.brain": "Beyin",
   "agentSettings.groups.knows": "Bilgi",
   "agentSettings.groups.does": "Görevler",
@@ -149,6 +149,15 @@ export const messages = {
   "agentSettings.quickAcknowledgement.title": "Uzun görevlerden önce planı göster",
   "agentSettings.quickAcknowledgement.description":
     "Uzun bir görevden önce ajan planını gösterir. 10 sn sonra veya Başlat'a bastığınızda başlar.",
+  "agentSettings.browserProfile.label": "Tarayıcı profili",
+  "agentSettings.browserProfile.shared": "Paylaşılan",
+  "agentSettings.browserProfile.agent": "Yalnızca bu ajan",
+  "agentSettings.browserProfile.missing": "Silinmiş profil",
+  "agentSettings.browserProfile.new": "Yeni profil",
+  "agentSettings.browserProfile.manageTitle": "Tarayıcı profilleri",
+  "agentSettings.browserProfile.manageDescription":
+    "Her profil kendi oturum açma bilgilerini ve çerezlerini tutar. Bir değişiklik ajanın açık sekmelerini kapatır.",
+  "agentSettings.browserProfile.manage": "Yönet",
   "agentSettings.runtime.workspaceEnforcedProcess":
     "Tüm {provider} süreci bir korumalı alanda (sandbox) çalışır, bu nedenle dışarıya yazma işlemi başarısız olur. Yalnızca macOS'ta kullanılabilir.",
 } as const satisfies PartialTranslation<typeof source>;

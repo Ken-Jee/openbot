@@ -287,10 +287,6 @@
   text-align: center;
 }
 
-.routine-clock-segment.ui-input:focus-visible {
-  box-shadow: var(--openbot-focus-ring);
-}
-
 .routine-clock-separator {
   color: var(--openbot-text-muted);
 }
@@ -709,6 +705,95 @@ code.routine-webhook-secret {
 .routine-webhook-card-endpoint > .routine-webhook-field,
 .routine-webhook-card-endpoint > .routine-webhook-note {
   padding-left: 0;
+}
+
+/* The setup steps: a number, or a check when done, beside each step. */
+.routine-webhook-steps {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.routine-webhook-steps > li {
+  display: grid;
+  grid-template-columns: var(--openbot-control-sm) minmax(0, 1fr);
+  gap: var(--openbot-space-2);
+  border-top: 1px solid var(--openbot-border);
+  padding: var(--openbot-space-3);
+}
+
+.routine-webhook-step-body {
+  display: grid;
+  min-width: 0;
+  gap: var(--openbot-space-1-5);
+  font-size: var(--openbot-text-sm);
+  line-height: var(--openbot-leading-sm);
+}
+
+.routine-webhook-step-body > strong {
+  font-weight: var(--openbot-weight-medium);
+}
+
+.routine-webhook-steps > li[data-disabled] .routine-webhook-step-body > strong {
+  color: var(--openbot-text-muted);
+}
+
+.routine-webhook-step-marker {
+  display: inline-grid;
+  width: var(--openbot-control-sm);
+  height: var(--openbot-control-sm);
+  place-items: center;
+  border: 1px solid var(--openbot-border-strong);
+  border-radius: var(--openbot-radius-pill);
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+}
+
+.routine-webhook-step-marker[data-done] {
+  border-color: var(--openbot-success);
+  background: var(--openbot-success-soft);
+  color: var(--openbot-success-text);
+}
+
+.routine-webhook-step-check {
+  width: var(--openbot-icon-sm);
+  height: var(--openbot-icon-sm);
+}
+
+/* A value row inside a step has its own border. */
+.routine-webhook-inset {
+  min-width: 0;
+  border: 1px solid var(--openbot-border);
+  border-radius: var(--openbot-radius-sm);
+}
+
+.routine-webhook-inset > .routine-webhook-field {
+  border-top: 0;
+}
+
+.routine-webhook-step-button {
+  justify-self: start;
+}
+
+.routine-webhook-disclosure {
+  justify-self: start;
+  margin-inline-start: calc(var(--openbot-space-2) * -1);
+  padding-inline: var(--openbot-space-2);
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+  font-weight: inherit;
+}
+
+.routine-webhook-disclosure-icon {
+  width: var(--openbot-icon-sm);
+  height: var(--openbot-icon-sm);
+  stroke-width: var(--openbot-icon-stroke);
+}
+
+.routine-webhook-filter {
+  display: grid;
+  gap: var(--openbot-space-1);
 }
 
 .routine-webhook-events {

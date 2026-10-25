@@ -18,7 +18,7 @@ import {
 import type { DynamicRecord } from "@openbot/contracts/runtime-values";
 import { estimateUsageCost } from "../agent/usage-pricing";
 import type { DatabaseCore } from "./database-core";
-import { databaseRow, databaseRows, requiredStringColumn } from "./database-rows";
+import { databaseRow, databaseRows, optionalNumberColumn, requiredStringColumn } from "./database-rows";
 
 export interface UsageSample {
   agentId: string;
@@ -33,6 +33,8 @@ export interface UsageSample {
   occurredAt?: string;
   /** The prompt of the last request in this update, when the provider reports it. */
   lastRequestInputTokens?: number | null;
+  /** The smallest prompt of all the requests in this update, when the provider reports each request. */
+  smallestRequestInputTokens?: number | null;
   /**
    * The provider's totals before this update. A counter with no checkpoint starts from them, so its
    * first update records only the new requests.
@@ -128,19 +130,27 @@ export class AgentUsage {
           }),
         );
         if ((!before && sample.baseline) || sample.turnId === "baseline") return null;
-        const estimate =
-          sample.reportedCost !== undefined && sample.reportedCost !== null
-            ? {
-                cost:
-                  before && typeof previousCost !== "number"
-                    ? null
-                    : Math.max(0, sample.reportedCost - (typeof previousCost === "number" ? previousCost : 0)),
+        // A resumed Claude process reports its cost from 0, so the cost of its first turn is unknown.
+        // That turn, and a Claude report with no cost, are priced from list rates instead.
+        const reported =
+          sample.reportedCost === undefined ||
+          sample.reportedCost === null ||
+          (before && typeof previousCost !== "number")
+            ? null
+            : {
+                cost: Math.max(0, sample.reportedCost - (typeof previousCost === "number" ? previousCost : 0)),
                 basis:
                   "Claude SDK list-price estimate; https://platform.claude.com/docs/en/about-claude/pricing; verified 2026-09-07",
-              }
-            : sample.provider === "claude"
-              ? { cost: null, basis: null }
-              : estimateUsageCost(sample.provider, sample.model, delta, sample.lastRequestInputTokens ?? null);
+              };
+        const estimate =
+          reported ??
+          estimateUsageCost(
+            sample.provider,
+            sample.model,
+            delta,
+            sample.lastRequestInputTokens ?? null,
+            sample.smallestRequestInputTokens ?? null,
+          );
         const turn = databaseRow(
           db
             .prepare("SELECT occurred_at FROM agent_usage_activity WHERE agent_id = ? AND activity_id = ?")
@@ -203,6 +213,31 @@ export class AgentUsage {
       }
     }
     return [...models.values()];
+  }
+
+  /**
+   * All the tokens of one turn and its cost, summed over its records, or `null` when the provider
+   * reported none. The tokens add the known counts, as the analytics total does. The cost is `null`
+   * when one record has no cost, so a partial sum never reads as complete.
+   */
+  readTurnTotals(agentId: string, turnId: string, since: string): { tokens: number; costUsd: number | null } | null {
+    const rows = databaseRows(
+      this.#core.connection
+        .prepare(
+          "SELECT tokens_json, estimated_cost_usd FROM agent_usage_records WHERE agent_id = ? AND occurred_at >= ? AND turn_id = ?",
+        )
+        .all(agentId, since, turnId),
+    );
+    if (rows.length === 0) return null;
+    let tokens = 0;
+    let costUsd: number | null = 0;
+    for (const row of rows) {
+      const counts = decodeUsageTokens(JSON.parse(requiredStringColumn(row, "tokens_json")));
+      for (const key of TOKEN_KEYS) tokens += counts[key] ?? 0;
+      const cost = optionalNumberColumn(row, "estimated_cost_usd");
+      costUsd = costUsd === null || cost === null ? null : costUsd + cost;
+    }
+    return { tokens, costUsd };
   }
 
   read(raw: AgentAnalyticsInput): AgentAnalytics {

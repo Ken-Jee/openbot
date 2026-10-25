@@ -7,6 +7,7 @@ export const messages = {
   "error.billing.confirmMismatch": "削除するにはサーバー名を入力してください。",
   "error.billing.restartBusy": "サーバーは今は再起動できません。1 分後にもう一度お試しください。",
   "error.billing.planRequired": "このサーバーのプランは終了しました。サーバーを起動するにはプランを更新してください。",
+  "error.billing.planSoldOut": "このプランは売り切れです。別のプランを選んでください。",
   // Billing errors.
   "error.billing.licenseExists": "このアカウントにはすでにライセンスがあります。代わりにユーザー数を変更してください。",
   "error.billing.licenseCurrency": "ライセンスは他のプランと同じ通貨を使う必要があります。",

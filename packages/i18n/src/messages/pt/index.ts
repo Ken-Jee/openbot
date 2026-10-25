@@ -47,6 +47,7 @@ import { messages as team } from "./team";
 import { messages as uiBlock } from "./uiBlock";
 import { messages as update } from "./update";
 import { messages as usage } from "./usage";
+import { messages as vault } from "./vault";
 import { messages as webClient } from "./webClient";
 import { messages as window } from "./window";
 
@@ -99,6 +100,7 @@ export const pt = {
   ...island,
   ...computerUse,
   ...connector,
+  ...vault,
   ...uiBlock,
   ...sitePage,
 } as const satisfies PartialTranslation<AppMessages>;

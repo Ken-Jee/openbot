@@ -3,7 +3,7 @@ import * as SelectPrimitive from "@kobalte/core/select";
 import type { ComponentProps, JSX, ValidComponent } from "@solidjs/web";
 import Check from "lucide-solid/icons/check";
 import ChevronsUpDown from "lucide-solid/icons/chevrons-up-down";
-import { omit } from "solid-js";
+import { children, omit, Show } from "solid-js";
 import { createPressedPopupCue, cx } from "./utils";
 
 export type SelectProps<Option, OptGroup = never, T extends ValidComponent = "div"> = PolymorphicProps<
@@ -70,10 +70,13 @@ export function SelectValue<Option>(props: SelectValueProps<Option>): JSX.Elemen
 export type SelectContentProps = PolymorphicProps<"div", SelectPrimitive.SelectContentProps<"div">> &
   Pick<ComponentProps<"div">, "class"> & {
     mount?: Element | undefined;
+    /** Under the options and outside the listbox, such as a form that adds an option. */
+    footer?: JSX.Element;
   };
 
 export function SelectContent(props: SelectContentProps): JSX.Element {
-  const others = omit(props, "class", "mount");
+  const others = omit(props, "class", "mount", "footer");
+  const footer = children(() => props.footer);
   let contentElement: HTMLElement | undefined;
   return (
     <SelectPrimitive.Portal mount={props.mount ?? document.body}>
@@ -86,6 +89,9 @@ export function SelectContent(props: SelectContentProps): JSX.Element {
         {...others}
       >
         <SelectPrimitive.Listbox class="ui-select-listbox" scrollRef={() => contentElement} />
+        <Show when={footer.toArray().length > 0}>
+          <div class="ui-select-footer">{footer()}</div>
+        </Show>
       </SelectPrimitive.Content>
     </SelectPrimitive.Portal>
   );

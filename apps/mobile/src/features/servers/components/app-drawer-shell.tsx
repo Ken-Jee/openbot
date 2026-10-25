@@ -3,7 +3,14 @@ import { type Href, router, usePathname } from "expo-router";
 import { useThemeColor } from "heroui-native/hooks";
 import { createContext, type PropsWithChildren, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { Pressable, useWindowDimensions, View } from "react-native";
-import { Gesture, GestureDetector, type PanGesture } from "react-native-gesture-handler";
+import {
+  Gesture,
+  GestureDetector,
+  GestureStateManager,
+  type PanGesture,
+  type PanGestureConfig,
+  usePanGesture,
+} from "react-native-gesture-handler";
 import Animated, {
   Extrapolation,
   interpolate,
@@ -97,38 +104,44 @@ export function AppDrawerShell({ children }: PropsWithChildren) {
   }, [drawerOpenOnUI, drawerProgress, session]);
 
   // Rows attach their swipe to this gesture, so it must stay the same object. A new gesture on each
-  // navigation or drawer change would rebuild the swipe of every row.
+  // navigation or drawer change would rebuild the swipe of every row. ReanimatedSwipeable relations
+  // accept only hook gestures. The memoized config keeps the gesture object stable, so its callbacks
+  // need the worklet directive.
   const openingEnabled = useSharedValue(false);
   const [openingBlocked, setOpeningBlocked] = useState(false);
   useEffect(() => {
     openingEnabled.set(!openingBlocked && pathname === "/connected");
   }, [openingBlocked, openingEnabled, pathname]);
-  const openingGesture = useMemo(
-    () =>
-      Gesture.Pan()
-        .onTouchesDown((_event, manager) => {
-          if (!openingEnabled.get() || drawerOpenOnUI.get()) manager.fail();
-        })
-        .activeOffsetX(12)
-        .failOffsetX(-10)
-        .failOffsetY([-10, 10])
-        .onUpdate((event) => {
-          drawerProgress.set(Math.min(1, Math.max(0, event.translationX / drawerWidth)));
-        })
-        .onEnd((event) => {
-          const projected = drawerProgress.get() + event.velocityX / drawerWidth / 6;
-          const shouldOpen = projected > 0.45;
-          if (shouldOpen) {
-            drawerOpenOnUI.set(true);
-            scheduleOnRN(triggerDrawerHaptic);
-            scheduleOnRN(commitDrawerState, true);
-          }
-          drawerProgress.set(
-            withSpring(shouldOpen ? 1 : 0, { ...DRAWER_SPRING, velocity: event.velocityX / drawerWidth }),
-          );
-        }),
+  const openingConfig = useMemo<PanGestureConfig>(
+    () => ({
+      onTouchesDown: (event) => {
+        "worklet";
+        if (!openingEnabled.get() || drawerOpenOnUI.get()) GestureStateManager.fail(event.handlerTag);
+      },
+      activeOffsetX: 12,
+      failOffsetX: -10,
+      failOffsetY: [-10, 10],
+      onUpdate: (event) => {
+        "worklet";
+        drawerProgress.set(Math.min(1, Math.max(0, event.translationX / drawerWidth)));
+      },
+      onDeactivate: (event) => {
+        "worklet";
+        const projected = drawerProgress.get() + event.velocityX / drawerWidth / 6;
+        const shouldOpen = projected > 0.45;
+        if (shouldOpen) {
+          drawerOpenOnUI.set(true);
+          scheduleOnRN(triggerDrawerHaptic);
+          scheduleOnRN(commitDrawerState, true);
+        }
+        drawerProgress.set(
+          withSpring(shouldOpen ? 1 : 0, { ...DRAWER_SPRING, velocity: event.velocityX / drawerWidth }),
+        );
+      },
+    }),
     [commitDrawerState, drawerOpenOnUI, drawerProgress, drawerWidth, openingEnabled],
   );
+  const openingGesture = usePanGesture(openingConfig);
 
   const closingGesture = useMemo(
     () =>

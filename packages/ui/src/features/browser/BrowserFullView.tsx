@@ -297,6 +297,7 @@ export default function BrowserFullView(props: BrowserFullViewProps) {
           </div>
         </Tabs.Content>
       </div>
+      {props.dialogs}
     </Tabs.Root>
   );
 }

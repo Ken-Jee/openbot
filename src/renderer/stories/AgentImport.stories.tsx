@@ -1,11 +1,9 @@
 import type { AgentImportResult } from "@openbot/contracts/ipc";
-import { Blocks, Download, HardDrive, Monitor, Settings, Tabs, UsersRound } from "@openbot/ui";
 import { AgentImportSources } from "@openbot/ui/features/import/AgentImportSources";
 import { AgentImportView } from "@openbot/ui/features/import/AgentImportView";
-import { type HermesImportPhase, HermesImportView } from "@openbot/ui/features/import/HermesImportView";
-import { SettingsDialogShell } from "@openbot/ui/features/settings/SettingsDialogShell";
+import { HermesImportView } from "@openbot/ui/features/import/HermesImportView";
 import type { JSX } from "@solidjs/web";
-import { createSignal, Match, Switch } from "solid-js";
+import { createSignal } from "solid-js";
 import { fn } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import {
@@ -17,7 +15,7 @@ import {
 } from "./agent-import-fixtures";
 import { FILES_NOW } from "./files-fixtures";
 import { STORY_AGENT_SUMMARIES } from "./fixtures";
-import { SettingsPageStory } from "./settings-page-story";
+import { ServerSettingsStory, serverSettingsArgs } from "./server-settings-story";
 
 const meta = {
   title: "Settings/AgentImport",
@@ -142,68 +140,18 @@ export const ReviewNarrow: Story = {
   render: () => <Stage args={viewArgs({ phase: "review", preview: AGENT_IMPORT_PREVIEW })} narrow />,
 };
 
-// The same sections and icons as the real ServerSettingsModal for this computer.
-const SERVER_SETTINGS_NAV = [
-  { value: "general", label: "General", icon: Settings },
-  { value: "members", label: "Members", icon: UsersRound },
-  { value: "desktop", label: "Remote desktop", icon: Monitor },
-  { value: "mcp", label: "MCP", icon: Blocks },
-  { value: "storage", label: "Storage", icon: HardDrive },
-  { value: "import", label: "Import", icon: Download },
-] as const;
-
-function ServerSettingsStage(props: { children: JSX.Element }) {
-  const [tab, setTab] = createSignal("import");
-  return (
-    <SettingsPageStory title="Server settings">
-      {(page) => (
-        <Tabs.Root value={tab()} onChange={setTab} orientation="vertical" class="settings-modal-tabs-root">
-          <SettingsDialogShell
-            class="server-settings-modal-shell"
-            open
-            page={page()}
-            title="Import"
-            description="Move your agents from Grok Bot or Hermes Agent to this computer."
-            contentKey={tab()}
-            sidebar={
-              <Tabs.List class="settings-modal-nav" aria-label="Server settings sections">
-                {SERVER_SETTINGS_NAV.map((item) => {
-                  const NavIcon = item.icon;
-                  return (
-                    <Tabs.Trigger class="settings-modal-nav-item" value={item.value}>
-                      <NavIcon aria-hidden="true" />
-                      <span>{item.label}</span>
-                    </Tabs.Trigger>
-                  );
-                })}
-              </Tabs.List>
-            }
-          >
-            <Tabs.Content value="import" class="settings-modal-tab-panel server-settings-panel" data-tab="import">
-              {props.children}
-            </Tabs.Content>
-          </SettingsDialogShell>
-        </Tabs.Root>
-      )}
-    </SettingsPageStory>
-  );
-}
-
+/** Server settings > Import for this computer. The preview reads a Grok Bot export or the Hermes folder. */
 export const InServerSettings: Story = {
   name: "Import: Server settings",
   render: () => (
-    <ServerSettingsStage>
-      <AgentImportView {...viewArgs()} />
-    </ServerSettingsStage>
-  ),
-};
-
-export const ReviewInServerSettings: Story = {
-  name: "Import: Review in Server settings",
-  render: () => (
-    <ServerSettingsStage>
-      <AgentImportView {...viewArgs({ phase: "review", preview: AGENT_IMPORT_PREVIEW })} />
-    </ServerSettingsStage>
+    <ServerSettingsStory
+      settings={{
+        ...serverSettingsArgs(),
+        agentImport: { onOpenAgent: fn(), onClose: fn() },
+        instanceTransfer: { onSignIn: fn() },
+        initialSection: "import",
+      }}
+    />
   ),
 };
 
@@ -225,9 +173,9 @@ const hermesArgs = (overrides: Partial<HermesArgs> = {}): HermesArgs => ({
 export const Sources: Story = {
   name: "Import: Sources",
   render: () => (
-    <ServerSettingsStage>
+    <Stage>
       <AgentImportSources transfer onHermes={fn()} onGrok={fn()} onTransfer={fn()} />
-    </ServerSettingsStage>
+    </Stage>
   ),
 };
 
@@ -256,9 +204,9 @@ export const HermesSteps: Story = {
   render: () => {
     const [setup, setSetup] = createSignal<ViewArgs["setup"]>("folder");
     return (
-      <ServerSettingsStage>
+      <Stage>
         <AgentImportView {...hermesGuideArgs({ setup: setup(), onSetupChange: setSetup })} />
-      </ServerSettingsStage>
+      </Stage>
     );
   },
 };
@@ -266,18 +214,18 @@ export const HermesSteps: Story = {
 export const HermesInstallCommand: Story = {
   name: "Hermes: Install with a command",
   render: () => (
-    <ServerSettingsStage>
+    <Stage>
       <AgentImportView {...hermesGuideArgs({ setup: "command" })} />
-    </ServerSettingsStage>
+    </Stage>
   ),
 };
 
 export const HermesSkillYourself: Story = {
   name: "Hermes: Set it up yourself",
   render: () => (
-    <ServerSettingsStage>
+    <Stage>
       <AgentImportView {...hermesGuideArgs({ setup: "skill" })} />
-    </ServerSettingsStage>
+    </Stage>
   ),
 };
 
@@ -295,7 +243,7 @@ export const HermesStepsJoinedServer: Story = {
 export const HermesExportReview: Story = {
   name: "Hermes: Export review",
   render: () => (
-    <ServerSettingsStage>
+    <Stage>
       <AgentImportView
         {...hermesGuideArgs({
           phase: "review",
@@ -313,7 +261,7 @@ export const HermesExportReview: Story = {
           },
         })}
       />
-    </ServerSettingsStage>
+    </Stage>
   ),
 };
 
@@ -321,9 +269,9 @@ export const HermesExportReview: Story = {
 export const HermesReview: Story = {
   name: "Hermes: Review",
   render: () => (
-    <ServerSettingsStage>
+    <Stage>
       <HermesImportView {...hermesArgs()} />
-    </ServerSettingsStage>
+    </Stage>
   ),
 };
 
@@ -331,7 +279,7 @@ export const HermesReview: Story = {
 export const HermesSecondImport: Story = {
   name: "Hermes: Second import",
   render: () => (
-    <ServerSettingsStage>
+    <Stage>
       <HermesImportView
         {...hermesArgs({
           preview: {
@@ -342,23 +290,23 @@ export const HermesSecondImport: Story = {
           },
         })}
       />
-    </ServerSettingsStage>
+    </Stage>
   ),
 };
 
 export const HermesNotFound: Story = {
   name: "Hermes: No profiles found",
   render: () => (
-    <ServerSettingsStage>
+    <Stage>
       <HermesImportView {...hermesArgs({ phase: "missing", preview: null })} />
-    </ServerSettingsStage>
+    </Stage>
   ),
 };
 
 export const HermesDone: Story = {
   name: "Hermes: Done",
   render: () => (
-    <ServerSettingsStage>
+    <Stage>
       <HermesImportView
         {...hermesArgs({
           phase: "done",
@@ -374,48 +322,6 @@ export const HermesDone: Story = {
           },
         })}
       />
-    </ServerSettingsStage>
+    </Stage>
   ),
-};
-
-/** The whole way through on this computer: choose Hermes, read its folder, review, import. */
-export const HermesFlow: Story = {
-  name: "Hermes: Server settings",
-  render: () => {
-    const [screen, setScreen] = createSignal<"sources" | "guide" | "hermes">("sources");
-    const [setup, setSetup] = createSignal<ViewArgs["setup"]>("folder");
-    const [phase, setPhase] = createSignal<HermesImportPhase>("review");
-    return (
-      <ServerSettingsStage>
-        <Switch>
-          <Match when={screen() === "sources"}>
-            <AgentImportSources transfer onHermes={() => setScreen("guide")} onGrok={fn()} onTransfer={fn()} />
-          </Match>
-          <Match when={screen() === "guide"}>
-            <AgentImportView
-              {...hermesGuideArgs({
-                setup: setup(),
-                onSetupChange: setSetup,
-                onReadFolder: () => {
-                  setPhase("review");
-                  setScreen("hermes");
-                },
-              })}
-            />
-          </Match>
-          <Match when={screen() === "hermes"}>
-            <HermesImportView
-              {...hermesArgs({
-                phase: phase(),
-                result: phase() === "done" ? RESULT : null,
-                onBack: () => setScreen("guide"),
-                onImport: () => setPhase("done"),
-                onDone: () => setScreen("sources"),
-              })}
-            />
-          </Match>
-        </Switch>
-      </ServerSettingsStage>
-    );
-  },
 };

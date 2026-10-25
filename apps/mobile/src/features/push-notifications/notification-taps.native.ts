@@ -3,6 +3,15 @@ import * as Notifications from "expo-notifications";
 import { useEffect, useRef } from "react";
 import { type NotificationTarget, SOUND_PREVIEW_KEY } from "./push-notifications-native.types";
 
+/**
+ * expo-notifications 58 shows a notification that arrives in the foreground when no handler is set.
+ * `null` keeps the earlier behavior until `useNotificationTaps` sets its handler: at launch and on the
+ * sign-in screens, the app does not show it.
+ */
+export function installNotificationHandler(): void {
+  Notifications.setNotificationHandler(null);
+}
+
 /** The response that opened a chat last. A remount must not open it again. */
 let handled: string | null = null;
 

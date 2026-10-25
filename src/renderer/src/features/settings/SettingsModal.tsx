@@ -10,6 +10,8 @@ import type {
   MobileConnectedDevice,
   MobileConnectLink,
   MobileConnectTicket,
+  RemoteNetworkRoute,
+  RemoteNetworkRouteState,
   ServerSummary,
   UpdateStatus,
 } from "@openbot/contracts/ipc";
@@ -20,6 +22,7 @@ import {
   AlertDescription,
   AlertIcon,
   Button,
+  ChevronRight,
   Tabs,
   TriangleAlert,
 } from "@openbot/ui";
@@ -39,15 +42,15 @@ import { createSettingsUpdatesStore } from "@openbot/ui/features/settings/stores
 import { createEffect, createSignal, Show, untrack } from "solid-js";
 import { useI18n } from "../../i18n-context";
 import { ComputerUseSetup } from "../computer-use/ComputerUseSetup";
-import { voiceSupported } from "../conversation/voice-status";
 import { licenseContactUs, trackLicenseEvent } from "./license-analytics";
 import { createProfileActivityStore } from "./profile-activity-store";
 import { renderProfileShareImage } from "./profile-share-image";
+import { createSettingsAgentsSection } from "./SettingsAgentsSection";
 import { SettingsDynamicIslandTab } from "./SettingsDynamicIslandTab";
 import { SettingsGeneralTab } from "./SettingsGeneralTab";
 import { SettingsNotificationsTab } from "./SettingsNotificationsTab";
 import { SettingsVoiceTab } from "./SettingsVoiceTab";
-import { navItem, navItems, type SettingsTab, settingsTabShown } from "./settings-tabs";
+import { dynamicIslandSettingsShown, navItem, navItems, type SettingsTab, settingsTabShown } from "./settings-tabs";
 import { createSettingsVoiceStore } from "./settings-voice-store";
 
 export interface SettingsModalProps {
@@ -59,6 +62,8 @@ export interface SettingsModalProps {
   /** Reads the saved preferences again. */
   onRetryPreferencesLoad?: () => void;
   appInfo: AppInfo | null;
+  /** True in a window that shows one chat (#2964). It has no Dynamic Island tab: the main window owns the island. */
+  chatWindow?: boolean;
   /** The built-in display's notch, null when it has none, or undefined before main answers. */
   builtInDisplayGeometry?: DynamicIslandGeometry | undefined;
   /** The servers that the Dynamic Island tab lists. */
@@ -79,6 +84,8 @@ export interface SettingsModalProps {
   onRevokeMobileConnectLink?: () => Promise<void>;
   onListMobileConnectedDevices?: () => Promise<MobileConnectedDevice[]>;
   onRevokeMobileConnectedDevice?: (sessionId: string) => Promise<void>;
+  onGetRemoteNetworkRoute?: () => Promise<RemoteNetworkRouteState>;
+  onSetRemoteNetworkRoute?: (route: RemoteNetworkRoute) => Promise<RemoteNetworkRouteState>;
   onListAccountSessions?: () => Promise<AccountSession[]>;
   onRevokeAccountSession?: (sessionId: string) => Promise<void>;
   onSignOut?: (() => Promise<void>) | undefined;
@@ -137,6 +144,11 @@ export function SettingsModal(props: SettingsModalProps) {
   );
   const hostedServers = createSettingsHostedServersStore(props, () => activeTab() === "billing");
   const voice = createSettingsVoiceStore(() => props.open && activeTab() === "voice");
+  const agents = createSettingsAgentsSection({
+    visible: () => props.open && activeTab() === "agents",
+    value: () => props.value,
+    onValueChange: (value) => props.onValueChange(value),
+  });
   let handledHostedServerDeleteNonce = 0;
   createEffect(
     () => (props.open ? props.hostedServerDeleteRequest : null),
@@ -147,20 +159,19 @@ export function SettingsModal(props: SettingsModalProps) {
     },
   );
 
-  // The Dynamic Island exists only on macOS, so other platforms get no tab for it.
-  const isMac = () => props.appInfo?.platform === "darwin";
-  // Linux builds carry no speech recognition runtime.
-  const hasVoice = () => voiceSupported(props.appInfo?.platform);
+  const dynamicIslandShown = () => dynamicIslandSettingsShown(props.appInfo?.platform, props.chatWindow === true);
   createEffect(
     () => {
       const tab = props.open ? props.openTab : undefined;
       return tab === "hosted-servers" ? "billing" : tab;
     },
     (tab) => {
-      if (tab) setActiveTab(tab);
+      if (!tab) return;
+      setActiveTab(tab);
+      agents.showList();
     },
   );
-  const visibleNavItems = () => navItems.filter((item) => settingsTabShown(item.value, props.appInfo?.platform));
+  const visibleNavItems = () => navItems.filter((item) => settingsTabShown(item.value, dynamicIslandShown()));
 
   const title = () => i18n.t(navItem(activeTab()).titleKey);
   const description = () => i18n.t(navItem(activeTab()).descriptionKey);
@@ -172,9 +183,10 @@ export function SettingsModal(props: SettingsModalProps) {
     onChange(value: string) {
       if (
         value === "general" ||
+        value === "agents" ||
         value === "notifications" ||
-        (value === "voice" && hasVoice()) ||
-        (value === "dynamic-island" && isMac()) ||
+        value === "voice" ||
+        (value === "dynamic-island" && dynamicIslandShown()) ||
         value === "computer-use" ||
         value === "profile" ||
         value === "billing" ||
@@ -225,9 +237,21 @@ export function SettingsModal(props: SettingsModalProps) {
         class="app-settings-modal-shell"
         page={props.page}
         open={props.open}
-        title={title()}
+        title={
+          <Show when={activeTab() === "agents" && agents.crumb()} fallback={title()}>
+            {(detail) => (
+              <span class="settings-modal-crumbs">
+                <Button type="button" variant="ghost" class="settings-modal-crumb-parent" onClick={detail().back}>
+                  {title()}
+                </Button>
+                <ChevronRight class="settings-modal-crumb-separator" aria-hidden="true" />
+                <span class="settings-modal-crumb-current">{detail().title}</span>
+              </span>
+            )}
+          </Show>
+        }
         description={description()}
-        contentKey={activeTab()}
+        contentKey={`${activeTab()}:${agents.crumb()?.title ?? ""}`}
         restoreFocusTarget={props.restoreFocusTarget}
         onContentElement={(element) => (modalElement = element)}
         sidebar={
@@ -260,6 +284,11 @@ export function SettingsModal(props: SettingsModalProps) {
           />
         </Tabs.Content>
 
+        <Tabs.Content value="agents" class="settings-modal-tab-panel" data-tab="agents">
+          {preferencesLoadError()}
+          <agents.Panel menuMount={modalElement} />
+        </Tabs.Content>
+
         <Tabs.Content value="notifications" class="settings-modal-tab-panel" data-tab="notifications">
           {preferencesLoadError()}
           <SettingsNotificationsTab
@@ -275,13 +304,11 @@ export function SettingsModal(props: SettingsModalProps) {
           />
         </Tabs.Content>
 
-        <Show when={hasVoice()}>
-          <Tabs.Content value="voice" class="settings-modal-tab-panel" data-tab="voice">
-            <SettingsVoiceTab store={voice} selectMount={modalElement} />
-          </Tabs.Content>
-        </Show>
+        <Tabs.Content value="voice" class="settings-modal-tab-panel" data-tab="voice">
+          <SettingsVoiceTab store={voice} selectMount={modalElement} />
+        </Tabs.Content>
 
-        <Show when={isMac()}>
+        <Show when={dynamicIslandShown()}>
           <Tabs.Content value="dynamic-island" class="settings-modal-tab-panel" data-tab="dynamic-island">
             {preferencesLoadError()}
             <SettingsDynamicIslandTab
@@ -333,6 +360,7 @@ export function SettingsModal(props: SettingsModalProps) {
             canCancelTicket={Boolean(props.onCancelMobileConnect)}
             canManageLink={Boolean(props.onCreateMobileConnectLink && props.onRevokeMobileConnectLink)}
             canRevokeDevice={Boolean(props.onRevokeMobileConnectedDevice)}
+            canSetRoute={Boolean(props.onSetRemoteNetworkRoute)}
           />
         </Tabs.Content>
 

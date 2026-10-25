@@ -18,7 +18,8 @@ export interface MarkdownFilePreviewProps {
   onSelectAgent: (agentId: string) => void;
   onOpenLink: (url: string) => void;
   onOpenSharedFile: (path: string) => void;
-  onOpenWorkspaceFile: (path: string) => void;
+  /** Absent when no agent workspace can resolve a path, so a path stays text. */
+  onOpenWorkspaceFile?: ((path: string) => void) | undefined;
 }
 
 /** The text limit of the callers that set `truncated`. */

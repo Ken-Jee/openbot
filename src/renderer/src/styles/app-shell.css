@@ -882,6 +882,7 @@ textarea {
   justify-content: space-between;
   gap: var(--openbot-space-2);
   border-bottom: 1px solid var(--openbot-border);
+  /* The logo of the page rail (`page-rail.css`) has the same top padding, to stay on this center line. */
   padding: 2px 3px 0 10px;
 }
 
@@ -1316,6 +1317,21 @@ textarea {
   width: 18px;
   height: 18px;
   stroke-width: var(--openbot-icon-stroke);
+}
+
+.sidebar-history-button > svg {
+  width: var(--openbot-icon-md);
+  height: var(--openbot-icon-md);
+  stroke-width: var(--openbot-icon-stroke);
+}
+
+/* No chat to open in that direction. The arrow stays in its place, so the bar does not move. */
+.sidebar-history-button:disabled,
+.sidebar-history-button:disabled:hover {
+  background: transparent;
+  color: var(--openbot-text-muted);
+  cursor: default;
+  opacity: 0.4;
 }
 
 .sidebar-update-button,
@@ -2045,21 +2061,6 @@ textarea {
   object-fit: cover;
 }
 
-.person-avatar > i {
-  position: absolute;
-  right: -2px;
-  bottom: -2px;
-  width: 8px;
-  height: 8px;
-  border: 2px solid var(--openbot-bg-sidebar);
-  border-radius: var(--openbot-radius-pill);
-  background: var(--openbot-bg-control-hover);
-}
-
-.person-avatar.online > i {
-  background: var(--openbot-success);
-}
-
 .person-avatar.large {
   width: 48px;
   height: 48px;
@@ -2475,7 +2476,7 @@ textarea {
 .avatar-editor {
   position: relative;
   z-index: var(--openbot-layer-popover);
-  width: min(284px, calc(var(--settings-panel-width, 296px) - 30px));
+  width: min(284px, calc(var(--settings-panel-width, 360px) - 30px));
   max-width: calc(100vw - 24px);
   margin: 0;
   overflow: hidden;
@@ -3342,10 +3343,6 @@ textarea {
   border-color: var(--openbot-border);
   background: var(--openbot-bg-surface);
   color: var(--openbot-text-secondary);
-}
-
-.person-avatar.online > i {
-  background: var(--openbot-success);
 }
 
 .sidebar-icon-button:hover,

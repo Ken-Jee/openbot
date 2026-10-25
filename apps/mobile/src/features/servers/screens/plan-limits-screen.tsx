@@ -39,8 +39,8 @@ export function PlanLimitsScreen() {
               {planLimitName(row, accounts, t)}
             </Typography.Paragraph>
           </View>
-          {row.windows.map((window) => (
-            <PlanLimitWindowRow key={planLimitWindowKey(window)} window={window} />
+          {row.windows.map((window, index) => (
+            <PlanLimitWindowRow key={planLimitWindowKey(window, index)} window={window} />
           ))}
         </SettingsSection>
       ))}

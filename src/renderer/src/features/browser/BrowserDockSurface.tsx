@@ -41,9 +41,20 @@ export function BrowserDockSurface() {
 
   // Main decodes each action, so a failure here is a value that it refused; the dock stays as it was.
   function perform(action: BrowserDockAction) {
-    void browserDockPort()
+    void send(action);
+  }
+
+  /**
+   * Resolves true when main has the action. The main renderer answers the agent; when that fails, it
+   * publishes the card again with a new attempt.
+   */
+  function send(action: BrowserDockAction): Promise<boolean> {
+    return browserDockPort()
       .browserDock.performAction(action)
-      .catch(() => undefined);
+      .then(
+        () => true,
+        () => false,
+      );
   }
 
   /** The portals of the menus and popovers of the dock. They are children of the body, outside the root. */
@@ -151,8 +162,11 @@ export function BrowserDockSurface() {
             onCancelEdit={() => perform({ type: "cancel-edit" })}
             onReorder={(deliveryIds) => perform({ type: "reorder", deliveryIds })}
             onHandoff={dock().canHandoff ? () => perform({ type: "handoff" }) : undefined}
+            vaultSave
             // The code goes to main from here and never through the main renderer.
             onRespondSecret={(input) => browserDockPort().agent.respondToBrowserSecret(input, LOCAL_SERVER_ID)}
+            onAnswerPrompt={(requestId, answers) => send({ type: "answer-prompt", requestId, answers })}
+            onRespondApproval={(requestId, decision) => send({ type: "respond-approval", requestId, decision })}
             onDismissReply={(id) => perform({ type: "dismiss-reply", id })}
             onOpenChat={() => perform({ type: "open-chat" })}
             onSelectAgent={(agentId) => perform({ type: "select-agent", agentId })}

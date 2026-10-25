@@ -11,6 +11,7 @@ import type {
   CustomAgentCheckResult,
   CustomAgentResult,
   CustomAgentSummary,
+  CustomAgentUsage,
   SaveCustomAgentInput,
 } from "@openbot/contracts/ipc";
 import { isNewCustomAgentId } from "@openbot/contracts/ipc";
@@ -22,7 +23,7 @@ import { agentLaunchPath } from "../backend/cli";
 import type { CustomAgentStore } from "./custom-agent-store";
 
 export interface CustomAgentChangeDependencies {
-  service: Pick<AgentService, "saveCustomAgent" | "removeCustomAgent" | "reloadCustomAgents">;
+  service: Pick<AgentService, "saveCustomAgent" | "removeCustomAgent" | "reloadCustomAgents" | "customAgentUsage">;
   customAgents: Pick<CustomAgentStore, "list" | "save" | "remove" | "checkEnv" | "assertWritable">;
   resolve?: typeof resolveAgentCommand;
   check?: typeof checkAcpAgent;
@@ -40,6 +41,8 @@ export interface CustomAgentChanges {
   remove(id: string): Effect.Effect<CustomAgentResult, ProviderRuntimeFailure>;
   /** One trial start. Writes nothing. */
   check(input: CheckCustomAgentInput): Effect.Effect<CustomAgentCheckResult, ProviderRuntimeFailure>;
+  /** The answers to the usage prompts. Not serialized with the writes: it reads, and a read can take 30 seconds. */
+  usage(): Effect.Effect<CustomAgentUsage[]>;
 }
 
 export function createCustomAgentChanges({
@@ -75,6 +78,7 @@ export function createCustomAgentChanges({
 
   return {
     list: () => customAgents.list(),
+    usage: () => service.customAgentUsage(),
     /**
      * Persist first, then restart the router. The command is not resolved here: an agent installed
      * later still saves, and its row shows that the command is not found.
@@ -94,15 +98,20 @@ export function createCustomAgentChanges({
               cause: new Error(sourceText("error.provider.registryBindingChanged")),
             });
           }
-          // A user can change credentials while the download runs. Keep their current values and
-          // name; only new registry environment names receive the registry defaults.
+          // A user can change credentials while the download runs. Keep their current values,
+          // name and usage prompt; only new registry environment names receive the registry defaults.
           const env = current
             ? [
                 ...input.env.filter((entry) => !current.envNames.includes(entry.name)),
                 ...current.envNames.map((name) => ({ name, value: null })),
               ]
             : input.env;
-          return yield* save({ ...input, name: current?.name ?? input.name, env });
+          return yield* save({
+            ...input,
+            name: current?.name ?? input.name,
+            usagePrompt: current ? (current.usagePrompt ?? null) : input.usagePrompt,
+            env,
+          });
         }).pipe(Effect.uninterruptible),
       ),
     /** The agents on it move to another provider before the write, in the backend's chain. */

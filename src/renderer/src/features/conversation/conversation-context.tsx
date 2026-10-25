@@ -1,10 +1,11 @@
-import type {
-  AgentEvent,
-  AgentRuntimeSnapshot,
-  ConversationPage,
-  ConversationPageInfo,
-  ConversationReadState,
-  ConversationSnapshot,
+import {
+  type AgentEvent,
+  type AgentRuntimeSnapshot,
+  CONVERSATION_SNAPSHOT_MESSAGE_LIMIT,
+  type ConversationPage,
+  type ConversationPageInfo,
+  type ConversationReadState,
+  type ConversationSnapshot,
 } from "@openbot/contracts/ipc";
 import { cleanAgentMessageText } from "@openbot/team-client/agent-message-text";
 import type { AgentMessage } from "@openbot/ui/data";
@@ -110,7 +111,7 @@ const Conversation = createSimpleContext({
   name: "Conversation",
   init: () => {
     const windowPage = useWindowPage();
-    const { appFocused } = usePlatform();
+    const { appFocused, chatWindow } = usePlatform();
     const { activeServerId, activeServer } = useServers();
     const { agentChatsToMarkRead, agentChatsToRetryRead, autoReadAgentMessages } = useAgentReadTracking();
     const scopeIsCurrent = createScopeGuard();
@@ -535,9 +536,9 @@ const Conversation = createSimpleContext({
       const initialLoad = conversations[agentId]?.loaded !== true;
       const inactive = agentId !== activeAgentId();
       const windowMode = conversations[agentId]?.windowMode ?? "latest";
-      // A snapshot carries the whole thread. An agent that is not open shows none of it, and opening
-      // it reads the latest page again, so only the tail is converted and kept. A window around an
-      // older message, from a search, is not in the tail, so it keeps the whole snapshot.
+      // A snapshot carries the latest part of the thread. An agent that is not open shows none of it,
+      // and opening it reads the latest page again, so only the tail is converted and kept. A window
+      // around an older message, from a search, converts the whole snapshot.
       const sourceMessages =
         inactive && windowMode === "latest" && snapshot.messages.length > INACTIVE_SNAPSHOT_TAIL
           ? snapshot.messages.slice(-INACTIVE_SNAPSHOT_TAIL)
@@ -548,12 +549,13 @@ const Conversation = createSimpleContext({
         const previous = conversation.messages;
         const previousById = new Map(previous.map((message) => [message.id, message]));
         const allMappedMessages = toAgentMessages(sourceMessages, snapshot.agentId);
-        const pageInfo = conversations[agentId]?.page;
         const mappedMessages = retainThinkingMessages(
           previous,
           windowedSnapshotMessages(previous, allMappedMessages, {
-            hasOlder: pageInfo?.hasOlder === true,
             mode: windowMode,
+            // Main also cuts a snapshot by size, so a window with older pages takes it as a tail too.
+            capped:
+              snapshot.messages.length >= CONVERSATION_SNAPSHOT_MESSAGE_LIMIT || conversation.page?.hasOlder === true,
           }),
         );
         const next = mappedMessages.map((mapped) => {
@@ -1005,7 +1007,8 @@ const Conversation = createSimpleContext({
       markAgentMessagesRead,
       markAllAgentMessagesRead,
       presentPromptResolution,
-      setTeamTyping: notifyTeamTyping,
+      // See `AppProviders`: a chat window sends no typing state.
+      setTeamTyping: chatWindow ? () => undefined : notifyTeamTyping,
     };
   },
 });

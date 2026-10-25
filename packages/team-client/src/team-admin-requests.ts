@@ -24,10 +24,11 @@ import { DISCORD_ACCESS_ROUTES } from "@openbot/contracts/team-protocol/discord-
 import { HOST_MEMBER_UPDATE_ROUTES } from "@openbot/contracts/team-protocol/host-member-update-v1";
 import { HOST_RELEASE_ROUTES } from "@openbot/contracts/team-protocol/host-release-v1";
 import { HOST_TIMEZONE_ROUTES } from "@openbot/contracts/team-protocol/host-timezone-v1";
+import { PROMPT_CACHE_TTL_ROUTES } from "@openbot/contracts/team-protocol/prompt-cache-ttl-v1";
 import type { PROVIDERS_V5_ROUTES } from "@openbot/contracts/team-protocol/providers-v5";
 import { PROVIDERS_V8_ROUTES } from "@openbot/contracts/team-protocol/providers-v8";
 // Admin requests to one host: agent settings and skills, shared tables, agent share links, the server name and logo,
-// the server timezone, the agent memory limit, the Discord roles that can use OpenBot, the app update, MCP servers, storage, hosted sites and providers.
+// the server timezone, the agent memory limit, the prompt cache time, the Discord roles that can use OpenBot, the app update, MCP servers, storage, hosted sites and providers.
 //
 // The desktop sends the same routes from the main process. The web client and the mobile app send
 // them through their own transport, so the path, body and decoding of each request are here once.
@@ -45,6 +46,8 @@ import {
   type AgentTemplatePreview,
   type AgentTemplatePublication,
   assertStorageUsageScope,
+  type BitwardenConnectorStatus,
+  type BitwardenHostConnectInput,
   type CancelMcpSignInInput,
   type ClearStorageInput,
   type ConnectProviderAccountInput,
@@ -59,6 +62,7 @@ import {
   decodeHostAgentMemoryLimit,
   decodeHostAgentTemplatePreview,
   decodeHostAgentTemplatePublication,
+  decodeHostBitwardenConnectorStatus,
   decodeHostGitHubConnectorRepositories,
   decodeHostGitHubConnectorStatus,
   decodeHostMessagingOverview,
@@ -74,11 +78,14 @@ import {
   decodeMcpSignInStates,
   decodeMcpSignInStatus,
   decodeMcpTestResult,
+  decodePromptCacheTtlSetting,
   decodeProviderApiKeyStatus,
   decodeProviderCodeLoginStart,
   decodeProviderHostSignInStatus,
   decodeProviderRuntimeSnapshot,
   decodeProviderRuntimeSnapshotV8,
+  decodeProviderUsageResetOutcome,
+  decodeProviderUsageResets,
   decodeRoutineResultConnectionOptions,
   decodeRoutineResultDestinationAnswer,
   decodeSignInRelayFlow,
@@ -115,13 +122,18 @@ import {
   type MessagingOverview,
   type OnePasswordConnectorStatus,
   type OnePasswordHostConnectInput,
+  type PromptCacheTtl,
+  type PromptCacheTtlSetting,
   type ProviderCodeLoginStart,
   type ProviderHostSignInStatus,
   type ProviderRuntimeSnapshot,
+  type ProviderUsageResetOutcome,
+  type ProviderUsageResets,
   type PublishAgentTemplateInput,
   type RemoveMcpServerInput,
   type RemoveProviderAccountInput,
   type RenameProviderAccountInput,
+  type ResetProviderUsageInput,
   type RoutineResultConnectionOption,
   type RoutineResultDestination,
   type RoutineResultRoutineInput,
@@ -151,6 +163,7 @@ import {
   decodeEventStatus,
   decodeSaveEventRoutineResult,
   decodeWebhookSecret,
+  decodeWebhookTestResult,
   type EventActivity,
   type EventRoutine,
   type EventRoutineRef,
@@ -162,12 +175,14 @@ import {
   type SaveEventRoutineInput,
   type SaveEventRoutineResult,
   type WebhookSecret,
+  type WebhookTestResult,
 } from "@openbot/contracts/ipc-events";
 import { TEAM_API_ROUTES } from "@openbot/contracts/team-api-routes";
 import { AGENT_ADMIN_ROUTES } from "@openbot/contracts/team-protocol/agent-admin-v1";
 import { AGENT_INSTALL_ROUTES } from "@openbot/contracts/team-protocol/agent-install-v1";
 import { AGENT_PUBLISH_IMAGE_BYTES, AGENT_PUBLISH_ROUTES } from "@openbot/contracts/team-protocol/agent-publish-v1";
 import { AGENT_UPDATE_ROUTES } from "@openbot/contracts/team-protocol/agent-update-v1";
+import { BITWARDEN_CONNECTOR_ROUTES } from "@openbot/contracts/team-protocol/bitwarden-connector-v1";
 import { CONNECTORS_ROUTES } from "@openbot/contracts/team-protocol/connectors-v1";
 import { EVENTS_ROUTES } from "@openbot/contracts/team-protocol/events-v1";
 import { HOST_ADMIN_ROUTES } from "@openbot/contracts/team-protocol/host-admin-v1";
@@ -177,8 +192,13 @@ import { MCP_SIGN_IN_APP_ROUTES } from "@openbot/contracts/team-protocol/mcp-sig
 import { MCP_SIGN_IN_ROUTES } from "@openbot/contracts/team-protocol/mcp-sign-in-v1";
 import { MCP_ROUTES } from "@openbot/contracts/team-protocol/mcp-v1";
 import { ONEPASSWORD_CONNECTOR_ROUTES } from "@openbot/contracts/team-protocol/onepassword-connector-v1";
+import {
+  type PROVIDER_ACCOUNT_RELAY_PROVIDERS,
+  PROVIDER_ACCOUNT_RELAY_ROUTES,
+} from "@openbot/contracts/team-protocol/provider-account-relay-v1";
 import { PROVIDER_ACCOUNTS_ROUTES } from "@openbot/contracts/team-protocol/provider-accounts-v1";
 import { PROVIDER_HOST_SIGN_IN_ROUTES } from "@openbot/contracts/team-protocol/provider-host-sign-in-v1";
+import { PROVIDER_USAGE_RESET_ROUTES } from "@openbot/contracts/team-protocol/provider-usage-reset-v1";
 import { PROVIDERS_ADMIN_ROUTES } from "@openbot/contracts/team-protocol/providers-v1";
 import type { PROVIDERS_RUNTIMES_V2_ROUTES } from "@openbot/contracts/team-protocol/providers-v2";
 import { PROVIDERS_SIGN_IN_V3_ROUTES } from "@openbot/contracts/team-protocol/providers-v3";
@@ -190,6 +210,7 @@ import { type SIGN_IN_RELAY_PROVIDERS, SIGN_IN_RELAY_ROUTES } from "@openbot/con
 import { SKILLS_ADMIN_ROUTES } from "@openbot/contracts/team-protocol/skills-admin-v1";
 import { STORAGE_ROUTES } from "@openbot/contracts/team-protocol/storage-v1";
 import type { TeamProtocolV2Json } from "@openbot/contracts/team-protocol/v2";
+import { WEBHOOK_TESTS_ROUTES } from "@openbot/contracts/team-protocol/webhook-tests-v1";
 import { Effect, Schema } from "effect";
 import { bytesToBase64 } from "./base64";
 import type { TeamApiRequest } from "./team-api-requests";
@@ -412,6 +433,14 @@ export function rotateEventRoutineSecret(
   return adminCall(() => request("POST", EVENTS_ROUTES.rotateSecret, decodeWebhookSecret, eventBody(input)));
 }
 
+/** Asks the host to send one signed test event to the routine. Only a host with `webhook-tests-v1` answers it. */
+export function sendEventRoutineTestEvent(
+  request: TeamApiRequest,
+  input: EventRoutineRef,
+): Effect.Effect<WebhookTestResult, TeamAdminRequestError> {
+  return adminCall(() => request("POST", WEBHOOK_TESTS_ROUTES.send, decodeWebhookTestResult, eventBody(input)));
+}
+
 export function listEventActivity(
   request: TeamApiRequest,
   input: ListEventActivityInput,
@@ -563,6 +592,19 @@ export function setHostAgentAccess(
   return adminCall(() => request("POST", AGENT_ACCESS_ROUTES.set, decodeAgentAccessSnapshot, body));
 }
 
+export function getHostPromptCacheTtl(
+  request: TeamApiRequest,
+): Effect.Effect<PromptCacheTtlSetting, TeamAdminRequestError> {
+  return adminCall(() => request("POST", PROMPT_CACHE_TTL_ROUTES.settings, decodePromptCacheTtlSetting, {}));
+}
+
+export function setHostPromptCacheTtl(
+  request: TeamApiRequest,
+  ttl: PromptCacheTtl,
+): Effect.Effect<PromptCacheTtlSetting, TeamAdminRequestError> {
+  return adminCall(() => request("POST", PROMPT_CACHE_TTL_ROUTES.update, decodePromptCacheTtlSetting, { ttl }));
+}
+
 /** The one MCP read route, and the only one the host answers to a GET. */
 export function listMcpServers(request: TeamApiRequest): Effect.Effect<McpServerConfig[], TeamAdminRequestError> {
   return adminCall(() => request("GET", MCP_ROUTES.list, decodeMcpServerConfigs));
@@ -639,6 +681,14 @@ export function startProviderSignInRelay(
   provider: (typeof SIGN_IN_RELAY_PROVIDERS)[number],
 ): Effect.Effect<{ flowId: string }, TeamAdminRequestError> {
   return adminCall(() => request("POST", SIGN_IN_RELAY_ROUTES.providerStart, decodeSignInRelayFlow, { provider }));
+}
+
+/** A relayed sign-in of an account after the first (`provider-account-relay-v1`). */
+export function startProviderAccountSignInRelay(
+  request: TeamApiRequest,
+  input: { provider: (typeof PROVIDER_ACCOUNT_RELAY_PROVIDERS)[number]; accountId: string | null },
+): Effect.Effect<{ flowId: string }, TeamAdminRequestError> {
+  return adminCall(() => request("POST", PROVIDER_ACCOUNT_RELAY_ROUTES.start, decodeSignInRelayFlow, { ...input }));
 }
 
 /** A relayed sign-in of a link that an agent of the host printed (`sign-in-relay-v1`). */
@@ -882,6 +932,36 @@ export function removeProviderAccount(
   return adminCall(() => request("POST", PROVIDER_ACCOUNTS_ROUTES.remove, ignoreResponse, { ...input }));
 }
 
+/** `provider-usage-reset-v1`: the usage reset credits of each connected account of a provider on the host. */
+export function providerUsageResets(
+  request: TeamApiRequest,
+  provider: AgentProviderId,
+): Effect.Effect<ProviderUsageResets[], TeamAdminRequestError> {
+  return adminCall(() =>
+    request(
+      "POST",
+      PROVIDER_USAGE_RESET_ROUTES.list,
+      (value) => decodeProviderUsageResets(decodeRecord(value, "provider usage resets").accounts),
+      { provider },
+    ),
+  );
+}
+
+/** Spends one usage reset credit of an account on the host. */
+export function resetProviderUsage(
+  request: TeamApiRequest,
+  input: ResetProviderUsageInput,
+): Effect.Effect<ProviderUsageResetOutcome, TeamAdminRequestError> {
+  return adminCall(() =>
+    request(
+      "POST",
+      PROVIDER_USAGE_RESET_ROUTES.consume,
+      (value) => decodeProviderUsageResetOutcome(decodeRecord(value, "provider usage reset").outcome),
+      { ...input },
+    ),
+  );
+}
+
 /** Moves the agent to an account of its provider; null is the provider's own sign-in. */
 export function setAgentProviderAccount(
   request: TeamApiRequest,
@@ -1079,6 +1159,20 @@ export function onePasswordConnectorRequest(
 ): Effect.Effect<OnePasswordConnectorStatus, TeamAdminRequestError> {
   return adminCall(() =>
     request("POST", ONEPASSWORD_CONNECTOR_ROUTES[route], decodeHostOnePasswordConnectorStatus, { ...body }),
+  );
+}
+
+/**
+ * The host's Bitwarden connection (`bitwarden-connector-v1`): read it, connect with an API key and
+ * the master password, or disconnect. No answer carries them.
+ */
+export function bitwardenConnectorRequest(
+  request: TeamApiRequest,
+  route: keyof typeof BITWARDEN_CONNECTOR_ROUTES,
+  body: BitwardenHostConnectInput | Record<string, never> = {},
+): Effect.Effect<BitwardenConnectorStatus, TeamAdminRequestError> {
+  return adminCall(() =>
+    request("POST", BITWARDEN_CONNECTOR_ROUTES[route], decodeHostBitwardenConnectorStatus, { ...body }),
   );
 }
 

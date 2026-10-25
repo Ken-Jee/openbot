@@ -77,6 +77,7 @@ export const messages = {
   "mobile.server.hosted.yourServers": "Sunucularınız",
   "mobile.server.hosted.plans": "Planlar",
   "mobile.server.hosted.currentPlan": "Planınız",
+  "mobile.server.hosted.soldOut": "Tükendi",
   "mobile.server.hosted.serverPlan": "{plan} · {interval}",
   "mobile.server.hosted.serverPlanEnds": "{plan} · {interval} · {date} tarihinde sona erer",
   "mobile.server.hosted.state.payment": "Ödeme bekleniyor",

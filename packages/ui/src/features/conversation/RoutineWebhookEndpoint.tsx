@@ -3,20 +3,62 @@ import { Button, ConfirmDialog, CopyButton, IconButton, RefreshCw, Text } from "
 import { createSignal, Show } from "solid-js";
 import { useText } from "../../text";
 
-export interface RoutineWebhookEndpointProps {
+export interface RoutineWebhookUrlFieldProps {
   /** The URL the host made. Null until the relay registers the route. */
   url: string | null;
   /** The relay connection of the host. Null when it is not known. */
   connected: boolean | null;
+  onCopy?: (() => void) | undefined;
+}
+
+/** The URL of a saved webhook trigger, with a copy action beside it. */
+export function RoutineWebhookUrlField(props: RoutineWebhookUrlFieldProps) {
+  const { t } = useText();
+  return (
+    <div class="routine-webhook-field">
+      <span class="routine-webhook-label">{t("routine.webhook.url")}</span>
+      <Show
+        when={props.url}
+        fallback={
+          <Text variant="caption" tone="muted" role="status" class="routine-webhook-value">
+            {t(props.connected === false ? "routine.webhook.urlPendingOffline" : "routine.webhook.urlPending")}
+          </Text>
+        }
+      >
+        {(url) => (
+          <>
+            {/* The row leaves out "https://" to show more of the path. Copy gives the full URL. */}
+            <code class="routine-webhook-value" title={url()}>
+              {url().replace(/^https:\/\//, "")}
+            </code>
+            <CopyButton
+              value={url()}
+              label={t("routine.webhook.copyUrl")}
+              copiedLabel={t("common.copied")}
+              iconOnly
+              onCopy={() => props.onCopy?.()}
+            />
+          </>
+        )}
+      </Show>
+    </div>
+  );
+}
+
+export interface RoutineWebhookSecretFieldProps {
   /** The signing secret that the host returned once. Null when there is nothing to show. */
   secret: string | null;
   onSecretDismiss: () => void;
   /** Makes a new secret. The parent shows it through `secret`. */
   onRegenerateSecret: () => Promise<void>;
+  onCopy?: (() => void) | undefined;
 }
 
-/** The URL and the signing secret of a saved webhook trigger, each with one action beside it. */
-export function RoutineWebhookEndpoint(props: RoutineWebhookEndpointProps) {
+/**
+ * The signing secret of a saved webhook trigger: shown once with a copy action and a warning,
+ * then masked with a regenerate action that asks first.
+ */
+export function RoutineWebhookSecretField(props: RoutineWebhookSecretFieldProps) {
   const { t, errorMessage } = useText();
   const [confirm, setConfirm] = createSignal<{ pending: boolean; error: string | null } | null>(null);
 
@@ -33,38 +75,6 @@ export function RoutineWebhookEndpoint(props: RoutineWebhookEndpointProps) {
 
   return (
     <>
-      <div class="routine-webhook-field">
-        <span class="routine-webhook-label">{t("routine.webhook.url")}</span>
-        <Show
-          when={props.url}
-          fallback={
-            <Text variant="caption" tone="muted" role="status" class="routine-webhook-value">
-              {t(props.connected === false ? "routine.webhook.urlPendingOffline" : "routine.webhook.urlPending")}
-            </Text>
-          }
-        >
-          {(url) => (
-            <>
-              {/* The row leaves out "https://" to show more of the path. Copy gives the full URL. */}
-              <code class="routine-webhook-value" title={url()}>
-                {url().replace(/^https:\/\//, "")}
-              </code>
-              <CopyButton
-                value={url()}
-                label={t("routine.webhook.copyUrl")}
-                copiedLabel={t("common.copied")}
-                iconOnly
-              />
-            </>
-          )}
-        </Show>
-      </div>
-      <Show when={props.url && props.connected === false}>
-        <Text variant="caption" tone="warning" class="routine-webhook-note">
-          {t("routine.webhook.relayOffline")}
-        </Text>
-      </Show>
-
       <div class="routine-webhook-field">
         <span class="routine-webhook-label">{t("routine.webhook.secretTitle")}</span>
         <Show
@@ -95,6 +105,7 @@ export function RoutineWebhookEndpoint(props: RoutineWebhookEndpointProps) {
                 label={t("routine.webhook.copySecret")}
                 copiedLabel={t("common.copied")}
                 iconOnly
+                onCopy={() => props.onCopy?.()}
               />
             </>
           )}
@@ -123,6 +134,38 @@ export function RoutineWebhookEndpoint(props: RoutineWebhookEndpointProps) {
         initialFocus="cancel"
         onCancel={() => setConfirm(null)}
         onConfirm={regenerate}
+      />
+    </>
+  );
+}
+
+export interface RoutineWebhookEndpointProps {
+  /** The URL the host made. Null until the relay registers the route. */
+  url: string | null;
+  /** The relay connection of the host. Null when it is not known. */
+  connected: boolean | null;
+  /** The signing secret that the host returned once. Null when there is nothing to show. */
+  secret: string | null;
+  onSecretDismiss: () => void;
+  /** Makes a new secret. The parent shows it through `secret`. */
+  onRegenerateSecret: () => Promise<void>;
+}
+
+/** The URL and the signing secret of a saved webhook trigger, each with one action beside it. */
+export function RoutineWebhookEndpoint(props: RoutineWebhookEndpointProps) {
+  const { t } = useText();
+  return (
+    <>
+      <RoutineWebhookUrlField url={props.url} connected={props.connected} />
+      <Show when={props.url && props.connected === false}>
+        <Text variant="caption" tone="warning" class="routine-webhook-note">
+          {t("routine.webhook.relayOffline")}
+        </Text>
+      </Show>
+      <RoutineWebhookSecretField
+        secret={props.secret}
+        onSecretDismiss={props.onSecretDismiss}
+        onRegenerateSecret={props.onRegenerateSecret}
       />
     </>
   );

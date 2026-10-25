@@ -67,18 +67,21 @@ body:has(.browser-dock-surface),
   z-index: 1;
 }
 
-.browser-dock-island:is([data-mode="reply"], [data-mode="secret"]) {
+.browser-dock-island:is([data-mode="reply"], [data-mode="secret"], [data-mode="prompt"], [data-mode="approval"]) {
   width: 100%;
   border-radius: var(--openbot-radius-lg);
 }
 
-/* The code card is narrower than the reply, and its glass is denser, so that the page under it does not show
-   through as dark shapes behind the code. */
-.browser-dock-island[data-mode="secret"] {
-  width: min(100%, 420px);
+/* The code card, the questions and the approval have a denser glass, so that the page under them does not
+   show through as dark shapes behind the text. The code card is narrower than the reply. */
+.browser-dock-island:is([data-mode="secret"], [data-mode="prompt"], [data-mode="approval"]) {
   border-radius: var(--openbot-radius-xl);
   background: color-mix(in srgb, var(--openbot-bg-glass), var(--openbot-bg-control) 60%);
   backdrop-filter: blur(32px) saturate(1.4);
+}
+
+.browser-dock-island[data-mode="secret"] {
+  width: min(100%, 420px);
 }
 
 .browser-dock-island-face {
@@ -94,6 +97,27 @@ body:has(.browser-dock-surface),
   background: none;
   box-shadow: none;
   backdrop-filter: none;
+}
+
+/* The questions or the approval of the agent, as in the chat. A long card scrolls, so the page stays in view.
+   The limit is not in vh: over a local page, the viewport is the overlay, which is only as tall as the dock. */
+.browser-dock-island-card {
+  display: grid;
+  max-height: 420px;
+  gap: var(--openbot-space-2);
+  overflow: auto;
+  padding: var(--openbot-space-3);
+  color: var(--openbot-text-primary);
+}
+
+.browser-dock-island-card :is(.question-prompt-bubble, .ui-bubble-content, .approval-card) {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: none;
+}
+
+.browser-dock-island-card > * {
+  margin: 0;
 }
 
 /* The step is at the start and the button at the end, so that the button stays at the edge while the island

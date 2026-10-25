@@ -34,8 +34,9 @@
 }
 
 /*
- * The mark on a message that a quote opened. The band reaches the edges of the scroll area and
- * leaves out the gap above the row; it holds, then fades out.
+ * The mark on a message that a quote opened. The band reaches 12px past the chat column, which is
+ * the edge of the scroll area below the column width, and leaves out the gap above the row; it
+ * holds, then fades out.
  */
 .virtual-chat-row[data-reply-flash] {
   isolation: isolate;

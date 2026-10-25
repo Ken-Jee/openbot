@@ -1,10 +1,10 @@
-import { attachmentFileExtension, playableMediaKind } from "@openbot/contracts/attachment-files";
+import { playableMediaKind } from "@openbot/contracts/attachment-files";
+import { CHAT_VISUAL_PAGE_LIMIT, isChatVisualMimeType } from "@openbot/contracts/chat-visual";
 import type { AttachmentSummary } from "@openbot/contracts/ipc";
 import { MOBILE_ATTACHMENT_BYTES } from "@openbot/team-client/remote-peer";
 import { requireOptionalNativeModule } from "expo";
 import { File } from "expo-file-system";
 import { Image } from "expo-image";
-import { router } from "expo-router";
 import { Button, Skeleton, Typography } from "heroui-native";
 import { useThemeColor } from "heroui-native/hooks";
 import ChevronRight from "lucide-react-native/icons/chevron-right";
@@ -13,15 +13,15 @@ import ImageOff from "lucide-react-native/icons/image-off";
 import { useEffect, useState } from "react";
 import { Pressable, useWindowDimensions, View } from "react-native";
 import Animated from "react-native-reanimated";
-import { showFailureAlert } from "@/features/analytics/failure-reports";
 import { haptics } from "@/shared/lib/haptics";
 import { useText } from "@/shared/lib/text";
 import { attachmentFrame, FILL, FRAME_RADIUS, MAX_FRAME_WIDTH } from "../model/attachment-frame";
-import { storeCodePreview } from "../model/code-preview-store";
 import { type ImageDimensions, sameShape } from "../model/image-dimensions";
 import { attachmentTypeLabel, rememberImageDimensions, useAttachmentFile } from "./attachment-preview";
+import { ChatCodePreview } from "./chat-code-preview";
 import { isViewableImage, useChatImageSource } from "./chat-image-viewer";
 import { UPLOAD_BLUR_RADIUS, UPLOAD_SETTLE_MS, UploadProgressCircle, useUploadRevealStyle } from "./upload-progress";
+import { useAttachmentPreview } from "./use-attachment-preview";
 import { useMediaFile } from "./use-media-file";
 
 // The width reserved while the shape is still unknown: a portrait phone photo.
@@ -37,12 +37,6 @@ const chatVideo: typeof import("./chat-video.native") | null = requireOptionalNa
 /** The audio player uses the same native module, so an older build shows audio as a file too. */
 const chatAudio: typeof import("./chat-audio.native") | null = chatVideo ? require("./chat-audio.native") : null;
 
-/** A Markdown file, which opens in the preview screen instead of the share sheet. */
-function isMarkdownFile(attachment: AttachmentSummary) {
-  const extension = attachmentFileExtension(attachment.name);
-  return attachment.mimeType === "text/markdown" || extension === "md" || extension === "markdown";
-}
-
 interface ChatAttachmentProps {
   attachment: AttachmentSummary;
   serverId: string;
@@ -51,6 +45,8 @@ interface ChatAttachmentProps {
   upload?: number;
   /** The agent's color for the controls of a player, unless the user turned off agent colors. */
   tint?: AttachmentTint;
+  /** The page of a visual reply, which shows in the chat as desktop shows it. */
+  visual?: boolean;
 }
 
 export interface AttachmentTint {
@@ -69,7 +65,62 @@ export function ChatAttachmentView(props: ChatAttachmentProps) {
   const media = playable ? playableMediaKind(attachment.mimeType) : null;
   if (chatVideo && media === "video") return <chatVideo.ChatVideoAttachment {...props} />;
   if (chatAudio && media === "audio") return <chatAudio.ChatAudioAttachment {...props} />;
+  if (
+    props.visual &&
+    playable &&
+    isChatVisualMimeType(attachment.mimeType) &&
+    attachment.size <= CHAT_VISUAL_PAGE_LIMIT
+  )
+    return <ChatVisualAttachment {...props} />;
   return <ChatFileAttachment {...props} />;
+}
+
+/**
+ * A visual reply: its page as a card, as a ```html block in a reply shows. The page downloads with
+ * the chat. Until it is read, the card space waits; a page that cannot be read is a file card.
+ */
+function ChatVisualAttachment(props: ChatAttachmentProps) {
+  const { attachment, serverId } = props;
+  const { t } = useText();
+  const { width } = useWindowDimensions();
+  const file = useMediaFile(serverId, attachment, true);
+  const [page, setPage] = useState<{ uri: string; source: string } | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    const uri = file.data;
+    if (!uri) return;
+    let active = true;
+    new File(uri)
+      .text()
+      .then((source) => {
+        if (active) setPage({ uri, source });
+      })
+      .catch(() => {
+        if (active) setFailed(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [file.data]);
+  if (failed || file.error) return <ChatFileAttachment {...props} />;
+  if (!page)
+    return (
+      <Skeleton
+        isLoading
+        accessible
+        accessibilityLabel={t("mobile.chat.attachment.downloading")}
+        // The size of the card: the bubble width, its header row and a picture half as high as wide.
+        style={{ width: width - 80, height: (width - 80) / 2 + 42, borderRadius: 18 }}
+      />
+    );
+  return (
+    <ChatCodePreview
+      kind="html"
+      text={page.source}
+      language="html"
+      file={{ uri: page.uri, name: attachment.name, mimeType: attachment.mimeType }}
+    />
+  );
 }
 
 function ChatFileAttachment({ attachment, serverId, alignment = "left", upload }: ChatAttachmentProps) {
@@ -102,38 +153,10 @@ function ChatFileAttachment({ attachment, serverId, alignment = "left", upload }
   const shape = decoded ?? dimensions;
   const frame = attachmentFrame(shape, maxWidth, UNKNOWN_RATIO);
   const failed = Boolean(query.error) || imageFailed;
-  const markdown = !tooLarge && isMarkdownFile(attachment);
-  // A Markdown file downloads when the user opens it, to the same place a player reads from.
-  const markdownFile = useMediaFile(serverId, attachment, false);
-  const [opening, setOpening] = useState(false);
-  const busy = sharing || query.isFetching || opening;
-
-  async function openMarkdown() {
-    setOpening(true);
-    try {
-      const result = markdownFile.data ? { data: markdownFile.data, error: null } : await markdownFile.refetch();
-      if (result.error) throw result.error;
-      if (!result.data) throw new Error(t("mobile.chat.attachment.unavailable"));
-      const source = await new File(result.data).text();
-      const previewId = storeCodePreview({
-        kind: "markdown",
-        source,
-        language: "markdown",
-        file: { uri: result.data, name: attachment.name, mimeType: attachment.mimeType },
-      });
-      router.push({ pathname: "/code-preview/[previewId]", params: { previewId } });
-    } catch (error) {
-      void haptics.notification("error");
-      showFailureAlert(
-        error,
-        "turn",
-        t("mobile.chat.attachment.openFailed"),
-        error instanceof Error ? sourceText(error.message) : t("mobile.chat.tryAgain"),
-      );
-    } finally {
-      setOpening(false);
-    }
-  }
+  // A file that the preview screen shows opens there, as in the desktop file panel; another opens in the share sheet.
+  const preview = useAttachmentPreview(serverId, attachment);
+  const previewable = preview.kind !== null;
+  const busy = sharing || query.isFetching || preview.opening;
 
   if (image)
     return (
@@ -258,7 +281,7 @@ function ChatFileAttachment({ attachment, serverId, alignment = "left", upload }
         style={{ width: maxWidth, maxWidth: "100%" }}
         isDisabled={pending || busy || tooLarge}
         accessibilityLabel={
-          markdown
+          previewable
             ? t("mobile.chat.attachment.preview", { name: attachment.name })
             : t("mobile.chat.attachment.openOrSave", { name: attachment.name })
         }
@@ -267,7 +290,7 @@ function ChatFileAttachment({ attachment, serverId, alignment = "left", upload }
         accessibilityValue={upload !== undefined ? { min: 0, max: 100, now: Math.round(upload * 100) } : undefined}
         onPress={() => {
           void haptics.impact("soft");
-          if (markdown) void openMarkdown();
+          if (previewable) preview.open();
           else share();
         }}
       >
@@ -287,7 +310,7 @@ function ChatFileAttachment({ attachment, serverId, alignment = "left", upload }
         {/* Where the share icon will be: the file's progress, then a check, then the icon. */}
         {shownUpload !== undefined ? (
           <UploadProgressCircle progress={shownUpload} />
-        ) : markdown ? (
+        ) : previewable ? (
           <ChevronRight size={18} color={muted} />
         ) : (
           <ExternalLink size={18} color={muted} />

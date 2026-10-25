@@ -9,6 +9,7 @@
     "./bloub-avatar-motion": "./src/bloub-avatar-motion.ts",
     "./logo.css": "./src/logo.css",
     "./tokens.css": "./src/tokens.css",
+    "./tokens-light.css": "./src/tokens-light.css",
     "./tokens-native.css": "./src/tokens-native.css",
     "./article-gradient": "./src/article-gradient.ts",
     "./file-reference": "./src/file-reference.ts",

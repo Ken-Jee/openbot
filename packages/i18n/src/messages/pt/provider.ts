@@ -62,9 +62,10 @@ export const messages = {
   "provider.aria.codeFallback": "Entrar em {name} com um código",
   "provider.aria.moreActions": "Mais ações para {name}",
   "provider.aria.use": "Usar {name} no OpenBot",
+  "provider.use.inUseOne": "{agent} usa {name}. Mude o modelo deste agente e depois desligue {name}.",
   "provider.use.inUse": {
-    one: "{agents} usa {name}. Mude o modelo deste agente e depois desligue {name}.",
-    other: "{agents} usam {name}. Mude o modelo destes agentes e depois desligue {name}.",
+    one: "{count} agente usa {name}. Mude o modelo deste agente e depois desligue {name}.",
+    other: "{count} agentes usam {name}. Mude o modelo destes agentes e depois desligue {name}.",
   },
   "provider.codeLogin.title": "Entrar em {name} com um código",
   "provider.codeLogin.description": "Conclua no celular ou em outro navegador. O OpenBot aguarda aqui.",
@@ -165,4 +166,24 @@ export const messages = {
   "provider.account.finishSignIn": "Conclua a entrada no navegador.",
   "provider.account.remove": "Remover conta",
   "provider.account.actionFailed": "Não foi possível alterar a conta de {name}.",
+  "provider.account.resetUsage": "Redefinir uso",
+  "provider.account.resetUsageTitle": "Redefinir o uso de {name}?",
+  "provider.account.resetUsageDescription": {
+    one: "Isso usa seu último crédito de redefinição de uso. Os limites de uso esgotados desta conta recomeçam agora. Você não pode desfazer isso.",
+    other:
+      "Isso usa 1 dos seus {count} créditos de redefinição de uso. Os limites de uso esgotados desta conta recomeçam agora. Você não pode desfazer isso.",
+  },
+  "provider.account.resetUsagePending": "Redefinindo…",
+  "provider.account.resetUsageDone": "Os limites de uso de {name} recomeçam agora.",
+  "provider.account.resetUsageNothing": "{name} não tem limite de uso esgotado. Nenhum crédito foi usado.",
+  "provider.account.resetUsageNoCredit": "{name} não tem mais créditos de redefinição de uso.",
+  "provider.account.resetUsageAlreadyRedeemed": "Este crédito de redefinição de {name} já foi usado.",
+  "provider.account.resetUsageFailed": "Não foi possível redefinir o uso de {name}.",
+  "provider.settings.cache": "Cache",
+  "provider.settings.promptCache": "Cache de prompts",
+  "provider.settings.promptCacheDescription":
+    "Por quanto tempo o Claude mantém o contexto de um agente no cache entre os turnos.",
+  "provider.settings.promptCacheHour": "1 hora",
+  "provider.settings.promptCacheMinutes": "5 minutos",
+  "provider.settings.promptCacheLoadFailed": "Não foi possível carregar a duração do cache de prompts deste servidor.",
 } as const satisfies PartialTranslation<typeof source>;

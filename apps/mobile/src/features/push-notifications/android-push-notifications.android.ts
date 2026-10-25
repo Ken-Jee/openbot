@@ -34,7 +34,7 @@ export const androidPushNotifications: PushNotificationsNative = {
     const text = JSON.stringify({ version: 1, servers });
     const file = new File(Paths.document, KEYS_FILE);
     if (file.exists && file.textSync() === text) return;
-    file.write(text);
+    file.writeSync(text);
   },
   removeKeys() {
     const file = new File(Paths.document, KEYS_FILE);

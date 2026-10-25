@@ -312,6 +312,137 @@ li[data-arrived] > .tasks-page-row {
   }
 }
 
+/*
+ * The page before the first task: the pitch, the composer and a faint list in the middle of the
+ * column. The first start shows the real list, and the composer goes back to the top.
+ */
+.tasks-page[data-empty] .tasks-page-column {
+  min-height: 100%;
+}
+
+.tasks-page[data-empty] .tasks-page-composer.composer-wrap {
+  position: static;
+}
+
+.tasks-page-empty-pitch {
+  display: grid;
+  justify-items: center;
+  gap: var(--openbot-space-3);
+  margin-top: auto;
+  padding: 0 var(--openbot-space-2) var(--openbot-space-6);
+  text-align: center;
+}
+
+.tasks-page-empty-title {
+  --tasks-page-empty-hand-size: calc(var(--openbot-text-display) * 1.2);
+  display: grid;
+  margin: 0;
+  font-size: var(--openbot-text-display);
+  font-weight: var(--openbot-weight-semibold);
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.tasks-page-empty-lead {
+  color: var(--openbot-text-muted);
+}
+
+/* The one handwritten word of the title. It writes itself once. The app has no hand font, so it uses
+ * the one of the system. Inline, not inline-block: a reader then hears "answer." with no space. */
+.tasks-page-empty-word {
+  color: var(--openbot-accent-text);
+  font-family: "Bradley Hand", "Noteworthy", "Segoe Print", cursive;
+  font-size: var(--tasks-page-empty-hand-size);
+  clip-path: inset(-0.4em 100% -0.4em -0.2em);
+  animation: tasks-page-empty-write 640ms linear 500ms forwards;
+}
+
+@keyframes tasks-page-empty-write {
+  to {
+    clip-path: inset(-0.4em -0.2em -0.4em -0.2em);
+  }
+}
+
+.tasks-page-empty-lines {
+  display: grid;
+  margin: 0;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-lg);
+  line-height: 1.5;
+}
+
+/* The faint list. Each section is one fixed block, so a row moves to the next section by its position
+ * only. It fades towards every edge. */
+.tasks-page-empty-board {
+  --tasks-page-empty-head: 1.75rem;
+  --tasks-page-empty-block: calc(var(--tasks-page-empty-head) + var(--openbot-control-lg) + var(--openbot-space-4));
+
+  position: relative;
+  display: grid;
+  grid-template-rows: repeat(3, var(--tasks-page-empty-block));
+  margin: var(--openbot-space-2) 0 auto;
+  padding-bottom: var(--openbot-space-8);
+  opacity: 0.6;
+  pointer-events: none;
+  user-select: none;
+  mask-image: radial-gradient(
+    ellipse 80% 100% at 50% 45%,
+    var(--openbot-text-primary) 45%,
+    var(--openbot-transparent) 100%
+  );
+}
+
+.tasks-page-empty-section.tasks-page-section {
+  margin-top: 0;
+}
+
+.tasks-page-empty-section .tasks-page-section-heading {
+  height: var(--tasks-page-empty-head);
+}
+
+.tasks-page-empty-rows {
+  position: absolute;
+  inset: 0;
+}
+
+.tasks-page-empty-row {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  transform: translateY(
+    calc(
+      var(--tasks-page-empty-slot) *
+      var(--tasks-page-empty-block) +
+      var(--tasks-page-empty-head) +
+      var(--openbot-space-0-5)
+    )
+  );
+  transition:
+    transform 760ms var(--openbot-ease-out),
+    opacity 600ms var(--openbot-ease-out),
+    filter 600ms var(--openbot-ease-out),
+    translate 600ms var(--openbot-ease-out);
+  animation: tasks-page-empty-arrive 620ms var(--openbot-ease-out) both;
+}
+
+/* A row arrives in Waiting, as the row of a real start does. */
+@keyframes tasks-page-empty-arrive {
+  from {
+    opacity: 0;
+    filter: blur(4px);
+    translate: 0 10px;
+    scale: 0.97;
+  }
+}
+
+/* An answered task leaves to make room for the next one. */
+.tasks-page-empty-row[data-age="3"] {
+  opacity: 0;
+  filter: blur(3px);
+  translate: 0 -8px;
+}
+
 @keyframes tasks-page-rise {
   from {
     opacity: 0;
@@ -329,12 +460,20 @@ li[data-arrived] > .tasks-page-row {
   .tasks-page-took,
   .tasks-page-agent-face[data-entering],
   li[data-arrived] > .tasks-page-row,
-  .tasks-page-side-content[data-entering] {
+  .tasks-page-side-content[data-entering],
+  .tasks-page-empty-row {
+    animation: none;
+  }
+
+  /* Less motion: the title word shows whole, and the list keeps one task in each section. */
+  .tasks-page-empty-word {
+    clip-path: none;
     animation: none;
   }
 
   .tasks-page-side,
-  .tasks-page-agent-chevron {
+  .tasks-page-agent-chevron,
+  .tasks-page-empty-row {
     transition: none;
   }
 }

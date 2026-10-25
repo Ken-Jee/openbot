@@ -2,11 +2,12 @@ import type { StorageCategory, StorageUsage, StoredFileRow } from "@openbot/cont
 import type { MobileTextKey } from "@openbot/i18n/mobile";
 import { Typography } from "heroui-native";
 import { useThemeColor } from "heroui-native/hooks";
-import Trash2 from "lucide-react-native/icons/trash-2";
+import Trash2 from "lucide-react-native/icons/trash";
 import { useState } from "react";
 import { Alert, Pressable } from "react-native";
 import { showFailureAlert } from "@/features/analytics/failure-reports";
 import { AttachmentThumbnail, useAttachmentFile } from "@/features/chat/components/attachment-preview";
+import { useAttachmentPreview } from "@/features/chat/components/use-attachment-preview";
 import { SettingsNote, SettingsRow, SettingsSection } from "@/features/settings/components/settings-content";
 import { type MobileAgent, useMobileWorkspaceActions } from "@/features/workspace/context/mobile-workspace-context";
 import { haptics } from "@/shared/lib/haptics";
@@ -88,7 +89,7 @@ export function Size({ bytes }: { bytes: number }) {
   return <Typography className="text-grouped-secondary">{format.fileSize(bytes)}</Typography>;
 }
 
-/** A stored file opens in the share sheet, like a queued file. */
+/** A stored file opens on the preview screen, as in the chat, or else in the share sheet, like a queued file. */
 export function StoredFile({
   serverId,
   file,
@@ -107,6 +108,7 @@ export function StoredFile({
   const image = file.kind === "image";
   const missing = file.status === "missing";
   const attachment = useAttachmentFile(serverId, file, image && !missing);
+  const preview = useAttachmentPreview(serverId, file);
   const details = [
     format.fileSize(file.size),
     file.source === "generated" ? t("mobile.agent.files.fromAgent") : null,
@@ -158,7 +160,7 @@ export function StoredFile({
       disclosure={false}
       disabled={deleting}
       leading={<AttachmentThumbnail name={file.name} uri={image ? attachment.uri : null} />}
-      supportingText={attachment.busy ? t("mobile.agent.files.downloading") : details}
+      supportingText={attachment.busy || preview.opening ? t("mobile.agent.files.downloading") : details}
       trailing={
         canDelete ? (
           <Pressable
@@ -175,7 +177,7 @@ export function StoredFile({
           </Pressable>
         ) : undefined
       }
-      onPress={missing ? undefined : attachment.share}
+      onPress={missing ? undefined : preview.kind ? preview.open : attachment.share}
     >
       <Typography numberOfLines={1}>{file.name}</Typography>
     </SettingsRow>

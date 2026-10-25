@@ -8,3 +8,5 @@ export function useNotificationTaps(
   _open: (target: NotificationTarget) => void,
   _openChat: () => string | null,
 ): void {}
+
+export function installNotificationHandler(): void {}

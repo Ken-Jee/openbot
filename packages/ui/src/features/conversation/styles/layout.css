@@ -7,6 +7,45 @@
   flex-direction: column;
   background: var(--openbot-bg-canvas);
   transition: padding-right var(--panel-resize-duration, var(--openbot-duration-overlay)) cubic-bezier(0.22, 1, 0.36, 1);
+  --conversation-column-width: 1440px;
+}
+
+/*
+ * On a very wide screen the chat stops at a column and centers in the pane, so a reply and the
+ * user's message stay near each other. A laptop window is narrower than the column and shows the
+ * chat at full width. The scroll area and the composer keep the pane width, so the scroll bar stays
+ * at the pane edge.
+ */
+.conversation-panel > .conversation-scroll > .virtual-chat-list {
+  max-width: var(--conversation-column-width);
+  margin-inline: auto;
+}
+
+/*
+ * The composer is 6px wider on each side than the messages, as at full width. The padding holds the
+ * composer and the notices above it in the column, and keeps their own side margins. A percentage
+ * padding is relative to the panel, so the settings panel width is subtracted where it shows.
+ */
+.conversation-panel > .composer-wrap {
+  padding-inline: max(var(--openbot-space-1-5), calc((100% - var(--conversation-column-width) - 12px) / 2));
+}
+
+.conversation-panel:has(.settings-panel) > .composer-wrap {
+  padding-inline: max(
+    var(--openbot-space-1-5),
+    calc((100% - var(--settings-panel-width, 360px) - var(--conversation-column-width) - 12px) / 2)
+  );
+}
+
+/*
+ * The mention picker is positioned in the composer wrap and is 12px narrower on each side than the
+ * composer. Here a percentage is relative to the composer wrap.
+ */
+.conversation-panel > .composer-wrap .mention-picker {
+  --mention-picker-side-inset: max(
+    calc(var(--openbot-space-1-5) + 12px),
+    calc((100% - var(--conversation-column-width) + 12px) / 2)
+  );
 }
 
 .direct-conversation {
@@ -48,10 +87,6 @@
   width: 30px;
   height: 30px;
   border-radius: var(--openbot-radius-md);
-}
-
-.direct-conversation-person .person-avatar > i {
-  display: none;
 }
 
 .direct-conversation-person h1 {

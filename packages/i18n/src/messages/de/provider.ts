@@ -71,9 +71,10 @@ export const messages = {
   "provider.aria.codeFallback": "Mit Code bei {name} anmelden",
   "provider.aria.moreActions": "Weitere Aktionen für {name}",
   "provider.aria.use": "{name} in OpenBot verwenden",
+  "provider.use.inUseOne": "{agent} verwendet {name}. Ändere das Modell dieses Agenten und deaktiviere dann {name}.",
   "provider.use.inUse": {
-    one: "{agents} verwendet {name}. Ändere das Modell dieses Agenten und deaktiviere dann {name}.",
-    other: "{agents} verwenden {name}. Ändere die Modelle dieser Agenten und deaktiviere dann {name}.",
+    one: "{count} Agent verwendet {name}. Ändere das Modell dieses Agenten und deaktiviere dann {name}.",
+    other: "{count} Agenten verwenden {name}. Ändere die Modelle dieser Agenten und deaktiviere dann {name}.",
   },
   "provider.codeLogin.title": "Mit einem Code bei {name} anmelden",
   "provider.codeLogin.description":
@@ -176,4 +177,25 @@ export const messages = {
   "provider.account.finishSignIn": "Schließen Sie die Anmeldung im Browser ab.",
   "provider.account.remove": "Konto entfernen",
   "provider.account.actionFailed": "Das {name}-Konto konnte nicht geändert werden.",
+  "provider.account.resetUsage": "Nutzung zurücksetzen",
+  "provider.account.resetUsageTitle": "Nutzung von {name} zurücksetzen?",
+  "provider.account.resetUsageDescription": {
+    one: "Damit verbrauchst du dein letztes Guthaben zum Zurücksetzen der Nutzung. Die ausgeschöpften Nutzungslimits dieses Kontos beginnen jetzt neu. Das kannst du nicht rückgängig machen.",
+    other:
+      "Damit verbrauchst du 1 von {count} Guthaben zum Zurücksetzen der Nutzung. Die ausgeschöpften Nutzungslimits dieses Kontos beginnen jetzt neu. Das kannst du nicht rückgängig machen.",
+  },
+  "provider.account.resetUsagePending": "Wird zurückgesetzt…",
+  "provider.account.resetUsageDone": "Die Nutzungslimits von {name} beginnen jetzt neu.",
+  "provider.account.resetUsageNothing":
+    "{name} hat kein ausgeschöpftes Nutzungslimit. Es wurde kein Guthaben verbraucht.",
+  "provider.account.resetUsageNoCredit": "{name} hat kein Guthaben zum Zurücksetzen der Nutzung mehr.",
+  "provider.account.resetUsageAlreadyRedeemed": "Dieses Guthaben von {name} wurde bereits verwendet.",
+  "provider.account.resetUsageFailed": "Die Nutzung von {name} konnte nicht zurückgesetzt werden.",
+  "provider.settings.cache": "Cache",
+  "provider.settings.promptCache": "Prompt-Cache",
+  "provider.settings.promptCacheDescription":
+    "Wie lange Claude den Kontext eines Agenten zwischen den Zügen im Cache behält.",
+  "provider.settings.promptCacheHour": "1 Stunde",
+  "provider.settings.promptCacheMinutes": "5 Minuten",
+  "provider.settings.promptCacheLoadFailed": "Die Prompt-Cache-Dauer dieses Servers konnte nicht geladen werden.",
 } as const satisfies PartialTranslation<typeof source>;

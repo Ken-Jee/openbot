@@ -77,6 +77,7 @@ try {
             { name: "FAKE_LOAD_ERROR", value: loadError },
             { name: "FAKE_LOG", value: agent.log },
           ],
+          usagePrompt: null,
         }),
       );
     }

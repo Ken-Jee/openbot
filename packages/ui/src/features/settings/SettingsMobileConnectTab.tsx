@@ -32,6 +32,7 @@ import { createSignal, For, Show } from "solid-js";
 import { useText } from "../../text";
 import { ANDROID_PLAY_STORE_URL } from "../mobile-app/android-play-store";
 import { IOS_TESTFLIGHT_URL } from "../mobile-app/ios-testflight";
+import { RemoteNetworkRouteChoice } from "./RemoteNetworkRouteChoice";
 import type { SettingsMobileConnectStore } from "./stores/mobile-connect-store";
 
 interface SettingsMobileConnectTabProps {
@@ -40,6 +41,7 @@ interface SettingsMobileConnectTabProps {
   canCancelTicket: boolean;
   canManageLink: boolean;
   canRevokeDevice: boolean;
+  canSetRoute: boolean;
 }
 
 const IOS_PLATFORM_LABEL = "iOS";
@@ -500,6 +502,38 @@ export function SettingsMobileConnectTab(props: SettingsMobileConnectTabProps) {
           )}
         </Show>
       </section>
+
+      <Show when={props.store.state.route.current || props.store.state.route.error}>
+        <section
+          data-settings-row="settings.mobileConnect.route.title"
+          class="settings-mobile-route"
+          aria-labelledby="settings-mobile-route-title"
+        >
+          <div class="settings-mobile-route-heading">
+            <h3 id="settings-mobile-route-title">{t("settings.mobileConnect.route.title")}</h3>
+            <Text variant="caption" tone="muted">
+              {t("settings.mobileConnect.route.description")}
+            </Text>
+          </div>
+          <Show when={props.store.state.route.current}>
+            {(current) => (
+              <RemoteNetworkRouteChoice
+                value={current().route}
+                tailscaleConnected={current().tailscaleConnected}
+                disabled={!props.canSetRoute || props.store.state.route.busy}
+                onChange={(route) => void props.store.setRoute(route)}
+              />
+            )}
+          </Show>
+          <Show when={props.store.state.route.error}>
+            {(error) => (
+              <Text class="settings-modal-error" variant="caption" role="alert">
+                {error()}
+              </Text>
+            )}
+          </Show>
+        </section>
+      </Show>
     </SettingsSection>
   );
 }

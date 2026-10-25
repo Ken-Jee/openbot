@@ -62,7 +62,7 @@ export function useMediaFile(serverId: string, attachment: AttachmentSummary, en
       if (file.exists && file.size === attachment.size) return file.uri;
       const data = await downloadAttachment(serverId, attachment.id);
       file.parentDirectory.create({ intermediates: true, idempotent: true });
-      file.write(data.base64, { encoding: "base64" });
+      file.writeSync(data.base64, { encoding: "base64" });
       return file.uri;
     },
     retry: false,

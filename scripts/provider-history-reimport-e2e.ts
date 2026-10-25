@@ -40,6 +40,20 @@ const quietRoutineDelivery: DeliveryContext = {
   managedAttachments: [],
 };
 
+const FAILED_DELIVERY_ID = "failed-routine-delivery";
+const FAILED_ANSWER = "The server is not reachable.";
+/** A scheduled run whose agent called `routine_report_failure`: its delivery completed with the reason. */
+const failedRoutineDelivery: DeliveryContext = {
+  ...quietRoutineDelivery,
+  delivery: {
+    ...quietRoutineDelivery.delivery,
+    id: FAILED_DELIVERY_ID,
+    messageId: "failed-routine-message",
+    turnId: "claude-failed-turn",
+    error: "ssh: connect to host 10.0.0.5 port 22: Connection refused",
+  },
+};
+
 interface Report {
   schemaVersion: 1;
   generatedAt: string;
@@ -79,9 +93,14 @@ async function runProviderHistoryReimportCheck(outputPath: string): Promise<Repo
           externalSessionId: `${sessionId}-external`,
           agentId,
           publicThreadId: threadId,
-          findDelivery: (deliveryId) => (deliveryId === QUIET_DELIVERY_ID ? quietRoutineDelivery : null),
+          findDelivery: (deliveryId) =>
+            deliveryId === QUIET_DELIVERY_ID
+              ? quietRoutineDelivery
+              : deliveryId === FAILED_DELIVERY_ID
+                ? failedRoutineDelivery
+                : null,
           findMessageDelivery: () => null,
-          quietRoutineDelivery: (deliveryId) => deliveryId === QUIET_DELIVERY_ID,
+          quietRoutineDelivery: (deliveryId) => deliveryId === QUIET_DELIVERY_ID || deliveryId === FAILED_DELIVERY_ID,
         }),
       );
     };
@@ -165,6 +184,15 @@ async function runProviderHistoryReimportCheck(outputPath: string): Promise<Repo
       .readConversation(agentId, threadId)
       .messages.filter((message) => message.turnId === quietTurnId && message.author === "assistant");
 
+    // A run that reported a failure is never quiet, also after a no-update call.
+    const failedTurnId = "claude-failed-turn";
+    const claudeFailed = await runImport("claude-failed-session", "claude", [
+      quietRoutineTurn(failedTurnId, 10, FAILED_DELIVERY_ID, FAILED_ANSWER),
+    ]);
+    const failedAnswers = database
+      .readConversation(agentId, threadId)
+      .messages.filter((message) => message.turnId === failedTurnId && message.author === "assistant");
+
     // A turn that an import did not finish keeps `imported = 0` and is imported at the next start.
     database.connection
       .prepare("UPDATE provider_history_turns SET imported = 0 WHERE session_id = ? AND turn_id = ?")
@@ -186,6 +214,7 @@ async function runProviderHistoryReimportCheck(outputPath: string): Promise<Repo
         splitRepeat,
         splitEdited,
         claudeQuiet,
+        claudeFailed,
         unfinished,
       },
       acceptance: {
@@ -207,6 +236,11 @@ async function runProviderHistoryReimportCheck(outputPath: string): Promise<Repo
           quietAnswers.length === 1 &&
           quietAnswers[0]?.id === `${quietTurnId}:assistant` &&
           quietAnswers[0]?.itemType === ROUTINE_QUIET_ANSWER_ITEM_TYPE,
+        claudeFailedRunAnswerIsNotQuiet:
+          claudeFailed.turns === 1 &&
+          failedAnswers.length === 1 &&
+          failedAnswers[0]?.text === FAILED_ANSWER &&
+          failedAnswers[0]?.itemType !== ROUTINE_QUIET_ANSWER_ITEM_TYPE,
         unfinishedTurnImportsAgain: unfinished.turns === 1,
         importCompleted: database.providerHistoryImport("codex-session")?.state === "complete",
       },
@@ -237,7 +271,12 @@ function turn(turnId: string, startedAt: number, suffix?: string): ProviderHisto
 }
 
 /** A scheduled run that called the no-update tool and wrote a short answer, as Claude stores it. */
-function quietRoutineTurn(turnId: string, startedAt: number): ProviderHistoryFragment {
+function quietRoutineTurn(
+  turnId: string,
+  startedAt: number,
+  deliveryId = QUIET_DELIVERY_ID,
+  answer = QUIET_ANSWER,
+): ProviderHistoryFragment {
   return {
     turnId,
     status: "completed",
@@ -245,9 +284,9 @@ function quietRoutineTurn(turnId: string, startedAt: number): ProviderHistoryFra
     itemOffset: 0,
     complete: true,
     items: [
-      { type: "userMessage", id: `${turnId}-prompt`, clientId: QUIET_DELIVERY_ID, content: [] },
+      { type: "userMessage", id: `${turnId}-prompt`, clientId: deliveryId, content: [] },
       { type: "toolCall", id: `${turnId}-tool`, name: "mcp__openbot__routine_no_update", status: "completed" },
-      { type: "agentMessage", id: `${turnId}-answer`, text: QUIET_ANSWER, status: "completed" },
+      { type: "agentMessage", id: `${turnId}-answer`, text: answer, status: "completed" },
     ],
   };
 }

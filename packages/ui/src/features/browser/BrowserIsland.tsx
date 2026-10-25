@@ -1,9 +1,12 @@
-import type { BrowserDockIsland, RespondToBrowserSecretInput } from "@openbot/contracts/ipc";
+import type { BrowserDockIsland, LocalBrowserSecretResponse } from "@openbot/contracts/ipc";
 import { Button, LoaderCircle, MousePointer2, X } from "@openbot/ui";
+import { QuestionPromptBubble } from "@openbot/ui/components/QuestionPromptBubble";
 import type { ComposerAgent } from "@openbot/ui/data";
 import { AgentAvatar } from "@openbot/ui/features/agents/AgentAvatar";
 import { BrowserSecretCard } from "@openbot/ui/features/conversation/BrowserSecretCard";
+import { ApprovalCard } from "@openbot/ui/features/conversation/ConversationPrompts";
 import { RichMessageText } from "@openbot/ui/features/conversation/RichMessageText";
+import type { SendShortcut } from "@openbot/ui/features/conversation/send-shortcut";
 import { useText } from "@openbot/ui/text";
 import { Match, Show, Switch } from "solid-js";
 
@@ -12,6 +15,8 @@ import { Match, Show, Switch } from "solid-js";
  * - `activity`: the step of the agent (`agent`), the page the user controls (`user`), or the page the agent
  *   asked the user to use (`request`). Its button gives the page to the user, or back.
  * - `secret`: the code or password that the agent asks for.
+ * - `prompt` and `approval`: the questions and the approval of the agent, which the user answers on the page.
+ *   They stay until the agent has the answer.
  * - `reply`: what the agent said. An answer closes by itself; a `question` stays until the user answers it.
  *   `answerInChat` is set when the answer needs more than a line of text.
  */
@@ -25,6 +30,10 @@ export function browserIslandKey(content: BrowserIslandContent | null): string {
       return content.control === "agent" ? `activity:agent:${content.label}` : `activity:${content.control}`;
     case "secret":
       return `secret:${content.request.requestId}`;
+    case "prompt":
+      return `prompt:${content.requestId}:${content.attempt}`;
+    case "approval":
+      return `approval:${content.approval.requestId}:${content.attempt}`;
     case "reply":
       return `reply:${content.id}`;
   }
@@ -35,8 +44,14 @@ export interface BrowserIslandFaceProps {
   agent: ComposerAgent;
   agents: ComposerAgent[];
   handoffPending?: boolean | undefined;
+  sendShortcut?: SendShortcut | undefined;
   onHandoff?: (() => void) | undefined;
-  onRespondSecret: (input: RespondToBrowserSecretInput) => Promise<void>;
+  /** Offer "Save to Vault" on a password card: only on the local server. */
+  vaultSave?: boolean | undefined;
+  onRespondSecret: (input: LocalBrowserSecretResponse) => Promise<void>;
+  /** Resolves true when the host has the answers. An empty record cancels the questions. */
+  onAnswerPrompt: (requestId: string | number, answers: Record<string, string[]>) => Promise<boolean>;
+  onRespondApproval: (requestId: string | number, decision: "accept" | "decline") => Promise<boolean>;
   onDismissReply: (id: string) => void;
   onOpenChat?: (() => void) | undefined;
   onSelectAgent: (agentId: string) => void;
@@ -50,6 +65,8 @@ export function BrowserIslandFace(props: BrowserIslandFaceProps) {
   const { t } = useText();
   const activity = () => (props.content.kind === "activity" ? props.content : undefined);
   const secret = () => (props.content.kind === "secret" ? props.content : undefined);
+  const prompt = () => (props.content.kind === "prompt" ? props.content : undefined);
+  const approval = () => (props.content.kind === "approval" ? props.content : undefined);
   const reply = () => (props.content.kind === "reply" ? props.content : undefined);
   const statusText = () => {
     const current = activity();
@@ -89,8 +106,59 @@ export function BrowserIslandFace(props: BrowserIslandFaceProps) {
       <Match when={secret()}>
         {(current) => (
           <div class="browser-dock-island-face">
-            <BrowserSecretCard variant="island" request={current().request} onRespond={props.onRespondSecret} />
+            <BrowserSecretCard
+              variant="island"
+              request={current().request}
+              vaultSave={props.vaultSave}
+              onRespond={props.onRespondSecret}
+            />
           </div>
+        )}
+      </Match>
+      <Match when={prompt()}>
+        {(current) => (
+          <section
+            class="browser-dock-island-face browser-dock-island-card"
+            aria-label={t("browser.dock.needsAnswer", { name: props.agent.name })}
+          >
+            <header class="browser-dock-reply-header">
+              <AgentAvatar agent={props.agent} class="browser-dock-avatar" />
+              <strong>{t("browser.dock.needsAnswer", { name: props.agent.name })}</strong>
+            </header>
+            {/* A new attempt shows the questions again after an answer that failed. */}
+            <Show keyed when={browserIslandKey(current())}>
+              {(_attempt) => (
+                <QuestionPromptBubble
+                  questions={current().questions}
+                  sendShortcut={props.sendShortcut}
+                  onSubmit={(answers) => props.onAnswerPrompt(current().requestId, answers)}
+                />
+              )}
+            </Show>
+          </section>
+        )}
+      </Match>
+      <Match when={approval()}>
+        {(current) => (
+          <section
+            class="browser-dock-island-face browser-dock-island-card"
+            aria-label={t("browser.dock.needsApproval", { name: props.agent.name })}
+          >
+            <header class="browser-dock-reply-header">
+              <AgentAvatar agent={props.agent} class="browser-dock-avatar" />
+              <strong>{t("browser.dock.needsApproval", { name: props.agent.name })}</strong>
+            </header>
+            {/* Always allow changes the permissions of the agent, so it stays in the chat. */}
+            <Show keyed when={browserIslandKey(current())}>
+              {(_attempt) => (
+                <ApprovalCard
+                  approval={current().approval}
+                  onApprove={() => props.onRespondApproval(current().approval.requestId, "accept")}
+                  onReject={() => props.onRespondApproval(current().approval.requestId, "decline")}
+                />
+              )}
+            </Show>
+          </section>
         )}
       </Match>
       <Match when={reply()}>

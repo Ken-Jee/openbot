@@ -85,7 +85,7 @@ export function PlanLimitRing({
               const radius = outer - index * spacing;
               const circumference = 2 * Math.PI * radius;
               return (
-                <G key={planLimitWindowKey(window)}>
+                <G key={planLimitWindowKey(window, index)}>
                   <Circle
                     cx={center}
                     cy={center}

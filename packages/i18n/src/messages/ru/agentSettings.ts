@@ -29,7 +29,7 @@ export const messages = {
   "agentSettings.backupModels.intro":
     "Если {model} достигнет лимита использования до того, как {name} начнёт писать, {name} спросит вас, какую модель использовать.",
   "agentSettings.backupModels.introAutomatic":
-    "Если {model} достигнет лимита использования до того, как {name} начнёт писать, {name} переключится на первую доступную модель по порядку.",
+    "Если {model} достигнет лимита использования или завершится с ошибкой провайдера до того, как {name} начнёт писать, {name} переключится на первую доступную модель по порядку.",
   "agentSettings.backupModels.ask": "Спрашивать перед переключением",
   "agentSettings.backupModels.order": "Порядок",
   "agentSettings.backupModels.listLabel": "Резервные модели по порядку",
@@ -42,7 +42,7 @@ export const messages = {
   "agentSettings.backupModels.unavailable": "Сейчас недоступна · пропущена",
   "agentSettings.backupModels.withAccount": "{model} · {account}",
   "agentSettings.backupModels.note":
-    "После начала ответа {name} не переключает модель. Когда лимит закончится, {name} вернётся к {model}.",
+    "После начала ответа {name} не переключает модель. Когда лимит закончится или через 10 минут после ошибки провайдера, {name} вернётся к {model}.",
   "agentSettings.groups.brain": "Мозг",
   "agentSettings.groups.knows": "Знает",
   "agentSettings.groups.does": "Делает",
@@ -182,6 +182,15 @@ export const messages = {
   "agentSettings.quickAcknowledgement.title": "Показывать план перед долгими задачами",
   "agentSettings.quickAcknowledgement.description":
     "Перед долгой задачей агент показывает свой план. Он начинает через 10 с или когда вы нажимаете «Начать».",
+  "agentSettings.browserProfile.label": "Профиль браузера",
+  "agentSettings.browserProfile.shared": "Общий",
+  "agentSettings.browserProfile.agent": "Только этот агент",
+  "agentSettings.browserProfile.missing": "Удалённый профиль",
+  "agentSettings.browserProfile.new": "Новый профиль",
+  "agentSettings.browserProfile.manageTitle": "Профили браузера",
+  "agentSettings.browserProfile.manageDescription":
+    "Каждый профиль хранит свои входы в аккаунты и cookie. Изменение закрывает открытые вкладки агента.",
+  "agentSettings.browserProfile.manage": "Настроить",
   "agentSettings.runtime.workspaceEnforcedProcess":
     "Весь процесс {provider} работает в песочнице, поэтому запись за пределами рабочего пространства не удастся. Доступно только в macOS.",
 } as const satisfies PartialTranslation<typeof source>;

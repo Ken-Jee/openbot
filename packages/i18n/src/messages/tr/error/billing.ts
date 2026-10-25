@@ -6,6 +6,7 @@ export const messages = {
   "error.billing.confirmMismatch": "Silmek için sunucu adını yazın.",
   "error.billing.restartBusy": "Sunucu şu anda yeniden başlatılamıyor. Bir dakika sonra tekrar deneyin.",
   "error.billing.planRequired": "Bu sunucunun planı sona erdi. Sunucuyu başlatmak için planı yenileyin.",
+  "error.billing.planSoldOut": "Bu plan tükendi. Başka bir plan seçin.",
   // Masaüstü ve web istemcilerinin oluşturduğu faturalandırma hataları.
   "error.billing.licenseExists": "Bu hesabın zaten bir lisansı var. Bunun yerine kullanıcı sayısını değiştirin.",
   "error.billing.licenseCurrency": "Lisans, diğer planlarınızın para birimini kullanmalıdır.",

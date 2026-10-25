@@ -202,6 +202,14 @@ export const STORY_MODELS: ClientAgentModelOption[] = [
   },
   {
     provider: "claude",
+    id: "claude-fable-5",
+    name: "Claude Fable 5",
+    description: "Fast Claude model for everyday agent work.",
+    defaultReasoningEffort: "high",
+    supportedReasoningEfforts: ["low", "medium", "high"],
+  },
+  {
+    provider: "claude",
     id: "claude-opus-5",
     name: "Claude Opus 5",
     description: "Most capable Claude model for complex work.",
@@ -231,6 +239,14 @@ export const STORY_MODELS: ClientAgentModelOption[] = [
     description: "Discovered from Grok CLI over ACP.",
     defaultReasoningEffort: "medium",
     supportedReasoningEfforts: ["low", "medium", "high"],
+  },
+  {
+    provider: "antigravity",
+    id: "gemini-3.1-pro",
+    name: "Gemini 3.1 Pro",
+    description: "Discovered from the Antigravity ACP server.",
+    defaultReasoningEffort: "high",
+    supportedReasoningEfforts: ["low", "high"],
   },
 ];
 
@@ -327,6 +343,11 @@ export const STORY_USAGE: AccountUsage = {
       id: "grok",
       primary: null,
       secondary: { usedPercent: 22, windowDurationMins: 10_080, resetsAt: 1_787_040_000 },
+    },
+    {
+      id: "cursor",
+      primary: { usedPercent: 37, windowDurationMins: 43_200, resetsAt: 1_788_220_800 },
+      secondary: { usedPercent: 82, windowDurationMins: 43_200, resetsAt: 1_788_220_800 },
     },
   ],
 };

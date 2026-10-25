@@ -30,6 +30,7 @@ export function CodeDocument({
   wrap,
   topInset,
   bottomInset,
+  note,
 }: {
   text: string;
   language?: string;
@@ -37,6 +38,8 @@ export function CodeDocument({
   wrap: boolean;
   topInset: number;
   bottomInset: number;
+  /** A line under the code, such as that the file goes on past what it shows. */
+  note?: string | null;
 }) {
   const { foreground, muted, colors } = useCodeTokenColors();
   const [tokens, setTokens] = useState<CodeToken[] | null>(null);
@@ -105,6 +108,15 @@ export function CodeDocument({
           </ScrollView>
         </View>
       )}
+      {note ? (
+        <Typography.Paragraph
+          type="body-sm"
+          className="text-muted"
+          style={{ paddingHorizontal: SIDE_PADDING, paddingTop: 12 }}
+        >
+          {note}
+        </Typography.Paragraph>
+      ) : null}
     </ScrollView>
   );
 }

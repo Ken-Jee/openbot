@@ -50,6 +50,7 @@ import {
   type RespondToBrowserTakeoverInput,
   type Routine,
   type RoutineRun,
+  remoteBrowserSecretResponse,
   type SetAgentMemoryInclusionInput,
   type StartAgentTaskInput,
   type SteerQueuedMessageInput,
@@ -290,7 +291,10 @@ export const respondToBrowserSecret = Effect.fn("TeamClient.respondToBrowserSecr
   request: TeamApiRequest,
   input: RespondToBrowserSecretInput,
 ): Effect.fn.Return<void, TeamRequestError> {
-  return yield* teamCall(() => request("POST", BROWSER_SECRET_RESPONSE_PATH, ignoreResponse, { ...input }));
+  // Only the released fields: `saveToVault` is for the Vault of the local computer.
+  return yield* teamCall(() =>
+    request("POST", BROWSER_SECRET_RESPONSE_PATH, ignoreResponse, { ...remoteBrowserSecretResponse(input) }),
+  );
 });
 
 /** The channel calls of the desktop IPC surface, which a remote desktop sends to the host the same way. */

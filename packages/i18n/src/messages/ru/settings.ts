@@ -6,6 +6,14 @@ export const messages = {
   "settings.language.description": "OpenBot показывает меню, кнопки и сообщения на этом языке.",
   "settings.language.system": "Как в системе",
   "settings.appearance.title": "Оформление",
+  "settings.appearance.theme.title": "Тема",
+  "settings.appearance.theme.description": "Светлые или тёмные цвета. «Системная» следует настройке устройства.",
+  "settings.appearance.theme.system": "Системная",
+  "settings.appearance.theme.light": "Светлая",
+  "settings.appearance.theme.dark": "Тёмная",
+  "settings.appearance.transparentWindow.title": "Прозрачное окно",
+  "settings.appearance.transparentWindow.description":
+    "Показывать размытый рабочий стол за окном. Сайты и меню тогда используют тему приложения.",
   "settings.interfaceSize.title": "Размер интерфейса",
   "settings.interfaceSize.description": "Размер текста и элементов управления в OpenBot.",
   "settings.logoColor.title": "Цвет логотипа",
@@ -28,6 +36,12 @@ export const messages = {
   "settings.launchAtLogin.description": "Открывать приложение, когда вы входите в систему на этом компьютере.",
   "settings.keepRunning.title": "Оставлять OpenBot работать в фоне",
   "settings.keepRunning.description": "Активные задачи продолжат выполняться после закрытия окна.",
+  "settings.keepAwake.title": "Не переводить компьютер в сон",
+  "settings.keepAwake.description":
+    "Регулярные задачи запускаются вовремя, пока компьютер подключён к сети. Экран всё равно может выключаться.",
+  "settings.keepAwakeOnBattery.title": "И от батареи",
+  "settings.keepAwakeOnBattery.description":
+    "Не давать компьютеру засыпать и при работе от батареи. Батарея разряжается быстрее.",
   "settings.restoreWorkspace.title": "Восстанавливать последнее рабочее пространство при запуске",
   "settings.restoreWorkspace.description": "Открывать рабочее пространство и задачи из предыдущего сеанса.",
   "settings.externalLinks.title": "Открывать внешние ссылки в",
@@ -39,6 +53,9 @@ export const messages = {
   "settings.sendShortcut.enter": "Отправка по Enter",
   "settings.sendShortcut.modEnterMac": "Отправка по ⌘Enter",
   "settings.sendShortcut.modEnterWin": "Отправка по Ctrl+Enter",
+  "settings.showAgentSteps.title": "Показывать шаги агента",
+  "settings.showAgentSteps.description":
+    "По умолчанию раскрывать размышления, шаги инструментов и изменения памяти в каждом ходе на этом устройстве и в этом браузере.",
   "settings.busyMessage.title": "Направлять агентов, пока они работают",
   "settings.busyMessage.description":
     "Новые сообщения присоединяются к текущей работе агента, а не встают в очередь. Работает с ChatGPT и Claude.",
@@ -191,6 +208,19 @@ export const messages = {
   "settings.mobileConnect.link.error.revoke": "Не удалось отозвать постоянную ссылку.",
   "settings.mobileConnect.devices.title": "Подключённые устройства",
   "settings.mobileConnect.devices.refreshing": "Обновление…",
+  "settings.mobileConnect.route.title": "Как подключаются устройства",
+  "settings.mobileConnect.route.description":
+    "Для телефонов, других компьютеров и участников команды, которые подключаются к этому компьютеру.",
+  "settings.mobileConnect.route.openbot.title": "Через OpenBot",
+  "settings.mobileConnect.route.openbot.badge": "Рекомендуется",
+  "settings.mobileConnect.route.openbot.description":
+    "Работает в любой сети. Чаты и файлы шифруются между вашими устройствами.",
+  "settings.mobileConnect.route.private.title": "Частная сеть",
+  "settings.mobileConnect.route.private.tailscale": "Найден Tailscale",
+  "settings.mobileConnect.route.private.description":
+    "Tailscale или эта сеть Wi-Fi. Устройства по-прежнему входят через OpenBot. Чаты и файлы никогда не проходят через серверы OpenBot, а устройства подключаются только в этой сети.",
+  "settings.mobileConnect.route.error.load": "Не удалось загрузить способ подключения устройств.",
+  "settings.mobileConnect.route.error.save": "Не удалось изменить способ подключения устройств.",
   "settings.mobileConnect.disconnectInfo.title": "Отключение устройства",
   "settings.mobileConnect.disconnectInfo.description":
     "Доступ отзывается сразу. Мобильное приложение может продолжать показывать текущий экран, пока его не откроют заново или не вернут из фона.",
@@ -416,6 +446,7 @@ export const messages = {
   "settings.hostedServers.deleteFailed": "Не удалось удалить сервер.",
   "settings.hostedServers.plan.label": "Тариф",
   "settings.hostedServers.plan.recommended": "Самый выгодный",
+  "settings.hostedServers.plan.soldOut": "Распродано",
   "settings.hostedServers.plan.perMonth": "/ мес.",
   "settings.hostedServers.plan.disk": "{count} ГБ хранилища",
   "settings.hostedServers.plan.linux": "Машина с Linux",

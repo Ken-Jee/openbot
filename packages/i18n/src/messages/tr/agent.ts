@@ -64,6 +64,8 @@ export const messages = {
   "agent.error.mcpNotStarted": "MCP sunucusu başlatılmadı",
   "agent.error.codexConfigIgnored": "Codex yapılandırma uyarısı",
   "agent.error.provider": "Sağlayıcı hatası",
+  "agent.error.run": "{provider} · {model}",
+  "agent.error.providerNamed": "{provider} hatası",
   "agent.color.red": "Kırmızı",
   "agent.color.orange": "Turuncu",
   "agent.color.yellow": "Sarı",

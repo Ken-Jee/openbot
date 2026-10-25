@@ -1,6 +1,6 @@
 import { sourceText } from "@openbot/i18n/source";
 import { Effect, Result, Schema } from "effect";
-import { remoteHostFingerprint } from "./remote-directory";
+import { remoteHostFingerprint } from "./host-key-handover";
 
 const WorkspacePreferences = Schema.Struct({
   hidden: Schema.mutableKey(Schema.mutable(Schema.Array(Schema.String))),

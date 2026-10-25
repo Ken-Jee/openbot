@@ -81,7 +81,15 @@ interface ChannelChange {
  * Owns durable channel records. Every change and its retry receipt commit together.
  */
 export class ChannelStore {
+  /** By channel: how many times a message changed in place after it was complete, in this process. */
+  readonly #completedMessageChanges = new Map<string, number>();
+
   constructor(readonly database: OpenBotDatabase) {}
+
+  /** A packet built before this count changed can show a message as it was before. */
+  completedMessageChanges(channelId: string): number {
+    return this.#completedMessageChanges.get(channelId) ?? 0;
+  }
 
   get(channelId: string): Channel {
     const row = databaseRow(
@@ -127,7 +135,8 @@ export class ChannelStore {
   list(memberId: string, signedOutMessagesAreTheirs = false): ChannelSummary[] {
     // The sidebar is rebuilt on every `channels-changed`, and a streaming reply emits those while
     // it arrives. One query returns every summary: the previous per-channel latest-message, unread,
-    // and task queries made this O(channels x queries) per stream frame.
+    // and task queries made this O(channels x queries) per stream frame. A member's thinking is not
+    // unread, as in an agent chat: it folds into the steps of the member's answer.
     const excludedId = signedOutMessagesAreTheirs ? SIGNED_OUT_CHANNEL_MEMBER_ID : memberId;
     const rows = databaseRows(
       this.database.connection
@@ -147,6 +156,8 @@ export class ChannelStore {
                 AND json_extract(m.message_json, '$.author.id') IS NOT ?
                 AND COALESCE(json_extract(m.message_json, '$.message.itemType'), '') != 'plan'
                 AND COALESCE(json_extract(m.message_json, '$.message.itemType'), '') != 'subagents'
+                AND COALESCE(json_extract(m.message_json, '$.message.itemType'), '') != 'channel-change'
+                AND COALESCE(json_extract(m.message_json, '$.message.itemType'), '') != 'commentary'
                 AND COALESCE(json_extract(m.message_json, '$.message.itemType'), '') NOT LIKE ?) AS unread,
             (SELECT COUNT(*) FROM projection_channel_tasks AS t
               WHERE t.channel_id = c.channel_id
@@ -403,7 +414,9 @@ export class ChannelStore {
     for (const message of change.messages) {
       const existing = databaseRow(
         db
-          .prepare("SELECT sequence FROM projection_channel_messages WHERE channel_id = ? AND message_id = ?")
+          .prepare(
+            "SELECT sequence, json_extract(message_json, '$.message.status') AS status FROM projection_channel_messages WHERE channel_id = ? AND message_id = ?",
+          )
           .get(change.channel.id, message.id),
       );
       const last = databaseRow(
@@ -421,10 +434,19 @@ export class ChannelStore {
       db.prepare(
         "INSERT INTO projection_channel_messages VALUES (?, ?, ?, ?) ON CONFLICT(channel_id, message_id) DO UPDATE SET message_json = excluded.message_json",
       ).run(change.channel.id, message.id, assigned, JSON.stringify({ ...message, sequence: assigned }));
-      if (existing)
+      if (existing) {
+        // A streaming message changes on each part of its text; a packet already leaves it unread.
+        if (existing.status !== "streaming")
+          this.#completedMessageChanges.set(change.channel.id, this.completedMessageChanges(change.channel.id) + 1);
         db.prepare(
           "UPDATE projection_channel_summaries SET version = version + 1, through_sequence = 0, text = '' WHERE channel_id = ? AND through_sequence >= ?",
         ).run(change.channel.id, assigned);
+        // A member read this message before it changed, as when a correction supersedes a result. A
+        // packet with only later messages would not show the change, so the next one is complete.
+        db.prepare(
+          "UPDATE projection_channel_contexts SET through_sequence = 0, summary_version = 0 WHERE channel_id = ? AND through_sequence >= ?",
+        ).run(change.channel.id, assigned);
+      }
     }
     for (const task of change.tasks)
       db.prepare(
@@ -595,8 +617,24 @@ export class ChannelStore {
     throughSequence: number,
     summaryVersion: number,
   ): void {
+    const current = databaseRow(
+      this.database.connection
+        .prepare(
+          "SELECT session_id, through_sequence, summary_version FROM projection_channel_contexts WHERE channel_id = ? AND agent_id = ?",
+        )
+        .get(channelId, agentId),
+    );
+    if (
+      current &&
+      current.session_id === sessionId &&
+      current.through_sequence === throughSequence &&
+      current.summary_version === summaryVersion
+    )
+      return;
+    // Each change has its own operation: after a compaction reset, the cursor can come back to a value
+    // that an earlier operation set, and a key made from the values would skip it as a repeat.
     this.database.dispatch(
-      `channel-context-accepted:${channelId}:${agentId}:${sessionId}:${throughSequence}:${summaryVersion}`,
+      `channel-context-accepted:${randomUUID()}`,
       [
         {
           aggregateType: "channel",
@@ -611,6 +649,29 @@ export class ChannelStore {
         ).run(sessionId, throughSequence, summaryVersion, channelId, agentId);
       },
     );
+  }
+
+  /**
+   * The provider compacted this session, so its summary can leave out channel messages that it
+   * read. A cursor at zero makes the next packet complete. It is the acceptance event, not a new
+   * event type, so an earlier version still rebuilds the channel.
+   */
+  resetContextsForSession(sessionId: string): void {
+    const rows = databaseRows(
+      this.database.connection
+        .prepare(
+          "SELECT channel_id, agent_id FROM projection_channel_contexts WHERE session_id = ? AND through_sequence > 0",
+        )
+        .all(sessionId),
+    );
+    for (const row of rows)
+      this.acceptContext(
+        requiredStringColumn(row, "channel_id"),
+        requiredStringColumn(row, "agent_id"),
+        sessionId,
+        0,
+        0,
+      );
   }
 
   summary(channelId: string): ChannelHistorySummary {

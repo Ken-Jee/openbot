@@ -268,6 +268,8 @@ export const messages = {
     "ID агента должен состоять из строчных букв, цифр или `-` и не может совпадать с ID встроенного провайдера.",
   "error.provider.customAgentEnvInvalid":
     "Имя переменной должно состоять из букв, цифр или `_` и не начинаться с цифры. Каждое имя используйте один раз, всего не более 16 имён.",
+  "error.provider.customAgentUsagePromptInvalid":
+    "Команда использования должна быть одной строкой не длиннее 256 символов.",
   "error.provider.customAgentCommandInvalid":
     "Команда должна быть полным путём, путём, начинающимся с ~/, или именем команды без пробелов.",
   "error.provider.customAgentArgsInvalid":
@@ -299,6 +301,9 @@ export const messages = {
   "error.provider.useChangeFailed": "OpenBot не удалось изменить настройку провайдера.",
   "error.provider.accountsUnsupported": "{provider} поддерживает только один аккаунт.",
   "error.provider.accountNeedsConnection": "Подключите {provider}, прежде чем добавлять ещё один аккаунт.",
+  "error.provider.usageResetUnsupported": "{provider} не может сбрасывать лимиты использования.",
+  "error.provider.usageResetNotConnected":
+    "Снова войдите в этот аккаунт {provider}, прежде чем сбрасывать его использование.",
   "error.provider.accountLimit": "Максимум аккаунтов {provider}: {limit}.",
   "error.provider.accountNotFound":
     "Этого аккаунта {provider} нет на этом компьютере. Обновите список и повторите попытку.",

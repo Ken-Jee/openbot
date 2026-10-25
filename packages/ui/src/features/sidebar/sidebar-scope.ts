@@ -71,7 +71,7 @@ export function createSidebarScope(props: SidebarProps) {
 
   const dragState = createSidebarDragStateStore({ chatKind, sectionAcceptsChat });
   dragActive = () => dragState.draggingKind() !== undefined;
-  const { assignChatSection, commitSidebarDrop, movePersonByKeyboard, movePinnedItem, moveSection } =
+  const { assignChatSection, commitSidebarDrop, duplicateSection, movePersonByKeyboard, movePinnedItem, moveSection } =
     createSidebarLayoutActions({
       announce,
       announceError,
@@ -158,6 +158,7 @@ export function createSidebarScope(props: SidebarProps) {
     draggedPinnedKey: dragState.draggedPinnedKey,
     draggingKind: dragState.draggingKind,
     dropSidebarNativeDrag,
+    duplicateSection,
     emptyPinnedDropVisible: dragState.emptyPinnedDropVisible,
     endChatDragging,
     filteredAgents,

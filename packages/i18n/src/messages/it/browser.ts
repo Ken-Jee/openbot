@@ -103,6 +103,8 @@ export const messages = {
   "browser.userControl.status": "Controlli tu questa pagina",
   "browser.dock.messageTo": "Messaggio a {name}",
   "browser.dock.needsYou": "{name} ha bisogno di te in questa pagina",
+  "browser.dock.needsAnswer": "{name} ha bisogno della tua risposta",
+  "browser.dock.needsApproval": "{name} ha bisogno della tua approvazione",
   "browser.dock.answerInChat": "Rispondi in chat",
   "browser.tab.newRight": "Nuova scheda a destra",
   "browser.tab.duplicate": "Duplica",
@@ -126,4 +128,44 @@ export const messages = {
   "browser.address.switchToTab": "Passa alla scheda",
   "browser.address.search": "Cerca con Google",
   "browser.pageActions": "Azioni pagina",
+  "browser.signIn.local": "Accedi su questo computer",
+  "browser.signIn.title": "Accedi a {site}",
+  "browser.signIn.description":
+    "Alcuni siti rifiutano un accesso da un server. Accedi su questo computer e OpenBot invia l’accesso a {site} a {server}. Tutti gli agenti e i membri di {server} potranno usarlo nel browser.",
+  "browser.signIn.windowOpen":
+    "Accedi nella finestra che si è aperta. OpenBot invia l’accesso quando è completo. Se la finestra resta aperta, seleziona Fine.",
+  "browser.signIn.windowClosed":
+    "La finestra di accesso è chiusa. Seleziona Fine per inviare l’accesso, o apri di nuovo la finestra.",
+  "browser.signIn.reopen": "Apri la finestra di accesso",
+  "browser.signIn.sending": "Invio a {server}…",
+  "browser.signIn.sent": "Accesso a {site} su {server} eseguito",
+  "browser.signIn.notFound": "OpenBot non ha trovato un accesso per {site}. Accedi nella finestra, poi seleziona Fine.",
+  "browser.signIn.stillSignedOut":
+    "{server} mostra ancora una pagina di accesso di {site}. Completa l’accesso nella finestra.",
+  "browser.signIn.failed": "OpenBot non è riuscito a inviare l’accesso.",
+  "browser.profiles.title": "Profili del browser",
+  "browser.profiles.subtitle":
+    "Ogni profilo mantiene accessi, cookie e dati dei siti propri sul computer su cui gira OpenBot.",
+  "browser.profiles.label": "Profili del browser",
+  "browser.profiles.newName": "Nome del profilo",
+  "browser.profiles.create": "Aggiungi",
+  "browser.profiles.usage": "{agents} · {tabs}",
+  "browser.profiles.agents": { one: "{count} agente", other: "{count} agenti" },
+  "browser.profiles.tabs": { one: "{count} scheda aperta", other: "{count} schede aperte" },
+  "browser.profiles.renameLabel": "Rinomina {name}",
+  "browser.profiles.actionsFor": "Azioni per {name}",
+  "browser.profiles.colorLabel": "Colore di {name}",
+  "browser.profiles.save": "Salva",
+  "browser.profiles.clear": "Cancella dati",
+  "browser.profiles.clearTitle": "Cancellare i dati di {name}?",
+  "browser.profiles.clearDescription":
+    "Questa azione esce da tutti i siti di questo profilo ed elimina i suoi cookie e i dati dei siti. Le sue schede aperte si chiudono.",
+  "browser.profiles.deleteTitle": "Eliminare {name}?",
+  "browser.profiles.deleteDescription":
+    "Questa azione elimina gli accessi, i cookie e i dati dei siti del profilo. Le sue schede aperte si chiudono.",
+  "browser.profiles.deleteAgents": "Questi agenti passano al profilo condiviso: {agents}.",
+  "browser.profiles.failed": "OpenBot non è riuscito a modificare i profili del browser.",
+  "browser.profiles.loadFailed": "OpenBot non è riuscito a caricare i profili del browser.",
+  "browser.profiles.tabLabel": "Profilo: {name}",
+  "browser.profiles.agentTabLabel": "Profilo proprio dell’agente",
 } as const satisfies PartialTranslation<typeof source>;

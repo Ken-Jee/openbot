@@ -52,7 +52,8 @@ interface FilePreviewPanelProps {
   onWidthChange: (width: number) => void;
   onOpenLink: (url: string) => void;
   onOpenSharedFile: (path: string) => void;
-  onOpenWorkspaceFile: (path: string) => void;
+  /** Absent when no agent workspace can resolve a path, so a path stays text. */
+  onOpenWorkspaceFile?: ((path: string) => void) | undefined;
   onOpenWorkspaceFolder?: (path: string) => void;
   /** Goes to the folder the file came from, or to the parent of the folder. */
   onBack?: (() => void) | undefined;
@@ -106,7 +107,7 @@ export default function FilePreviewPanel(props: FilePreviewPanelProps) {
   const text = createMemo(() => ({ value: source().slice(0, TEXT_LIMIT), truncated: source().length > TEXT_LIMIT }));
   const openEntry = (entry: WorkspaceDirectoryEntry) => {
     if (entry.kind === "directory") props.onOpenWorkspaceFolder?.(entry.path);
-    else props.onOpenWorkspaceFile(entry.path);
+    else props.onOpenWorkspaceFile?.(entry.path);
   };
 
   createEffect(

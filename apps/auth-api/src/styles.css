@@ -2,6 +2,8 @@
 @import "@fontsource-variable/inter/wght-italic.css";
 @import "tailwindcss";
 @import "@openbot/brand/tokens.css";
+/* Only the web client at /app sets the attribute that turns it on. The public pages stay dark. */
+@import "@openbot/brand/tokens-light.css";
 @import "@openbot/ui/stagger.css";
 
 /* Arial with the size and line metrics of Inter. Until Inter loads, the text takes the same space,
@@ -8544,6 +8546,49 @@ a {
 
 .plugin-section {
   margin-top: clamp(32px, 4vw, 48px);
+}
+
+/* The uses are written text, so they take two columns at most and no icon above the title. */
+.provider-adds-grid.plugin-uses {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 0;
+}
+
+/* No use is more important than the others, so the first card does not take the accent. */
+.plugin-uses .provider-add:first-child {
+  border-color: var(--openbot-border);
+  background: var(--openbot-bg-surface);
+}
+
+.plugin-uses .provider-add-title {
+  margin-top: 0;
+}
+
+.provider-steps.plugin-connect {
+  margin-top: 0;
+}
+
+/* The values a sign-in asks for, or the steps a local server needs, inside one step. */
+.plugin-connect-fields {
+  display: grid;
+  gap: 6px;
+  max-width: 68ch;
+  margin: 10px 0 0;
+  padding-left: 18px;
+  color: var(--openbot-text-secondary);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.plugin-connect-field-label {
+  color: var(--openbot-text-primary);
+  font-weight: 500;
+}
+
+@media (max-width: 640px) {
+  .provider-adds-grid.plugin-uses {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /* A shared agent, as one card: the page a link on X opens. `--agent-share-accent` is the agent's

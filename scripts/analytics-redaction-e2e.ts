@@ -7,6 +7,7 @@
 // stops them. The turns run on a fake custom agent on this computer, so no model is used. The fake
 // agent reports token usage for each answered turn, and the script checks that the turn event carries
 // those counts, the same counts as the Usage report, that the model's own token event carries them,
+// that the turn says how it is paid for,
 // that a turn with no usage reports unknown, and that the failed turn's failure report arrives.
 //
 // Start the dev app with the capture server's address first, then run the script:
@@ -272,6 +273,7 @@ try {
         command,
         args: [`--token=${marker}arg`],
         env: [{ name: "FAKE_TOKEN", value: `${marker}token` }],
+        usagePrompt: null,
       }),
     { id: customAgentId, command: fakeAgentPath, marker: MARKER },
   );
@@ -312,6 +314,10 @@ try {
   check("a custom agent's turn is reported", true, completed.properties);
   check("a custom agent's model is reported as its kind only", completed.properties.model === "custom", {
     model: completed.properties.model,
+  });
+  // A custom ACP agent's payment is not known to the host, so it reports `unknown`, never a guess.
+  check("a turn reports how it is paid for", completed.properties.provider_auth === "unknown", {
+    provider_auth: completed.properties.provider_auth,
   });
   // The fake agent reports 1,500 input tokens, of which 1,000 are cache reads and 200 cache writes.
   const expectedTokens = {

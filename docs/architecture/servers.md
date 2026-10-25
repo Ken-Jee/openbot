@@ -32,6 +32,15 @@ renderer hides those controls from a member. The wire carries no absolute paths,
 download files travel only as category totals. A host without the capability reads as null, and the
 surface asks for an update; a change is refused before any request.
 
+The optional `storage-disk-v1` capability adds `POST /v1/storage/disk` (`team-protocol/storage-disk-v1.ts`).
+It answers the free and total bytes of the disk that holds the host data, from one `statfs` call
+with no scan, so it is a passive route. Every member can read it. The sidebar storage card
+(`features/sidebar/storage-card.ts`) reads it for an owner or admin of the selected server, at
+start, every five minutes, and when Server settings closes. Under 10% free (at most 5 GB) the card
+says "Storage almost full" and can be closed until the next level; under 2% free (at most 1 GB) it
+is red and cannot be closed. "Free up space" opens Server settings › Storage. A host without the
+capability shows no card.
+
 ### Hosted sites per server
 
 A hosted site belongs to the server that published it (`hosted_sites.server_id`, D1 `0024`). The user
@@ -253,6 +262,33 @@ sends `browser-page-state-changed` with the same list. A stop ends the load at o
 tab operations, and a stop of a tab that does not load changes nothing. A client shows Stop only for a
 host that reports the page state; for an older host, Back and Forward stay enabled.
 
+`browser-sign-in-v1` adds `POST /v1/browser/sign-in` with `{ tabId, cookies }`, up to 150 cookies,
+and answers with `{ cookies }`, the count that the host set. Some sites refuse a sign-in from a
+data-center address, but accept the session that the member's own computer made. The desktop opens a
+window on this computer (`src/main/local-sign-in-window.ts`) with its own session in memory, the
+sandbox of the embedded browser, and no downloads or permissions other than a clipboard write. When
+the member selects Done, it sends only the cookies of the tab's site: the tab's host, a parent domain
+that is not a top-level one, or a subdomain (`browserSignInCookieFitsHost`, which both sides apply).
+It leaves out Cloudflare's address-bound `__cf*` and `cf_*` cookies. The host sets the cookies in the
+tab's session and loads the tab again. A shared tab uses the shared browser session, so every agent
+and member on the server then has the sign-in. The host never sends the values back or records them.
+On a server, the agent prompt tells the agent to stop a refused sign-in and call `request_takeover`
+with `reason: "sign-in-blocked"`. The host adds that reason beside the frozen takeover projection, in
+the `browser-takeover-requested` event and in `pendingBrowserTakeovers`, only for a client with
+`browser-sign-in`. A client decodes a present reason and refuses an unknown one. The takeover card in
+the desktop app shows the button for a web tab. With the reason, the card asks only for the sign-in
+on this computer and has no "I'm done" button. A sign-in that sets cookies completes the takeover of
+that tab.
+The window also sends by itself (`src/main/browser-sign-in-page.ts`): after a page with a sign-in
+address or a visible password field, a new `HttpOnly` cookie of the site, and then a page of the site
+that is not a sign-in step. This is a guess, so after that send the desktop reads the server's tab
+list. When the tab still shows a sign-in step, it opens the window's page in the tab (with
+`browser-navigation`) and reads the list again. The window closes only when the tab left the sign-in
+steps; otherwise it stays open and waits for the next cookie. Done sends without this check.
+The desktop discards the window's session after a send that set cookies, on Cancel, and at shutdown.
+A failed send keeps it, so Done can try again. The web client has no menu item: a web page cannot
+read the cookies of another site.
+
 ### Skill events
 
 `skills-events-v1` adds one optional event, `skills-changed { agentId }`. The host sends it after
@@ -278,7 +314,8 @@ does not count it. See [hosted servers](../hosted-servers.md) step 5.
 
 An owner or admin of a joined server manages its host through optional `POST /v1/admin/...` routes.
 Each capability has a frozen codec in `team-protocol/<name>-v1.ts`, registered in
-`team-protocol/optional-routes.ts`, and both transports use it. Every route calls `requireAdmin`. The
+`team-protocol/optional-routes.ts`, and both transports use it. Every route calls `requireAdmin`,
+except two that also answer a member: `/v1/browser/tab-profiles` and `storage-disk-v1`. The
 host advertises a capability only when its `TeamApiAdmin` member exists.
 
 | Capability | Grants | IPC group |
@@ -286,6 +323,8 @@ host advertises a capability only when its `TeamApiAdmin` member exists.
 | `agent-admin-v1` | Agent access and auto-approve | `agentAdmin` |
 | `agent-host-settings-v1` | Agent Computer Use, local scripts, and messages while it works; reads the host default | `agentAdmin` |
 | `agent-backup-models-v1` | Agent backup models: the order and whether to switch without asking. Unknown providers are refused | `agentAdmin` |
+| `agent-task-limit-v1` | Agent task limit: how many tasks run at the same time, 1 to 4, or the host default | `agentAdmin` |
+| `browser-profiles-v1` | Named browser profiles of the host: list, create, rename, recolor, clear, delete, and the profile of each agent. One route, `/v1/browser/tab-profiles`, also answers a member: the profile label of each tab that the member can see. Cookies and site data stay on the host. Advertised when the host has `browserProfiles` | `agentAdmin` |
 | `skills-admin-v1` | List, install, remove, enable skills by marketplace id | `agentAdmin` |
 | `shared-tables-v1` | List and delete shared tables | `sharedTables` |
 | `agent-install-v1` | Add an agent from a listing or a shared template, by id | `agentAdmin` |
@@ -294,15 +333,18 @@ host advertises a capability only when its `TeamApiAdmin` member exists.
 | `instance-transfer-v1` | Export and import the server's agents and server settings as a transfer file | `instanceTransfer` |
 | `providers-v3` | Code sign-in for Codex, Claude and Grok; send the code a Claude sign-in page shows | `providerAdmin` |
 | `providers-v4` | Code or link sign-in and managed runtimes, Cursor and Cline included | `providerAdmin` |
+| `provider-usage-reset-v1` | Read the usage reset credits of each provider account on the host, and spend one. Only Codex gives credits | `providerAdmin` |
 | `host-admin-v1` | Server name and logo | `hostAdmin` |
 | `host-update-v1` | Check for, download and restart into an app update; cancel a restart that waits | `hostAdmin` |
 | `host-timezone-v1` | Read and set the server timezone | `hostAdmin` |
 | `agent-memory-limit-v1` | Read and set how many memories each agent keeps | `hostAdmin` |
+| `prompt-cache-ttl-v1` | Read and set how long Claude keeps the prompt cache of the host's agents | `hostAdmin` |
 | `agent-access-v1` | Read and set the roles that give members access to agents (see [Roles](#roles)) | `hostAdmin` |
 | `discord-access-v1` | Read and set which Discord roles can use OpenBot in a Discord server; list its roles | `messaging` |
 | `events-v1` | Manage webhook routines, their secrets, and activity | `events` |
 | `routine-recovery-v1` | Read and set a routine's missed-run policy; read its runs with the missed occurrences | `events` |
 | `routine-results-v1` | List the messaging connections and their places; read and set where an agent routine sends its answers. Deliveries stay on the host | none: only the mobile app sends it |
+| `webhook-tests-v1` | Send one signed test event to a webhook routine | `events` |
 
 These IPC groups take a required server id and route with `scopedHandler`. A key travels only towards
 the host; no response carries one. `providers-v1` has no progress event, so the renderer reads runtime
@@ -352,6 +394,17 @@ agent's memories (`app:agent-memory-limit`). A lower limit deletes no memories. 
 change the 8,192-byte budget of essential memories. Server settings → General → Agents is the only
 place that sets the limit, for this computer (`hostAdmin.setAgentMemoryLimit`, local handler) and for a
 joined server. App Settings does not show it, so that one name does not have two values.
+
+`prompt-cache-ttl-v1` reads and sets how long Claude keeps the prompt cache of the host's agents
+(`openbot-prompt-cache-ttl-v1.json`; `1h` or `5m`, default `1h`). With `1h` the host starts each
+Claude process with `ENABLE_PROMPT_CACHING_1H=1`. Claude Code reads this flag before its subscription
+rules, so subagents and a subscription that uses extra usage also get 1 hour. With `5m` it sets
+nothing, so Claude Code uses its own choice: 5 minutes with an API key, 1 hour for the main thread of a
+subscription within its limits. A `promptCacheTtl`
+in the Claude settings or `CLAUDE_CODE_PROMPT_CACHE_TTL` on the host still wins. A change applies to
+the next Claude process, not to a running one; an idle thread starts a new process when it resumes.
+The Cache section of the Claude page in Server settings → Providers sets it for this computer and
+for a joined server.
 
 `host-update-v1` runs the same update as the host's own Settings. `src/main/requested-update.ts`
 keeps the schedule in memory: who asked, and whether the restart waits until

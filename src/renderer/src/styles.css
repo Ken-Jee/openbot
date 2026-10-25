@@ -2,6 +2,7 @@
 @import "@fontsource-variable/inter/wght-italic.css";
 @import "tailwindcss";
 @import "@openbot/brand/tokens.css";
+@import "@openbot/brand/tokens-light.css";
 @import "@openbot/brand/logo.css";
 @import "@openbot/ui/styles.css";
 @import "@openbot/ui/features/account/otp-input.css";
@@ -65,12 +66,16 @@
 @import "@openbot/ui/features/settings/mcp-connect-dialog.css";
 @import "./features/provider-updates/provider-updates.css";
 @import "@openbot/ui/features/custom-providers/custom-providers.css";
+@import "@openbot/ui/features/browser/browser-profiles.css";
+@import "@openbot/ui/features/vault/vault.css";
 @import "@openbot/ui/features/agents/agent-template.css";
 @import "@openbot/ui/features/agents/agent-delete-undo-toast.css";
 @import "@openbot/ui/features/updates/whats-new.css";
 @import "@openbot/ui/features/billing/billing.css";
 @import "@openbot/ui/styles/reference-chip.css";
 @import "@openbot/ui/skill-preview.css";
+/* After the page styles: the transparent window replaces their backgrounds. */
+@import "./styles/window-glass.css";
 
 @source "../../../packages/ui/src";
 

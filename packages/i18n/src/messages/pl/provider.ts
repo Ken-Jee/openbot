@@ -81,11 +81,12 @@ export const messages = {
   "provider.aria.moreActions": "Więcej działań: {name}",
 
   "provider.aria.use": "Używaj {name} w OpenBot",
+  "provider.use.inUseOne": "{agent} używa {name}. Zmień model tego agenta, a potem wyłącz {name}.",
   "provider.use.inUse": {
-    one: "{agents} używa {name}. Zmień model tego agenta, a potem wyłącz {name}.",
-    few: "{agents} używają {name}. Zmień model tych agentów, a potem wyłącz {name}.",
-    many: "{agents} używają {name}. Zmień model tych agentów, a potem wyłącz {name}.",
-    other: "{agents} używają {name}. Zmień model tych agentów, a potem wyłącz {name}.",
+    one: "{count} agent używa {name}. Zmień model tego agenta, a potem wyłącz {name}.",
+    few: "{count} agenci używają {name}. Zmień model tych agentów, a potem wyłącz {name}.",
+    many: "{count} agentów używa {name}. Zmień model tych agentów, a potem wyłącz {name}.",
+    other: "{count} agenta używa {name}. Zmień model tych agentów, a potem wyłącz {name}.",
   },
 
   "provider.codeLogin.title": "Zaloguj się do {name} kodem",
@@ -193,4 +194,26 @@ export const messages = {
   "provider.account.finishSignIn": "Dokończ logowanie w przeglądarce.",
   "provider.account.remove": "Usuń konto",
   "provider.account.actionFailed": "Nie udało się zmienić konta {name}.",
+  "provider.account.resetUsage": "Zresetuj użycie",
+  "provider.account.resetUsageTitle": "Zresetować użycie konta {name}?",
+  "provider.account.resetUsageDescription": {
+    one: "To zużyje Twój ostatni kredyt resetu użycia. Wyczerpane limity użycia tego konta zaczną się teraz od nowa. Nie możesz tego cofnąć.",
+    few: "To zużyje 1 z Twoich {count} kredytów resetu użycia. Wyczerpane limity użycia tego konta zaczną się teraz od nowa. Nie możesz tego cofnąć.",
+    many: "To zużyje 1 z Twoich {count} kredytów resetu użycia. Wyczerpane limity użycia tego konta zaczną się teraz od nowa. Nie możesz tego cofnąć.",
+    other:
+      "To zużyje 1 z Twoich {count} kredytów resetu użycia. Wyczerpane limity użycia tego konta zaczną się teraz od nowa. Nie możesz tego cofnąć.",
+  },
+  "provider.account.resetUsagePending": "Resetowanie…",
+  "provider.account.resetUsageDone": "Limity użycia konta {name} zaczynają się teraz od nowa.",
+  "provider.account.resetUsageNothing": "Konto {name} nie ma wyczerpanego limitu użycia. Nie zużyto kredytu.",
+  "provider.account.resetUsageNoCredit": "Konto {name} nie ma już kredytów resetu użycia.",
+  "provider.account.resetUsageAlreadyRedeemed": "Ten kredyt resetu konta {name} został już użyty.",
+  "provider.account.resetUsageFailed": "Nie udało się zresetować użycia konta {name}.",
+  "provider.settings.cache": "Pamięć podręczna",
+  "provider.settings.promptCache": "Pamięć podręczna promptów",
+  "provider.settings.promptCacheDescription":
+    "Jak długo Claude trzyma kontekst agenta w pamięci podręcznej między turami.",
+  "provider.settings.promptCacheHour": "1 godzina",
+  "provider.settings.promptCacheMinutes": "5 minut",
+  "provider.settings.promptCacheLoadFailed": "Nie udało się wczytać czasu pamięci podręcznej promptów tego serwera.",
 } as const satisfies PartialTranslation<typeof source>;

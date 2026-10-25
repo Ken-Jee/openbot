@@ -50,6 +50,9 @@ export const messages = {
     "Esta aba do navegador está esperando um segredo. Responda primeiro ao pedido do segredo.",
   "error.backend.browserUserControlUnsupported":
     "Este computador anfitrião remoto não oferece suporte para assumir o controle de uma aba do navegador.",
+  "error.backend.browserSignInUnsupported": "Este host remoto não pode receber um início de sessão deste computador.",
+  "error.backend.browserSignInOpenFailed": "O OpenBot não conseguiu abrir a janela de login.",
+  "error.backend.browserSignInReadFailed": "O OpenBot não conseguiu ler o login da janela.",
   "error.backend.browserStopUnsupported":
     "Este computador anfitrião remoto não consegue parar o carregamento de uma página.",
   "error.backend.sharedDataLocalOnly":
@@ -73,6 +76,10 @@ export const messages = {
   "error.backend.channelRoutingTooLong":
     "Esta solicitação excede o limite de contexto de encaminhamento. Selecione um membro ou envie uma solicitação mais curta.",
   "error.backend.channelTaskMemberRequired": "Escolha um membro para esta tarefa.",
+  "error.backend.channelRoutingFailed": "O encaminhamento falhou. Escolha um membro ou tente novamente.",
+  "error.backend.channelLeadTimedOut": "O líder do canal não respondeu a tempo. Escolha um membro ou tente novamente.",
+  "error.backend.channelLeadFailed":
+    "O líder do canal não conseguiu encaminhar esta mensagem. Escolha um membro ou tente novamente.",
   "error.backend.channelRequestMemberRequired": "Escolha um membro para esta solicitação.",
   "error.backend.channelDeliveryNotCreated": "A entrega do canal não foi criada.",
   "error.backend.channelAssignmentStopped": "Esta tarefa atribuída pelo canal foi interrompida ou substituída.",
@@ -267,11 +274,21 @@ export const messages = {
   "error.backend.approvalInactive": "Esta aprovação não está mais ativa.",
   "error.backend.takeoverInactive": "Este controle manual do navegador não está mais ativo.",
   "error.backend.authSubmitting": "O envio da autenticação já está em andamento.",
+  "error.backend.apiKeySaveFailed": "O OpenBot não conseguiu salvar a chave de API. Tente novamente.",
+  "error.backend.apiKeyNotAllowed":
+    "Somente o proprietário do servidor ou um administrador pode inserir uma chave de API.",
+  "error.backend.apiKeySaving": "A chave de API já está sendo salva.",
   "error.backend.authRequestInactive": "Esta solicitação de autenticação segura não está mais ativa.",
   "error.backend.secureAuthUnavailable": "A autenticação segura está indisponível.",
   "error.backend.browserUrlRequired": "É necessário informar uma URL para o navegador.",
   "error.backend.browserUrlTooLong": "A URL do navegador é muito longa.",
   "error.backend.browserTabLimit": "O navegador pode ter até {limit} abas abertas.",
+  "error.backend.browserProfileMissing":
+    "O perfil de navegador deste agente não existe mais. Escolha outro perfil nas configurações do agente.",
+  "error.backend.browserProfileNotFound": "Este perfil de navegador não existe mais.",
+  "error.backend.browserProfileNameTaken": "Já existe um perfil de navegador com este nome.",
+  "error.backend.browserSessionInUse": "Uma aba ainda usa esta sessão do navegador. Tente novamente.",
+  "error.backend.browserProfileLimit": "Você pode ter até {limit} perfis de navegador.",
   "error.backend.browserLowMemory":
     "Este servidor está com pouca memória, por isso o navegador não pode abrir outra aba. Feche uma aba ou aguarde os outros agentes terminarem.",
   "error.backend.browserOpenFailed": "Não foi possível abrir {url}: {reason}",

@@ -30,6 +30,7 @@ export interface PluginCatalogPaths {
   sourceRoot: string;
   rendererPath: string;
   workerPath: string;
+  mobilePath: string;
   snapshotDir: string;
 }
 
@@ -38,6 +39,7 @@ export function defaultPluginCatalogPaths(root: string = projectRoot): PluginCat
     sourceRoot: join(root, "marketplace", "plugin-catalog"),
     rendererPath: join(root, "src", "renderer", "src", "features", "settings", "marketplace-plugin-catalog.ts"),
     workerPath: join(root, "apps", "auth-api", "src", "lib", "plugin-catalog.generated.ts"),
+    mobilePath: join(root, "apps", "mobile", "src", "features", "marketplace", "model", "plugin-catalog.generated.ts"),
     snapshotDir: join(root, "resources", "plugin-catalog"),
   };
 }
@@ -138,10 +140,10 @@ export interface PluginDetail {
 }
 
 /**
- * Reads the catalog source, validates every listing, and writes the three
+ * Reads the catalog source, validates every listing, and writes the four
  * generated outputs: the renderer literal the Apps tab reads, the Worker
- * module the JSON routes will serve, and the offline snapshot shipped with
- * the app. With `check`, it fails when a checked-in file differs from a
+ * module the JSON routes will serve, the mobile literal the phone's
+ * Marketplace reads, and the offline snapshot shipped with the app. With `check`, it fails when a checked-in file differs from a
  * fresh build, so a hand edit cannot ship.
  */
 export async function buildPluginCatalog(options?: {
@@ -152,13 +154,16 @@ export async function buildPluginCatalog(options?: {
   const { spec, plugins } = await loadPluginCatalog(paths.sourceRoot);
   const renderer = renderRendererModule(plugins);
   const worker = renderWorkerModule(spec, plugins);
+  const mobile = renderMobileModule(plugins);
   const snapshot = renderSnapshot(spec, plugins);
   if (options?.check) {
-    await checkGenerated(paths, renderer, worker, snapshot);
+    await checkGenerated(paths, renderer, worker, mobile, snapshot);
     return { plugins: plugins.length, catalogVersion: spec.catalogVersion };
   }
   await writeFile(paths.rendererPath, renderer);
   await writeFile(paths.workerPath, worker);
+  await mkdir(dirname(paths.mobilePath), { recursive: true });
+  await writeFile(paths.mobilePath, mobile);
   await writeSnapshot(paths.snapshotDir, snapshot);
   return { plugins: plugins.length, catalogVersion: spec.catalogVersion };
 }
@@ -642,6 +647,92 @@ export const MARKETPLACE_PLUGINS: MarketplacePluginDetail[] = [
 `;
 }
 
+/**
+ * The phone's copy. Mobile cannot import the renderer's types from `@openbot/ui`, so the module states
+ * its own. The vendor icon addresses are left out: the phone loads each icon from the account
+ * service's `/plugins/icon/<slug>?app=<id>`, so opening the Marketplace sends no request to a vendor.
+ */
+function renderMobileModule(plugins: PluginDetail[]): string {
+  const listings = plugins.map((plugin) => {
+    const { iconUrl: _iconUrl, updatedAt: _updatedAt, apps, ...detail } = plugin;
+    return { ...detail, apps: apps.map(({ iconUrl: _appIconUrl, ...app }) => app) };
+  });
+  return `/**
+ * The plugins the mobile Marketplace offers.
+ *
+ * Generated from marketplace/plugin-catalog/ by scripts/build-plugin-catalog.ts.
+ * Do not edit by hand: run bun run marketplace:build:plugins, or
+ * bun run marketplace:build:plugins -- --check to verify.
+ */
+
+import type { SkillCategory } from "@openbot/contracts/ipc";
+
+/** One credential the user types. It goes into a \`header\` (http) or an \`env\` value (stdio). */
+export interface MobilePluginAuthField {
+  id: string;
+  label: string;
+  /** The value replaces the listing's address. It must stay on the listing's host or a subdomain. */
+  url?: boolean;
+  header?: string;
+  env?: string;
+  /** Written in front of the typed value, such as \`"Bearer "\`. */
+  prefix?: string;
+  placeholder?: string;
+  hint?: string;
+  optional?: boolean;
+}
+
+export type MobilePluginAuthFlow =
+  | { id: string; kind: "link"; label: string }
+  | {
+      id: string;
+      kind: "key";
+      label: string;
+      fields: MobilePluginAuthField[];
+      docsUrl?: string | null;
+      docsLabel?: string;
+    }
+  | {
+      id: string;
+      kind: "local";
+      label: string;
+      steps: string[];
+      note?: string;
+      docsUrl?: string | null;
+      docsLabel?: string;
+    };
+
+type MobilePluginServer =
+  | { name: string; transport: "http"; url: string; auth?: MobilePluginAuthFlow[] }
+  | { name: string; transport: "stdio"; command: string; args: string[]; auth?: MobilePluginAuthFlow[] };
+
+export interface MobilePluginApp {
+  id: string;
+  name: string;
+  description: string;
+  server: MobilePluginServer;
+}
+
+export interface MobilePlugin {
+  slug: string;
+  name: string;
+  tagline: string;
+  description: string;
+  category: SkillCategory;
+  creatorName: string;
+  version: string;
+  prompts: Array<{ id: string; text: string }>;
+  apps: MobilePluginApp[];
+  websiteUrl: string | null;
+  privacyPolicyUrl: string | null;
+  termsUrl: string | null;
+  featured: boolean;
+}
+
+export const MOBILE_PLUGINS: readonly MobilePlugin[] = ${tsLiteral(listings)};
+`;
+}
+
 function renderWorkerModule(spec: PluginCatalogSpec, plugins: PluginDetail[]): string {
   const details: Record<string, Omit<PluginDetail, "featured" | "updatedAt"> & { skills: never[] }> = {};
   for (const plugin of plugins) {
@@ -751,15 +842,18 @@ async function checkGenerated(
   paths: PluginCatalogPaths,
   renderer: string,
   worker: string,
+  mobile: string,
   snapshot: Array<{ path: string; content: string }>,
 ): Promise<void> {
   const expected = new Map<string, string>();
   expected.set(resolve(paths.rendererPath), renderer);
   expected.set(resolve(paths.workerPath), worker);
+  expected.set(resolve(paths.mobilePath), mobile);
   for (const file of snapshot) expected.set(resolve(join(paths.snapshotDir, file.path)), file.content);
   const actual = new Map<string, string>();
   actual.set(resolve(paths.rendererPath), await readFile(paths.rendererPath, "utf8"));
   actual.set(resolve(paths.workerPath), await readFile(paths.workerPath, "utf8"));
+  actual.set(resolve(paths.mobilePath), await readFile(paths.mobilePath, "utf8").catch(() => ""));
   for (const file of snapshot) {
     actual.set(resolve(join(paths.snapshotDir, file.path)), await readFile(join(paths.snapshotDir, file.path), "utf8"));
   }

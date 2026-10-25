@@ -1,12 +1,13 @@
 import { Stack } from "expo-router/stack";
 import { useCSSVariable } from "uniwind";
 import { androidBackOptions } from "@/shared/components/android-header-button";
+import { headerFontOptions } from "@/shared/lib/app-font";
 import { isIOS } from "@/shared/lib/platform";
 import { sheetBackHaptics } from "@/shared/lib/sheet-back-haptics";
 import { sheetHeaderInsetOptions } from "@/shared/lib/sheet-header";
 import { useText } from "@/shared/lib/text";
 
-export const unstable_settings = { initialRouteName: "index" };
+export const unstable_settings = { anchor: "index" };
 
 export default function AgentInfoLayout() {
   const { t } = useText();
@@ -19,6 +20,7 @@ export default function AgentInfoLayout() {
         ...sheetHeaderInsetOptions,
         presentation: "card",
         headerBackButtonDisplayMode: "minimal",
+        ...headerFontOptions,
         headerShadowVisible: false,
         headerTransparent: isIOS,
         headerStyle: { backgroundColor: isIOS ? "transparent" : background },

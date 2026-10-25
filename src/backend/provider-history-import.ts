@@ -283,6 +283,7 @@ function routineTurnAnswers(
     let markers = 0;
     let reported = false;
     let noUpdateCalled = false;
+    let failureReported = false;
     let imageGenerated = false;
     let afterIndex = -1;
     while (true) {
@@ -292,10 +293,12 @@ function routineTurnAnswers(
       for (const { item } of page) {
         // Every delivery of the turn must be a scheduled run, as at the turn completion: a message
         // steered into the turn waits for the answer.
-        if (routine !== false && item.type === "userMessage" && typeof item.clientId === "string")
-          routine =
-            input.findDelivery(item.clientId)?.delivery.sender.kind === "routine" &&
-            input.quietRoutineDelivery(item.clientId);
+        if (routine !== false && item.type === "userMessage" && typeof item.clientId === "string") {
+          const delivery = input.findDelivery(item.clientId)?.delivery;
+          routine = delivery?.sender.kind === "routine" && input.quietRoutineDelivery(item.clientId);
+          // A completed delivery with an error is a run whose agent reported a failure: never quiet.
+          if (delivery?.status === "completed" && delivery.error !== null) failureReported = true;
+        }
         if (item.type === "agentMessage" && typeof item.text === "string" && item.text && item.phase !== "commentary") {
           if (isNoUpdateAnswer(item.text)) markers += 1;
           else reported = true;
@@ -309,6 +312,7 @@ function routineTurnAnswers(
       afterIndex = last.itemIndex;
     }
     if (!routine) return "none";
+    if (failureReported) return "answered";
     if (noUpdateCalled) return imageGenerated ? "image" : "quiet";
     return markers > 0 && !reported && !imageGenerated ? "quiet" : "answered";
   });

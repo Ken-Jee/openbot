@@ -13,6 +13,11 @@ import {
   BROWSER_PAGE_STATE_ROUTES,
 } from "@openbot/contracts/team-protocol/browser-page-state-v1";
 import {
+  BROWSER_SIGN_IN_CAPABILITY,
+  BROWSER_SIGN_IN_ROUTES,
+  decodeBrowserSignInImport,
+} from "@openbot/contracts/team-protocol/browser-sign-in-v1";
+import {
   BROWSER_USER_CONTROL_CAPABILITY,
   BROWSER_USER_CONTROL_ROUTES,
 } from "@openbot/contracts/team-protocol/browser-user-control-v1";
@@ -152,6 +157,16 @@ export async function routeBrowser(
         .filter((tab) => !hidden(tab.id))
         .map((tab) => ({ tabId: tab.id, canGoBack: tab.canGoBack === true, canGoForward: tab.canGoForward === true })),
     });
+  }
+
+  // Behind `browser-sign-in`. Any member who can see a tab gives it the cookies of a sign-in made on
+  // their own device. The body holds cookie values: it is never logged, and the answer holds a count.
+  if (method === "POST" && url.pathname === BROWSER_SIGN_IN_ROUTES.import) {
+    if (!capabilities.has(BROWSER_SIGN_IN_CAPABILITY))
+      throw new HttpError(400, sourceText("error.backend.browserSignInUnsupported"));
+    const body = await readJson(request);
+    const signIn = decodeBrowserSignInImport({ ...body, tabId: tabId(body) });
+    return json(200, { cookies: await runCauseEffect(browser.importSignIn(signIn.tabId, signIn.cookies)) });
   }
 
   // Behind `browser-view`. The session is only the agreement about which tab and who is watching;

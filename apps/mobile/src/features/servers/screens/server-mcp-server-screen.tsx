@@ -1,7 +1,7 @@
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import type { McpKeyValue, McpServerConfig, McpTestResult, McpTransport } from "@openbot/contracts/ipc";
 import { matchingSourceKeys } from "@openbot/i18n/source";
-import { router, Stack, useLocalSearchParams, useNavigation } from "expo-router";
+import { router, Stack, useLocalSearchParams } from "expo-router";
 import { usePreventRemove } from "expo-router/react-navigation";
 import { Button, Typography } from "heroui-native";
 import { useThemeColor } from "heroui-native/hooks";
@@ -82,7 +82,6 @@ function McpServerForm({
 }) {
   const { t, sourceText, errorMessage } = useText();
   const { theme } = useUniwind();
-  const navigation = useNavigation();
   const { saveMcpServer, removeMcpServer, setMcpServerEnabled, testMcpServer, signOutMcpServer } =
     useMobileWorkspaceActions();
   const { action, perform, setList, setSignIns } = mcp;
@@ -115,7 +114,9 @@ function McpServerForm({
     Boolean(mcp.signIns.data?.some((state) => state.mcpServerId === saved.id && state.signedIn));
   const busy = action.isPending || test?.status === "testing";
 
-  usePreventRemove((dirty || action.isPending) && !leaving, ({ data }) => {
+  // Discard turns prevention off before it repeats the action, so the hook does not warn.
+  const [discarding, setDiscarding] = useState(false);
+  usePreventRemove(!discarding && (dirty || action.isPending) && !leaving, ({ repeat }) => {
     if (action.isPending) return;
     void haptics.notification("warning");
     Alert.alert(t("mobile.agent.discard.title"), t("mobile.agent.discard.body"), [
@@ -123,7 +124,10 @@ function McpServerForm({
       {
         text: t("mobile.agent.discard.discard"),
         style: "destructive",
-        onPress: () => navigation.dispatch(data.action),
+        onPress: () => {
+          setDiscarding(true);
+          repeat();
+        },
       },
     ]);
   });

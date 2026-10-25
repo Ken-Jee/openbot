@@ -26,6 +26,7 @@ import {
   useMobileWorkspaceReader,
 } from "@/features/workspace/context/mobile-workspace-context";
 import { androidBackOptions } from "@/shared/components/android-header-button";
+import { headerFontOptions } from "@/shared/lib/app-font";
 import { useReducedMotion } from "@/shared/lib/motion";
 import { isAndroid, isIOS } from "@/shared/lib/platform";
 import { useText } from "@/shared/lib/text";
@@ -34,7 +35,7 @@ import { useText } from "@/shared/lib/text";
 const NOTIFICATION_CHANNEL_WAIT_MS = 8_000;
 
 export const unstable_settings = {
-  initialRouteName: "connected",
+  anchor: "connected",
 };
 
 function AuthenticatedStack() {
@@ -146,7 +147,6 @@ function AuthenticatedStack() {
   return (
     <ChatNavigationGateContext value={navigationGate}>
       <Stack
-        initialRouteName="connected"
         screenListeners={({ route }) =>
           route.name === "connected"
             ? {
@@ -163,6 +163,7 @@ function AuthenticatedStack() {
           // The full screens put the back arrow in the glass circle, as the home buttons are.
           ...androidBackOptions(props, { glass: true }),
           headerBackButtonDisplayMode: "minimal",
+          ...headerFontOptions,
           headerShadowVisible: false,
           headerTransparent: isIOS,
           sheetExpandsWhenScrolledToEdge: false,
@@ -313,6 +314,22 @@ function AuthenticatedStack() {
           }}
         />
         <Stack.Screen
+          name="marketplace-listing"
+          // The header comes from the stack in `marketplace-listing/_layout.tsx`: Android draws no header
+          // on a formSheet route, so Close would not show there.
+          options={{
+            contentStyle: { backgroundColor: sheetBackground },
+            headerShown: false,
+            scrollEdgeEffects: { top: "hidden", bottom: "soft" },
+            presentation: "formSheet",
+            // A page to read before installing, as a shared agent: full height on iOS. On Android a
+            // full-height sheet goes under the status bar and covers its header.
+            sheetAllowedDetents: isAndroid ? [0.85] : [1],
+            sheetInitialDetentIndex: "last",
+            sheetGrabberVisible: true,
+          }}
+        />
+        <Stack.Screen
           name="section-form"
           // The header comes from the route's `_layout.tsx`: Android draws no header on a formSheet route.
           // Android: autoFocus focuses the name field while the sheet opens, and Android does not show
@@ -431,6 +448,7 @@ function AuthenticatedStack() {
         />
         <Stack.Screen name="server-tasks" options={largeTitlePage} />
         <Stack.Screen name="server-usage/index" options={largeTitlePage} />
+        <Stack.Screen name="server-marketplace/index" options={largeTitlePage} />
         <Stack.Screen
           name="share"
           // The header comes from the route's `_layout.tsx`: Android draws no header on a formSheet route.

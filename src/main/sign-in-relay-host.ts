@@ -10,16 +10,19 @@ import {
   type SignInRelayStatus,
   type TestMcpServerInput,
 } from "@openbot/contracts/ipc";
+import type { PROVIDER_ACCOUNT_RELAY_PROVIDERS } from "@openbot/contracts/team-protocol/provider-account-relay-v1";
 import type { SIGN_IN_RELAY_PROVIDERS } from "@openbot/contracts/team-protocol/sign-in-relay-v1";
 import { sourceText } from "@openbot/i18n/source";
 import { registerSecretValue } from "@openbot/logging";
 import { Duration, Effect, Schema } from "effect";
 import { causeHelpers } from "../backend/effect-boundary";
 import type { McpHostSignIns } from "./mcp-host-sign-ins";
+import type { ProviderAccountsHost } from "./provider-accounts-host";
 import type { ProviderHostSignIns } from "./provider-host-sign-ins";
 import { HttpError } from "./team-api/http-error";
 
 export type SignInRelayProvider = (typeof SIGN_IN_RELAY_PROVIDERS)[number];
+export type AccountRelayProvider = (typeof PROVIDER_ACCOUNT_RELAY_PROVIDERS)[number];
 
 /** How long a flow can complete. The sign-in on this host has its own, equal deadline. */
 const SIGN_IN_RELAY_TTL_MS = 10 * 60_000;
@@ -37,7 +40,8 @@ export interface RelaySignIn {
   /** One sign-in runs for each key; a new flow for the same key replaces the old one. */
   key: string;
   status: () => { pageUrl: string | null; result: McpTestResult | null };
-  cancel: () => void;
+  /** Ends when the sign-in has stopped, so a client that reads the host after `cancel` sees it gone. */
+  cancel: () => Effect.Effect<void>;
 }
 
 /** The part of a flow that differs by kind of sign-in. */
@@ -66,6 +70,7 @@ interface Flow {
 export interface SignInRelayHostDependencies {
   mcp: Pick<McpHostSignIns, "startRelay" | "relayStatus" | "cancel">;
   providers: Pick<ProviderHostSignIns, "startRelay" | "relayStatus" | "cancel">;
+  accounts: Pick<ProviderAccountsHost, "startRelay" | "relayStatus" | "cancelSignIn">;
   /** Gives an MCP grant to the sign-in on this host that waits for `state`, as the loopback listener does. */
   receiveMcpGrant: (state: string, code: string) => boolean;
   /** Answers whether an agent message of `agentId` holds this exact address. */
@@ -116,7 +121,7 @@ export class SignInRelayHost {
           registerSecretValue(code);
           return receiveMcpGrant(state, code);
         }),
-      cancel: () => mcp.cancel(url),
+      cancel: () => Effect.sync(() => mcp.cancel(url)),
     });
   });
 
@@ -138,7 +143,34 @@ export class SignInRelayHost {
         const { pageUrl, result } = providers.relayStatus(provider);
         return { pageUrl, result: result && { toolCount: 0, error: result.error } };
       },
-      cancel: () => Effect.runFork(providers.cancel(provider).pipe(Effect.ignore)),
+      cancel: () => providers.cancel(provider).pipe(Effect.ignore),
+    });
+  });
+
+  /**
+   * Starts the sign-in of a provider account after the first with no tab, and returns its flow at once
+   * (`provider-account-relay-v1`). A null `accountId` signs in a new account.
+   */
+  startProviderAccount(memberId: string, provider: AccountRelayProvider, accountId: string | null) {
+    return this.#startProviderAccount(memberId, provider, accountId);
+  }
+
+  readonly #startProviderAccount = Effect.fn("SignInRelayHost.startProviderAccount")(function* (
+    this: SignInRelayHost,
+    memberId: string,
+    provider: AccountRelayProvider,
+    accountId: string | null,
+  ) {
+    const { accounts } = this.#dependencies;
+    yield* accounts.startRelay(provider, accountId);
+    // One account sign-in runs for each provider, so a new flow replaces the one of any account.
+    return this.startReplay(memberId, {
+      key: `account\n${provider}`,
+      status: () => {
+        const { pageUrl, result } = accounts.relayStatus(provider);
+        return { pageUrl, result: result && { toolCount: 0, error: result.error } };
+      },
+      cancel: () => accounts.cancelSignIn(provider).pipe(Effect.ignore),
     });
   });
 
@@ -173,9 +205,10 @@ export class SignInRelayHost {
         ),
       refuse: replay,
       // The CLI keeps its own sign-in, so a refusal or a cancel only ends what this host relays.
-      cancel: () => {
-        result ??= { toolCount: 0, error: sourceText("error.mcp.relayEnded") };
-      },
+      cancel: () =>
+        Effect.sync(() => {
+          result ??= { toolCount: 0, error: sourceText("error.mcp.relayEnded") };
+        }),
     });
   }
 
@@ -208,18 +241,27 @@ export class SignInRelayHost {
     // waits for the callback gets the refusal too, so it stops now and not at its own deadline.
     if (params.has("error")) {
       if (flow.target.refuse) yield* flow.target.refuse(params, page);
-      flow.target.cancel();
+      yield* flow.target.cancel();
       return view(flow);
     }
     if (!(yield* flow.target.deliver(params, page))) return yield* refuse(400, "error.team.signInRelayMismatch");
     return view(flow);
   });
 
-  cancel(memberId: string, flowId: string): void {
-    const flow = this.#flow(memberId, flowId);
-    this.#flows.delete(flowId);
-    if (!flow.target.status().result) flow.target.cancel();
+  /** Ends when the sign-in on this host has stopped. */
+  cancel(memberId: string, flowId: string) {
+    return this.#cancel(memberId, flowId);
   }
+
+  readonly #cancel = Effect.fn("SignInRelayHost.cancel")(function* (
+    this: SignInRelayHost,
+    memberId: string,
+    flowId: string,
+  ) {
+    const flow = yield* refusable(() => this.#flow(memberId, flowId));
+    this.#flows.delete(flowId);
+    if (!flow.target.status().result) yield* flow.target.cancel();
+  });
 
   #open(memberId: string, target: RelayTarget): { flowId: string; expiresAt: number } {
     this.#expire();
@@ -228,7 +270,7 @@ export class SignInRelayHost {
     for (const [id, flow] of this.#flows) {
       if (this.#flows.size < FLOW_LIMIT) break;
       this.#flows.delete(id);
-      flow.target.cancel();
+      Effect.runFork(flow.target.cancel());
     }
     const flowId = randomBytes(16).toString("hex");
     const expiresAt = this.#now() + SIGN_IN_RELAY_TTL_MS;
@@ -248,7 +290,7 @@ export class SignInRelayHost {
     for (const [id, flow] of this.#flows) {
       if (flow.expiresAt > now) continue;
       this.#flows.delete(id);
-      if (!flow.target.status().result) flow.target.cancel();
+      if (!flow.target.status().result) Effect.runFork(flow.target.cancel());
     }
   }
 }

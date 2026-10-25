@@ -789,7 +789,7 @@ export class RoutineScheduler implements RoutineDueSource {
     if (delivery.sender.kind !== "routine") return false;
     const run = this.#routines.runForDelivery(delivery.id);
     if (!run) return false;
-    const status = routineStatusForDelivery(delivery.status);
+    const status = routineStatusForDelivery(delivery);
     if (run.status === "needs-attention" && ["starting", "running"].includes(delivery.status)) return false;
     if (run.status === status && run.error === delivery.error) return false;
     if (status === "queued") this.#routines.updateRunStatus(run.id, status, delivery.error);

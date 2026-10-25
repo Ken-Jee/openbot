@@ -4,6 +4,9 @@ import type { messages as source } from "../en/composer";
 export const messages = {
   "composer.queueEdit.body": "Estás editando un mensaje en cola. Guarda o cancela la edición para que se ejecute.",
   "composer.queueEdit.cancel": "Cancelar edición",
+  "composer.providerWait.offlineTitle": "Sin conexión a internet",
+  "composer.providerWait.offline": "{provider} no puede responder hasta que este equipo vuelva a estar en línea.",
+  "composer.providerWait.silent": "{provider} no ha enviado nada en {duration}.",
   "composer.notice.dismiss": "Cerrar error",
   "composer.signIn.title": "Es necesario iniciar sesión",
   "composer.signIn.body": "Inicia sesión en {provider} para enviar mensajes.",
@@ -72,6 +75,9 @@ export const messages = {
   "composer.upload.cancel": "Cancelar carga",
   "composer.voice.progress": "Descargando modelo de voz {progress}%",
   "composer.voice.recording": "Grabación de voz",
+  "composer.voice.limitSoon": "La grabación se detiene en {seconds} segundos.",
+  "composer.voice.limitReached":
+    "La grabación se detuvo al llegar al límite de 2 minutos. Lo que dijiste está en el mensaje.",
   "composer.send.saveQueued": "Guardar mensaje en cola",
   "composer.send.voice": "Enviar mensaje de voz",
   "composer.send.message": "Enviar mensaje",

@@ -4,6 +4,8 @@
 // the picker gets one model for each family with that family's efforts, that the discovery session
 // goes back to the exact model it opened on, that a selected family and effort reach the session, and
 // that an agent whose option lists the same models keeps today's catalog, also with a provider option.
+// Like Antigravity 1.4.3, the fake server offers its Claude and GPT models only to a client that names
+// itself `zed` (or Xcode, JetBrains, Android Studio), so the picker also checks the name OpenBot sends.
 // `bun scripts/acp-effort-variants-e2e.ts`. Writes .openbot-build/acp-effort-variants-e2e/report.json.
 import assert from "node:assert/strict";
 import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -32,7 +34,7 @@ const NL = String.fromCharCode(10);
 const provider = process.env.FAKE_AGY_MODE === "provider";
 const flat = provider || process.env.FAKE_AGY_MODE === "flat";
 const LEVELS = ["low", "medium", "high"];
-const LISTED = [
+const GEMINI = [
   { modelId: "gemini-3.8-flash-high", name: "Gemini 3.8 Flash (High)", family: "gemini-3.8-flash", level: "high" },
   { modelId: "gemini-3.8-flash-medium", name: "Gemini 3.8 Flash (Medium)", family: "gemini-3.8-flash", level: "medium" },
   { modelId: "gemini-3.8-flash-low", name: "Gemini 3.8 Flash (Low)", family: "gemini-3.8-flash", level: "low" },
@@ -40,6 +42,12 @@ const LISTED = [
   { modelId: "gemini-3.1-pro-low", name: "Gemini 3.1 Pro (Low)", family: "gemini-3.1-pro", level: "low" },
   { modelId: "gemini-2.5-flash-lite", name: "Gemini 2.5 Flash Lite" },
 ];
+const THIRD_PARTY = [
+  { modelId: "claude-sonnet-4-6", name: "Claude Sonnet 4.6" },
+  { modelId: "claude-opus-4-6-thinking", name: "Claude Opus 4.6 (Thinking)" },
+  { modelId: "gpt-oss-120b-medium", name: "GPT-OSS 120B (Medium)" },
+];
+let LISTED = GEMINI;
 const FAMILIES = { "gemini-3.8-flash": "Gemini 3.8 Flash", "gemini-3.1-pro": "Gemini 3.1 Pro" };
 const sessions = new Map();
 let count = 0;
@@ -100,6 +108,10 @@ function handle(message) {
   if (message.id === undefined) return;
   const params = message.params ?? {};
   if (message.method === "initialize") {
+    const name = String(params.clientInfo?.name ?? "").toLowerCase();
+    log({ event: "initialize", sessionId: "", model: null, value: params.clientInfo?.name });
+    const thirdParty = name === "zed" || name === "xcode" || name.startsWith("jetbrains.") || name.startsWith("android studio");
+    LISTED = thirdParty ? [...GEMINI, ...THIRD_PARTY] : GEMINI;
     write({ id: message.id, result: { protocolVersion: 1, agentCapabilities: {}, authMethods: [] } });
     return;
   }
@@ -145,7 +157,7 @@ setInterval(() => {}, 1000);
 `;
 
 interface LogEntry {
-  event: "set" | "prompt";
+  event: "initialize" | "set" | "prompt";
   sessionId: string;
   configId?: string;
   value?: string;
@@ -155,6 +167,7 @@ interface LogEntry {
 interface Report {
   passed: boolean;
   grouped?: {
+    clientNames: (string | undefined)[];
     models: { id: string; efforts: string[]; configurable: boolean }[];
     discoveryEndsOn: Record<string, string | null>;
     turns: { model: string; effort: string; sessionModel: string | null }[];
@@ -237,12 +250,21 @@ try {
       { id: "gemini-3.8-flash", efforts: ["low", "medium", "high"], configurable: true },
       { id: "gemini-3.1-pro", efforts: ["low", "high"], configurable: true },
       { id: "gemini-2.5-flash-lite", efforts: ["medium"], configurable: false },
+      { id: "claude-sonnet-4-6", efforts: ["medium"], configurable: false },
+      { id: "claude-opus-4-6-thinking", efforts: ["medium"], configurable: false },
+      { id: "gpt-oss-120b-medium", efforts: ["medium"], configurable: false },
     ],
-    "The picker lists each family once, with its own efforts.",
+    "The picker lists each family once, with its own efforts, and the Claude and GPT models.",
   );
 
   // 2. Each discovery session goes back to the exact model it opened on, not to its family.
   const discovery = await readLog();
+  const clientNames = discovery.filter((entry) => entry.event === "initialize").map((entry) => entry.value);
+  assert.ok(clientNames.length > 0, "The discovery process is initialized.");
+  assert.ok(
+    clientNames.every((name) => name === "zed"),
+    "OpenBot names itself zed to Antigravity, which offers Claude and GPT models only to the clients it lists.",
+  );
   const discoveryEndsOn: Record<string, string | null> = {};
   for (const entry of discovery) if (entry.event === "set") discoveryEndsOn[entry.sessionId] = entry.model;
   assert.ok(Object.keys(discoveryEndsOn).length > 0, "Discovery asks the agent for each family's efforts.");
@@ -261,13 +283,14 @@ try {
     ["gemini-3.1-pro", "low", "gemini-3.1-pro-low"],
     ["gemini-3.1-pro", "high", "gemini-3.1-pro-high"],
     ["gemini-3.8-flash", "medium", "gemini-3.8-flash-medium"],
+    ["claude-sonnet-4-6", "medium", "claude-sonnet-4-6"],
   ] as const) {
     await runTurn(client, thread, model, effort);
     const prompt = (await readLog()).filter((entry) => entry.event === "prompt" && entry.sessionId === thread).at(-1);
     turns.push({ model, effort, sessionModel: prompt?.model ?? null });
     assert.equal(prompt?.model, expected, `${model} at ${effort} runs on ${expected}.`);
   }
-  report.grouped = { models: grouped, discoveryEndsOn, turns };
+  report.grouped = { clientNames, models: grouped, discoveryEndsOn, turns };
 
   // 4. An agent whose option lists the same models keeps the listed catalog, and is not asked again.
   // A provider option of the model category before the model option (Cline) changes nothing.
@@ -286,6 +309,9 @@ try {
         "gemini-3.1-pro-high",
         "gemini-3.1-pro-low",
         "gemini-2.5-flash-lite",
+        "claude-sonnet-4-6",
+        "claude-opus-4-6-thinking",
+        "gpt-oss-120b-medium",
       ],
       `An agent that does not group (${mode}) keeps its listed models.`,
     );

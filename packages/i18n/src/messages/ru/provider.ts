@@ -81,11 +81,12 @@ export const messages = {
   "provider.aria.moreActions": "Другие действия для {name}",
 
   "provider.aria.use": "Использовать {name} в OpenBot",
+  "provider.use.inUseOne": "{agent} использует {name}. Смените модель этого агента, затем выключите {name}.",
   "provider.use.inUse": {
-    one: "{name} используется: {agents}. Смените модель этого агента, затем выключите {name}.",
-    few: "{name} используется: {agents}. Смените модель этих агентов, затем выключите {name}.",
-    many: "{name} используется: {agents}. Смените модель этих агентов, затем выключите {name}.",
-    other: "{name} используется: {agents}. Смените модель этих агентов, затем выключите {name}.",
+    one: "{count} агент использует {name}. Смените модель этих агентов, затем выключите {name}.",
+    few: "{count} агента используют {name}. Смените модель этих агентов, затем выключите {name}.",
+    many: "{count} агентов используют {name}. Смените модель этих агентов, затем выключите {name}.",
+    other: "{count} агента используют {name}. Смените модель этих агентов, затем выключите {name}.",
   },
 
   "provider.codeLogin.title": "Вход в {name} по коду",
@@ -192,4 +193,25 @@ export const messages = {
   "provider.account.finishSignIn": "Завершите вход в браузере.",
   "provider.account.remove": "Удалить аккаунт",
   "provider.account.actionFailed": "Не удалось изменить аккаунт {name}.",
+  "provider.account.resetUsage": "Сбросить использование",
+  "provider.account.resetUsageTitle": "Сбросить использование {name}?",
+  "provider.account.resetUsageDescription": {
+    one: "Будет потрачен ваш последний кредит сброса использования. Исчерпанные лимиты использования этого аккаунта сейчас начнутся заново. Это действие нельзя отменить.",
+    few: "Будет потрачен 1 из {count} кредитов сброса использования. Исчерпанные лимиты использования этого аккаунта сейчас начнутся заново. Это действие нельзя отменить.",
+    many: "Будет потрачен 1 из {count} кредитов сброса использования. Исчерпанные лимиты использования этого аккаунта сейчас начнутся заново. Это действие нельзя отменить.",
+    other:
+      "Будет потрачен 1 из {count} кредитов сброса использования. Исчерпанные лимиты использования этого аккаунта сейчас начнутся заново. Это действие нельзя отменить.",
+  },
+  "provider.account.resetUsagePending": "Сброс…",
+  "provider.account.resetUsageDone": "Лимиты использования {name} начались заново.",
+  "provider.account.resetUsageNothing": "У {name} нет исчерпанных лимитов использования. Кредит не потрачен.",
+  "provider.account.resetUsageNoCredit": "У {name} не осталось кредитов сброса использования.",
+  "provider.account.resetUsageAlreadyRedeemed": "Этот кредит сброса {name} уже использован.",
+  "provider.account.resetUsageFailed": "Не удалось сбросить использование {name}.",
+  "provider.settings.cache": "Кэш",
+  "provider.settings.promptCache": "Кэш промптов",
+  "provider.settings.promptCacheDescription": "Как долго Claude хранит контекст агента в кэше между ходами.",
+  "provider.settings.promptCacheHour": "1 час",
+  "provider.settings.promptCacheMinutes": "5 минут",
+  "provider.settings.promptCacheLoadFailed": "Не удалось загрузить время кэша промптов этого сервера.",
 } as const satisfies PartialTranslation<typeof source>;

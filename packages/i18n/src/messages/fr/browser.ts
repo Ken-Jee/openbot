@@ -103,6 +103,8 @@ export const messages = {
   "browser.userControl.status": "Vous contrôlez cette page",
   "browser.dock.messageTo": "Message à {name}",
   "browser.dock.needsYou": "{name} a besoin de vous sur cette page",
+  "browser.dock.needsAnswer": "{name} attend votre réponse",
+  "browser.dock.needsApproval": "{name} attend votre approbation",
   "browser.dock.answerInChat": "Répondre dans le chat",
   "browser.tab.newRight": "Nouvel onglet à droite",
   "browser.tab.duplicate": "Dupliquer",
@@ -126,4 +128,45 @@ export const messages = {
   "browser.address.switchToTab": "Aller à l’onglet",
   "browser.address.search": "Recherche Google",
   "browser.pageActions": "Actions de la page",
+  "browser.signIn.local": "Se connecter sur cet ordinateur",
+  "browser.signIn.title": "Se connecter à {site}",
+  "browser.signIn.description":
+    "Certains sites refusent une connexion depuis un serveur. Connectez-vous sur cet ordinateur, et OpenBot envoie la connexion à {site} vers {server}. Tous les agents et membres de {server} peuvent ensuite l’utiliser dans le navigateur.",
+  "browser.signIn.windowOpen":
+    "Connectez-vous dans la fenêtre qui s’est ouverte. OpenBot envoie la connexion quand elle est terminée. Si la fenêtre reste ouverte, sélectionnez Terminé.",
+  "browser.signIn.windowClosed":
+    "La fenêtre de connexion est fermée. Sélectionnez Terminé pour envoyer la connexion, ou ouvrez à nouveau la fenêtre.",
+  "browser.signIn.reopen": "Ouvrir la fenêtre de connexion",
+  "browser.signIn.sending": "Envoi vers {server}…",
+  "browser.signIn.sent": "Connecté à {site} sur {server}",
+  "browser.signIn.notFound":
+    "OpenBot n’a trouvé aucune connexion pour {site}. Connectez-vous dans la fenêtre, puis sélectionnez Terminé.",
+  "browser.signIn.stillSignedOut":
+    "{server} affiche toujours une page de connexion de {site}. Terminez la connexion dans la fenêtre.",
+  "browser.signIn.failed": "OpenBot n’a pas pu envoyer la connexion.",
+  "browser.profiles.title": "Profils de navigateur",
+  "browser.profiles.subtitle":
+    "Chaque profil garde ses propres connexions, cookies et données de sites sur l’ordinateur qui exécute OpenBot.",
+  "browser.profiles.label": "Profils de navigateur",
+  "browser.profiles.newName": "Nom du profil",
+  "browser.profiles.create": "Ajouter",
+  "browser.profiles.usage": "{agents} · {tabs}",
+  "browser.profiles.agents": { one: "{count} agent", other: "{count} agents" },
+  "browser.profiles.tabs": { one: "{count} onglet ouvert", other: "{count} onglets ouverts" },
+  "browser.profiles.renameLabel": "Renommer {name}",
+  "browser.profiles.actionsFor": "Actions pour {name}",
+  "browser.profiles.colorLabel": "Couleur de {name}",
+  "browser.profiles.save": "Enregistrer",
+  "browser.profiles.clear": "Effacer",
+  "browser.profiles.clearTitle": "Effacer les données de {name} ?",
+  "browser.profiles.clearDescription":
+    "Cette action vous déconnecte de tous les sites de ce profil et supprime ses cookies et ses données de sites. Ses onglets ouverts se ferment.",
+  "browser.profiles.deleteTitle": "Supprimer {name} ?",
+  "browser.profiles.deleteDescription":
+    "Cette action supprime les connexions, les cookies et les données de sites du profil. Ses onglets ouverts se ferment.",
+  "browser.profiles.deleteAgents": "Ces agents passent au profil partagé : {agents}.",
+  "browser.profiles.failed": "OpenBot n’a pas pu modifier les profils de navigateur.",
+  "browser.profiles.loadFailed": "OpenBot n’a pas pu charger les profils de navigateur.",
+  "browser.profiles.tabLabel": "Profil : {name}",
+  "browser.profiles.agentTabLabel": "Profil propre à l’agent",
 } as const satisfies PartialTranslation<typeof source>;

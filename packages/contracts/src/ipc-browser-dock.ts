@@ -4,14 +4,21 @@
 
 import { INPUT_LIMITS } from "./input-limits";
 import { type AvatarHue, isAvatarHue } from "./ipc-agent-identity";
-import { type BrowserTakeoverRequest, isBrowserTakeoverRequest } from "./ipc-approvals";
+import {
+  type AgentApproval,
+  type BrowserTakeoverRequest,
+  isAgentApproval,
+  isBrowserTakeoverRequest,
+} from "./ipc-approvals";
 import {
   integerInRange,
   isBoundedString,
   isFiniteNumber,
   isIdentifier,
   isNullableBoundedString,
+  isRequestId,
 } from "./ipc-bounded-values";
+import { type AgentPromptQuestion, isAgentPromptQuestion } from "./ipc-conversation-messages";
 import { MCP_TRANSPORTS, type McpServerConfig } from "./ipc-mcp-servers";
 import { isQueueDelivery, isQueueHold, type QueueDelivery, type QueueHold } from "./ipc-queue";
 import { INSTALLED_SKILL_ORIGINS, type InstalledSkill } from "./ipc-skills";
@@ -58,12 +65,15 @@ export type BrowserDockMcpServer = Pick<
 
 /**
  * What the island shows: the step of the agent, the page the user controls, the page the agent asked the
- * user to use, the code or password the agent asks for, or what the agent said.
+ * user to use, the code or password the agent asks for, the questions or the approval that the user answers
+ * on the page, or what the agent said. `attempt` changes when an answer fails, so the card shows again.
  */
 export type BrowserDockIsland =
   | { kind: "activity"; control: "agent"; label: string }
   | { kind: "activity"; control: "user" | "request" }
   | { kind: "secret"; request: BrowserTakeoverRequest }
+  | { kind: "prompt"; requestId: string | number; questions: AgentPromptQuestion[]; attempt: number }
+  | { kind: "approval"; approval: AgentApproval; attempt: number }
   | { kind: "reply"; id: string; body: string; question?: boolean; answerInChat?: boolean };
 
 export type BrowserDockSendShortcut = "enter" | "meta-enter" | "ctrl-enter";
@@ -104,6 +114,8 @@ export type BrowserDockAction =
   | { type: "reorder"; deliveryIds: string[] }
   | { type: "handoff" }
   | { type: "dismiss-reply"; id: string }
+  | { type: "answer-prompt"; requestId: string | number; answers: Record<string, string[]> }
+  | { type: "respond-approval"; requestId: string | number; decision: "accept" | "decline" }
   | { type: "open-chat" }
   | { type: "select-agent"; agentId: string }
   | { type: "open-link"; url: string };
@@ -169,6 +181,10 @@ export function isBrowserDockAction(value: unknown): value is BrowserDockAction 
       return isList(value.deliveryIds, BROWSER_DOCK_LIMITS.deliveries, isIdentifier);
     case "dismiss-reply":
       return isIdentifier(value.id);
+    case "answer-prompt":
+      return isRequestId(value.requestId) && isPromptAnswers(value.answers);
+    case "respond-approval":
+      return isRequestId(value.requestId) && isOneOf(["accept", "decline"] as const, value.decision);
     case "select-agent":
       return isIdentifier(value.agentId);
     case "open-link":
@@ -226,6 +242,32 @@ function isDraft(value: unknown): value is BrowserDockPresentation["draft"] {
   return isDynamicRecord(value) && isBoundedString(value.text, INPUT_LIMITS.messageText) && isCount(value.revision);
 }
 
+/**
+ * The answers of a question card: no entry when the user cancels, and no answer for a skipped question. Main
+ * checks them again when the main renderer sends them on.
+ */
+function isPromptAnswers(value: unknown): value is Record<string, string[]> {
+  if (!isDynamicRecord(value)) return false;
+  const entries = Object.entries(value);
+  if (entries.length > INPUT_LIMITS.promptQuestions) return false;
+  let total = 0;
+  for (const [questionId, answers] of entries) {
+    if (
+      // The same bound as the id of a question on the card, which can be empty.
+      !isBoundedString(questionId, INPUT_LIMITS.identifier) ||
+      !Array.isArray(answers) ||
+      answers.length > INPUT_LIMITS.promptAnswersPerQuestion
+    ) {
+      return false;
+    }
+    for (const answer of answers) {
+      if (!isBoundedString(answer, INPUT_LIMITS.promptAnswerText)) return false;
+      total += answer.length;
+    }
+  }
+  return total <= INPUT_LIMITS.promptAnswersTotalText;
+}
+
 function isBrowserDockAgent(value: unknown): value is BrowserDockAgent {
   return (
     isDynamicRecord(value) &&
@@ -267,7 +309,7 @@ function isBrowserDockMcpServer(value: unknown): value is BrowserDockMcpServer {
   );
 }
 
-function isBrowserDockIsland(value: unknown): value is BrowserDockIsland {
+export function isBrowserDockIsland(value: unknown): value is BrowserDockIsland {
   if (!isDynamicRecord(value)) return false;
   switch (value.kind) {
     case "activity":
@@ -275,6 +317,15 @@ function isBrowserDockIsland(value: unknown): value is BrowserDockIsland {
       return value.control === "user" || value.control === "request";
     case "secret":
       return isBrowserTakeoverRequest(value.request);
+    case "prompt":
+      return (
+        isRequestId(value.requestId) &&
+        isList(value.questions, INPUT_LIMITS.promptQuestions, isAgentPromptQuestion) &&
+        value.questions.length > 0 &&
+        isCount(value.attempt)
+      );
+    case "approval":
+      return isAgentApproval(value.approval) && isCount(value.attempt);
     case "reply":
       return (
         isIdentifier(value.id) &&
