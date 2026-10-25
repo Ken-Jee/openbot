@@ -182,6 +182,13 @@ export const messages = {
   "marketplace.plugin.vercel.prompt.failedBuild": "上一次生产部署为什么失败？",
   "marketplace.plugin.vercel.prompt.recentDeployments": "列出今天的部署及其状态。",
   "marketplace.plugin.vercel.prompt.runtimeErrors": "过去一小时哪些路由出现了运行时错误？",
+  "marketplace.plugin.cloudflare.tagline": "Workers、DNS、存储与日志",
+  "marketplace.plugin.cloudflare.description":
+    "Cloudflare 让助手通过 Cloudflare API 列出并管理 Workers、DNS 记录、R2、D1 和 KV，查询 Workers 日志，并搜索 Cloudflare 文档。每位用户通过浏览器登录自己的 Cloudflare 账号。在 Cloudflare 的授权页面上，请选择 Read only：默认的 Minimal 不允许助手查看 Workers、日志或 DNS 记录。拥有写入权限时，助手可以部署和删除 Workers、修改 DNS 记录以及修改其他账号设置。",
+  "marketplace.plugin.cloudflare.app": "通过 Cloudflare 的 API MCP 服务器和浏览器登录，提供 Workers、DNS、存储与日志。",
+  "marketplace.plugin.cloudflare.prompt.workers": "我的 Cloudflare 账号中部署了哪些 Workers？",
+  "marketplace.plugin.cloudflare.prompt.errors": "过去一小时哪些 Cloudflare Workers 记录了错误？",
+  "marketplace.plugin.cloudflare.prompt.dns": "列出我的 Cloudflare 账号中每个区域的 DNS 记录。",
   "marketplace.plugin.context7.tagline": "最新的库文档",
   "marketplace.plugin.context7.description":
     "Context7 获取库与框架的最新文档和 API 参考，让回答基于项目实际运行的版本。无需账号，也无需密钥。",

@@ -173,6 +173,14 @@ export const messages = {
   "marketplace.plugin.vercel.prompt.failedBuild": "마지막 프로덕션 배포가 왜 실패했어?",
   "marketplace.plugin.vercel.prompt.recentDeployments": "오늘 배포 목록과 상태를 알려 줘.",
   "marketplace.plugin.vercel.prompt.runtimeErrors": "지난 한 시간 동안 런타임 오류가 발생한 라우트가 뭐야?",
+  "marketplace.plugin.cloudflare.tagline": "Workers, DNS, 스토리지, 로그",
+  "marketplace.plugin.cloudflare.description":
+    "Cloudflare를 사용하면 에이전트가 Cloudflare API로 Workers, DNS 레코드, R2, D1, KV를 나열하고 관리하고, Workers 로그를 조회하고, Cloudflare 문서를 검색할 수 있어요. 사용자는 각자 브라우저에서 자신의 Cloudflare 계정으로 로그인해요. Cloudflare 동의 페이지에서 Read only를 선택하세요. 기본값인 Minimal로는 에이전트가 Workers, 로그, DNS 레코드를 볼 수 없어요. 쓰기 권한이 있으면 에이전트가 Workers를 배포하고 삭제하고, DNS 레코드와 기타 계정 설정을 변경할 수 있어요.",
+  "marketplace.plugin.cloudflare.app":
+    "Workers, DNS, 스토리지, 로그를 브라우저 로그인 방식의 Cloudflare API MCP 서버로 제공해요.",
+  "marketplace.plugin.cloudflare.prompt.workers": "내 Cloudflare 계정에 배포된 Workers가 뭐야?",
+  "marketplace.plugin.cloudflare.prompt.errors": "지난 한 시간 동안 오류를 기록한 Cloudflare Workers가 뭐야?",
+  "marketplace.plugin.cloudflare.prompt.dns": "내 Cloudflare 계정의 각 영역에 있는 DNS 레코드를 나열해 줘.",
   "marketplace.plugin.context7.tagline": "최신 라이브러리 문서",
   "marketplace.plugin.context7.description":
     "Context7은 라이브러리와 프레임워크의 최신 문서와 API 레퍼런스를 가져와서, 프로젝트가 실제로 사용하는 버전에 맞는 답변을 제공해요. 계정도 키도 필요 없어요.",
