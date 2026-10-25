@@ -286,4 +286,4 @@ When the desktop app closes by itself, look in the `logs` folder of its user dat
 
 A dump in the `Crashpad` folder next to `logs` means a process crashed. Tell us that a dump exists,
 but do not attach it publicly: it can hold secrets. When neither file has a reason and there is no
-dump, something outside OpenBot stopped it.
+dump, something outside OpenBot stopped it. The Linux AppImage keeps no dumps (#3066).

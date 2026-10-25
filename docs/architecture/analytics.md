@@ -96,7 +96,9 @@ The name is the first reason: `main_window_closed` (Windows and Linux, where clo
 window quits), `signal`, `session_end` or `quit` (the menu, the tray, an update or a restart). The
 main log holds every line of the `main` logger, redacted, in two files of 1 MB. `crashReporter`
 keeps local crash dumps in `app.getPath("crashDumps")` and never uploads them. A process that ends
-with no `exit` span and no dump was stopped from outside OpenBot (#2675).
+with no `exit` span and no dump was stopped from outside OpenBot (#2675). An AppImage run does not
+start `crashReporter`: its handler outlives OpenBot and dies with SIGBUS when the AppImage mount goes
+away (#3066).
 
 The pure part (`resource-summary.ts`) keeps each day as sparse histograms with two significant digits,
 peaks and counters, so p95 stays exact enough without a sample list. The summary file holds the

@@ -6,7 +6,8 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createOpenBotLogger } from "@openbot/logging";
 import { Effect } from "effect";
-import { app, BrowserWindow, crashReporter } from "electron";
+import { app, BrowserWindow } from "electron";
+import { startCrashReporter } from "../src/main/crash-reporter";
 import { startMainLog } from "../src/main/provider-log";
 import { ResourceMonitor } from "../src/main/resource-monitor";
 import { StatementTimings } from "../src/main/resource-summary";
@@ -25,7 +26,7 @@ const userDataPath = argument("user-data");
 app.setPath("userData", userDataPath);
 const logs = join(userDataPath, "logs");
 startMainLog(logs);
-crashReporter.start({ uploadToServer: false });
+startCrashReporter();
 const logger = createOpenBotLogger("main");
 
 // No top-level await: Electron does not get ready until an ESM main module has run to its end.

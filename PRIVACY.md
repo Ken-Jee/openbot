@@ -621,8 +621,9 @@ is not included in analytics; provider output uses the application's secret reda
   process: startup failures, uncaught errors, and the reason that OpenBot quit. It is kept to two
   files of 1 MB each and is never sent.
 - OpenBot keeps crash dumps of its own processes in the `Crashpad` folder of its user data
-  (`%APPDATA%\OpenBot\Crashpad` on Windows). A dump holds part of the memory of the process that
-  crashed, which can include conversation text, tokens or other secrets, and cannot be redacted.
+  (`%APPDATA%\OpenBot\Crashpad` on Windows). The Linux AppImage keeps no dumps. A dump holds part
+  of the memory of the process that crashed, which can include conversation text, tokens or other
+  secrets, and cannot be redacted.
   Dumps are never uploaded or added to a diagnostics export. Crashpad deletes old dumps by itself.
   Do not attach a dump to a public issue.
 - `~/Library/Application Support/OpenBot/logs/resources.ndjson` holds one line a minute: the memory

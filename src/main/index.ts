@@ -15,7 +15,6 @@ import { Effect, Semaphore } from "effect";
 import {
   app,
   BrowserWindow,
-  crashReporter,
   dialog,
   type NativeImage,
   Notification,
@@ -31,6 +30,7 @@ import { runCauseEffect } from "../backend/effect-boundary";
 import { readAppVariant, resolveAppIconPath, resolveLogoColorIconPath } from "./app-icon";
 import { type ApplicationServices, createApplicationServices } from "./application-services";
 import { type BackgroundTray, createBackgroundTray } from "./background-tray";
+import { startCrashReporter } from "./crash-reporter";
 import { type DeepLink, findDeepLink, parseDeepLink } from "./deep-link-router";
 import { requestNotificationPermission, showRetainedNotification } from "./desktop-notifications";
 import { guardDevelopmentOutput } from "./development-output";
@@ -211,9 +211,7 @@ const hasSingleInstanceLock = app.requestSingleInstanceLock();
 // A second launch exits at once and must not write into the files of the instance that runs.
 if (hasSingleInstanceLock) {
   startMainLog(join(app.getPath("userData"), "logs"));
-  // Crash dumps stay in `crashDumps` on this computer. Crashpad removes old reports itself. Without
-  // them, a window that disappeared on Windows left nothing to tell a crash from a quit (#2675).
-  crashReporter.start({ uploadToServer: false });
+  startCrashReporter();
 }
 // Linux: the GPU stays on until it fails on this computer (#992). `userData` has its final path here.
 configureLinuxGpu({
